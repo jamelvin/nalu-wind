@@ -1157,7 +1157,7 @@ MomentumEquationSystem::register_interior_algorithm(
     std::tie(solverAlg, solverAlgWasBuilt) = build_or_add_part_to_solver_alg
       (*this, *part, solverAlgMap);
 
-    ElemDataRequests& dataPreReqs = solverAlg->dataNeededBySuppAlgs_;
+    ElemDataRequests& dataPreReqs = solverAlg->dataNeededByKernels_;
     auto& activeKernels = solverAlg->activeKernels_;
 
     if (solverAlgWasBuilt) {
@@ -1718,11 +1718,10 @@ MomentumEquationSystem::register_wall_bc(
       ConstantAuxFunction *theHeatFluxAuxFunc = new ConstantAuxFunction(0, 1, userSpec);
 
       // bc data alg
-      AuxFunctionAlgorithm *auxAlg
-	= new AuxFunctionAlgorithm(realm_, part,
+      bcDataAlg_.push_back( new AuxFunctionAlgorithm(realm_, part,
 				   theHeatFluxBcField, theHeatFluxAuxFunc,
-				   stk::topology::NODE_RANK);
-      bcDataAlg_.push_back(auxAlg);
+				   stk::topology::NODE_RANK)
+      );
 
       const AlgorithmType wfAlgType = WALL_ABL;
 
@@ -2364,7 +2363,7 @@ ContinuityEquationSystem::register_interior_algorithm(
 
       std::tie(solverAlg, solverAlgWasBuilt) = build_or_add_part_to_solver_alg(*this, *part, solverAlgMap);
 
-      ElemDataRequests& dataPreReqs = solverAlg->dataNeededBySuppAlgs_;
+      ElemDataRequests& dataPreReqs = solverAlg->dataNeededByKernels_;
       auto& activeKernels = solverAlg->activeKernels_;
 
       if (solverAlgWasBuilt) {

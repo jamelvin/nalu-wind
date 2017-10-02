@@ -1,10 +1,10 @@
-if(NOT ${NIGHTLY_DIR} STREQUAL "")
+if(NOT "${NIGHTLY_DIR}" STREQUAL "")
   message("Nightly test directory is ${NIGHTLY_DIR}")
 else()
   message(FATAL_ERROR "You need to set the NIGHTLY_DIR variable. CMake will exit." )
 endif()
 
-if(NOT ${HOST_NAME} STREQUAL "")
+if(NOT "${HOST_NAME}" STREQUAL "")
   message("Hostname is ${HOST_NAME}")
 else()
   message(FATAL_ERROR "You need to set the HOST_NAME variable. CMake will exit." )
@@ -24,8 +24,8 @@ set(CTEST_START_WITH_EMPTY_BINARY_DIRECTORY TRUE)
 find_program(CTEST_GIT_COMMAND NAMES git)
 find_program(MAKE NAMES make)
 
-if(${RELEASE_OR_DEBUG} STREQUAL "")
-  set(RELEASE_OR_DEBUG "RELEASE")
+if("${BUILD_TYPE}" STREQUAL "")
+  set(BUILD_TYPE "Release")
 endif()
 
 # Add parallelism capability to testing
@@ -40,7 +40,7 @@ set(CTEST_UPDATE_COMMAND "${CTEST_GIT_COMMAND}")
 set(CTEST_GIT_INIT_SUBMODULES "ON")
 
 # Configure Command
-set(CTEST_CONFIGURE_COMMAND "cmake -DTrilinos_DIR:PATH=${TRILINOS_DIR} -DYAML_DIR:PATH=${YAML_DIR} -DCMAKE_BUILD_TYPE=${RELEASE_OR_DEBUG} -DENABLE_TESTS=ON ${CTEST_SOURCE_DIRECTORY}")
+set(CTEST_CONFIGURE_COMMAND "cmake -DTrilinos_DIR:PATH=${TRILINOS_DIR} -DYAML_DIR:PATH=${YAML_DIR} -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DENABLE_TESTS=ON ${CTEST_SOURCE_DIRECTORY}")
 
 # Build Command
 set(CTEST_BUILD_COMMAND "${MAKE} ${CTEST_BUILD_FLAGS}")
@@ -55,25 +55,38 @@ message(" -- Start dashboard - ${CTEST_BUILD_NAME} --")
 ctest_start("Nightly" TRACK "Nightly")
 
 message(" -- Update - ${CTEST_BUILD_NAME} --")
-ctest_update(SOURCE "${CTEST_SOURCE_DIRECTORY}" RETURN_VALUE res)
-
-message(" -- Configure - ${CTEST_BUILD_NAME} --")
-ctest_configure(BUILD "${CTEST_BINARY_DIRECTORY}" RETURN_VALUE res)
-
-message(" -- Build - ${CTEST_BUILD_NAME} --")
-ctest_build(BUILD "${CTEST_BINARY_DIRECTORY}" RETURN_VALUE res)
-
-if(${RELEASE_OR_DEBUG} STREQUAL "RELEASE")
-  message(" -- Test - ${CTEST_BUILD_NAME} --")
-  unset(ENV{TMPDIR})
-  ctest_test(BUILD "${CTEST_BINARY_DIRECTORY}"
-             PARALLEL_LEVEL ${CTEST_PARALLEL_LEVEL}
-             RETURN_VALUE res)
+ctest_update(SOURCE "${CTEST_SOURCE_DIRECTORY}" RETURN_VALUE result)
+message(" -- Update exit code = ${result} --")
+if(result GREATER -1)
+  message(" -- Configure - ${CTEST_BUILD_NAME} --")
+  ctest_configure(BUILD "${CTEST_BINARY_DIRECTORY}" RETURN_VALUE result)
+  message(" -- Configure exit code = ${result} --")
+  if(result EQUAL 0)
+    message(" -- Build - ${CTEST_BUILD_NAME} --")
+    ctest_build(BUILD "${CTEST_BINARY_DIRECTORY}" RETURN_VALUE result)
+    message(" -- Build exit code = ${result} --")
+    if(result EQUAL 0)
+      # Need to have TMPDIR set to disk for building so it doesn't run out of space
+      # but unset when running on these machines to stop OpenMPI from complaining
+      string(COMPARE EQUAL "${HOST_NAME}" "peregrine.hpc.nrel.gov" is_equal_peregrine)
+      string(COMPARE EQUAL "${HOST_NAME}" "merlin.hpc.nrel.gov" is_equal_merlin)
+      if(is_equal_peregrine OR is_equal_merlin)
+        message("Clearing TMPDIR variable...")
+        unset(ENV{TMPDIR})
+      endif()
+      message(" -- Test - ${CTEST_BUILD_NAME} --")
+      ctest_test(BUILD "${CTEST_BINARY_DIRECTORY}"
+                 PARALLEL_LEVEL ${CTEST_PARALLEL_LEVEL}
+                 RETURN_VALUE result)
+      message(" -- Test exit code = ${result} --")
+    endif()
+  endif()
 endif()
 
 message(" -- Submit - ${CTEST_BUILD_NAME} --")
 ctest_submit(RETRY_COUNT 20
              RETRY_DELAY 20
-             RETURN_VALUE res)
+             RETURN_VALUE result)
+message(" -- Submit exit code = ${result} --")
 
 message(" -- Finished - ${CTEST_BUILD_NAME} --")

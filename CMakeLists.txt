@@ -10,7 +10,7 @@ cmake_minimum_required (VERSION 2.8.11)
 #
 #  THESE PATHS MAY NEED TO BE CHANGED DEPENDING ON WHERE THEY ARE STORED!!!
 #
-option(NALU_USES_OPENFAST
+option(ENABLE_OPENFAST
        "Use OPENFAST tpl to get actuator line positions and forces" OFF)
 
 SET(CMAKE_FIND_LIBRARY_PREFIXES lib)
@@ -22,7 +22,7 @@ SET(CMAKE_PREFIX_PATH ${Trilinos_DIR} ${CMAKE_PREFIX_PATH})
 SET(CMAKE_PREFIX_PATH ${Trilinos_PATH} ${CMAKE_PREFIX_PATH})
 find_package(Trilinos REQUIRED)
 
-if (NALU_USES_OPENFAST)
+if (ENABLE_OPENFAST)
    SET(CMAKE_PREFIX_PATH ${OpenFAST_DIR} ${CMAKE_PREFIX_PATH})
    find_package(OpenFAST REQUIRED)
    MESSAGE("   OPENFAST Include dir =  ${OpenFAST_INCLUDE_DIRS}")
@@ -30,7 +30,7 @@ if (NALU_USES_OPENFAST)
    include_directories(${OpenFAST_INCLUDE_DIRS})
    add_definitions("-DNALU_USES_OPENFAST")
 
-endif (NALU_USES_OPENFAST)
+endif (ENABLE_OPENFAST)
 
 # This needs to be cleaned up
 find_library(YAML_LIBRARY NAMES libyaml-cpp.a PATHS ${YAML_DIR}/lib )
@@ -110,9 +110,9 @@ include_directories (${CMAKE_SOURCE_DIR}/include)
 add_library (nalu ${SOURCE} ${HEADER})
 target_link_libraries(nalu ${Trilinos_LIBRARIES})
 target_link_libraries(nalu ${YAML_LIBRARY})
-if (NALU_USES_OPENFAST)
+if (ENABLE_OPENFAST)
    target_link_libraries(nalu ${OpenFAST_LIBRARIES} ${OpenFAST_CPP_LIBRARIES})
-endif (NALU_USES_OPENFAST)
+endif (ENABLE_OPENFAST)
 
 file (GLOB UNIT_TESTS_SOURCES unit_tests/*.C unit_tests/*/*.C)
 
@@ -136,17 +136,33 @@ add_executable(${utest_ex_name} unit_tests.C ${UNIT_TESTS_SOURCES})
 target_link_libraries(${utest_ex_name} nalu)
 target_include_directories(${utest_ex_name} PUBLIC "${CMAKE_SOURCE_DIR}/unit_tests")
 
+set(nalu_ex_catalyst_name "naluXCatalyst")
+option(ENABLE_PARAVIEW_CATALYST
+      "Enable ParaView Catalyst. Requires external installation of Trilinos Catalyst IOSS adapter."
+       OFF)
+if(ENABLE_PARAVIEW_CATALYST)
+   set(PARAVIEW_CATALYST_INSTALL_PATH
+       ""
+       CACHE
+       PATH
+       "Path to external installation of Trilinos Catalyst IOSS plugin.")
+   configure_file(cmake/naluXCatalyst.in ${nalu_ex_catalyst_name} @ONLY)
+endif()
+
 IF (INSTALL_NALU)
   install(TARGETS ${utest_ex_name} ${nalu_ex_name} nalu
           RUNTIME DESTINATION bin
           ARCHIVE DESTINATION lib
           LIBRARY DESTINATION lib)
   install(DIRECTORY include/ DESTINATION include)
+  if(ENABLE_PARAVIEW_CATALYST)
+    install(PROGRAMS ${CMAKE_BINARY_DIR}/naluXCatalyst DESTINATION bin)
+  endif()
   include(CMakePackageConfigHelpers)
 ENDIF ()
 
-option(BUILD_DOCUMENTATION "Build documentation." OFF)
-if(BUILD_DOCUMENTATION)
+option(ENABLE_DOCUMENTATION "Build documentation." OFF)
+if(ENABLE_DOCUMENTATION)
    add_subdirectory(docs)
 endif()
 
