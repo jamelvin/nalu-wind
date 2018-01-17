@@ -10,6 +10,7 @@
 #define TurbulenceAveragingPostProcessing_h
 
 #include <NaluParsing.h>
+#include <MovingAveragePostProcessor.h>
 
 #include <string>
 #include <vector>
@@ -33,9 +34,25 @@ namespace nalu{
 class Realm;
 class AveragingInfo;
 
+/** Post-processing to collect various types of statistics on flow fields
+ *
+ *  This class implements Reynolds and Favre averaging as well as other useful
+ *  quantities relevant to analyzing turbulent flows.
+ *
+ *  Currently supported:
+ *    - Reynolds and Favre averaging of flow variables
+ *    - TKE and stress computation
+ *    - Vorticity, Q-criterion, lambda-ci calculation
+ */
 class TurbulenceAveragingPostProcessing
 {
 public:
+  /** Type of time filter averaging applied
+   */
+  enum AveragingType {
+    NALU_CLASSIC = 0,           //!< Classic Nalu implementation (saw-tooth reset)
+    MOVING_EXPONENTIAL,         //!< Moving exponential window averaging
+  };
   
   TurbulenceAveragingPostProcessing(
     Realm &realm,
@@ -94,6 +111,34 @@ public:
     const double &dt,
     stk::mesh::Selector s_all_nodes);
 
+  void compute_resolved_stress(
+      const std::string &averageBlockName,
+      const double &oldTimeFilter,
+      const double &zeroCurrent,
+      const double &dt,
+      stk::mesh::Selector s_all_nodes);
+
+  void compute_sfs_stress(
+      const std::string &averageBlockName,
+      const double &oldTimeFilter,
+      const double &zeroCurrent,
+      const double &dt,
+      stk::mesh::Selector s_all_nodes);
+
+  void compute_temperature_resolved_flux(
+    const std::string &averageBlockName,
+    const double &oldTimeFilter,
+    const double &zeroCurrent,
+    const double &dt,
+    stk::mesh::Selector s_all_nodes);
+
+  void compute_temperature_sfs_flux(
+    const std::string &averageBlockName,
+    const double &oldTimeFilter,
+    const double &zeroCurrent,
+    const double &dt,
+    stk::mesh::Selector s_all_nodes);
+
   void compute_vorticity(
     const std::string &averageBlockName,
 	stk::mesh::Selector s_all_nodes);
@@ -111,7 +156,11 @@ public:
 
   double currentTimeFilter_; /* provided by restart */
   double timeFilterInterval_; /* user supplied */
+
   bool forcedReset_; /* allows forhard reset */
+
+  AveragingType averagingType_{NALU_CLASSIC};
+  std::unique_ptr<MovingAveragePostProcessor> movingAvgPP_;
 
   // vector of averaging information
   std::vector<AveragingInfo *> averageInfoVec_;

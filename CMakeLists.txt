@@ -1,17 +1,16 @@
-#	This is the top level CMakeLists.txt file
-#	It should be located within master/nalu
-#	But not in the BUILD folder itself
-#
-###########################################################################################################
 
-cmake_minimum_required (VERSION 2.8.11)
+cmake_minimum_required (VERSION 3.1)
 
-###########################################################################################################
-#
-#  THESE PATHS MAY NEED TO BE CHANGED DEPENDING ON WHERE THEY ARE STORED!!!
-#
+option(ENABLE_TESTS "Enable regression testing." OFF)
+option(ENABLE_DOCUMENTATION "Build documentation." OFF)
+option(ENABLE_SPHINX_API_DOCS "Link Doxygen API docs to Sphinx" OFF)
 option(ENABLE_OPENFAST
        "Use OPENFAST tpl to get actuator line positions and forces" OFF)
+option(ENABLE_PARAVIEW_CATALYST
+      "Enable ParaView Catalyst. Requires external installation of Trilinos Catalyst IOSS adapter."
+       OFF)
+option(ENABLE_TIOGA "Use TIOGA TPL to perform overset connectivity" OFF)
+option(ENABLE_HYPRE "Use HYPRE Solver library" OFF)
 
 SET(CMAKE_FIND_LIBRARY_PREFIXES lib)
 SET(CMAKE_FIND_LIBRARY_SUFFIXES a)
@@ -22,6 +21,12 @@ SET(CMAKE_PREFIX_PATH ${Trilinos_DIR} ${CMAKE_PREFIX_PATH})
 SET(CMAKE_PREFIX_PATH ${Trilinos_PATH} ${CMAKE_PREFIX_PATH})
 find_package(Trilinos REQUIRED)
 
+if (ENABLE_HYPRE)
+  find_package(HYPRE REQUIRED)
+  include_directories(${HYPRE_INCLUDE_DIRS})
+  add_definitions("-DNALU_USES_HYPRE")
+endif (ENABLE_HYPRE)
+
 if (ENABLE_OPENFAST)
    SET(CMAKE_PREFIX_PATH ${OpenFAST_DIR} ${CMAKE_PREFIX_PATH})
    find_package(OpenFAST REQUIRED)
@@ -29,7 +34,6 @@ if (ENABLE_OPENFAST)
    MESSAGE("   OPENFAST Libraries =  ${OpenFAST_LIBRARIES}")
    include_directories(${OpenFAST_INCLUDE_DIRS})
    add_definitions("-DNALU_USES_OPENFAST")
-
 endif (ENABLE_OPENFAST)
 
 # This needs to be cleaned up
@@ -37,12 +41,19 @@ find_library(YAML_LIBRARY NAMES libyaml-cpp.a PATHS ${YAML_DIR}/lib )
 find_path(YAML_INCLUDES yaml.h PATHS ${YAML_DIR}/include/yaml-cpp )
 include_directories(${YAML_INCLUDES}/..)
 
+if (ENABLE_TIOGA)
+  set(CMAKE_PREFIX_PATH ${TIOGA_DIR} ${CMAKE_PREFIX_PATH})
+  find_package(TIOGA REQUIRED)
+  include_directories(${TIOGA_INCLUDE_DIRS})
+  add_definitions(-DNALU_USES_TIOGA)
+endif()
+
 #include(FindPackageHandleStandardArgs)
+
+##########################  TRILINOS  ######################################
 
 include_directories(${Trilinos_INCLUDE_DIRS})
 include_directories(${Trilinos_TPL_INCLUDE_DIRS})
-
-#######################################     TRILINOS	 ##################################################
 
 MESSAGE("\nFound Trilinos!  Here are the details: ")
 # Uncomment lines to view more details about Trilinos
@@ -86,7 +97,7 @@ ELSE(Trilinos_BUILD_SHARED_LIBS)
   SET(Nalu_LIBRARY_TYPE STATIC)
 ENDIF(Trilinos_BUILD_SHARED_LIBS)
 
-#######################################     NALU     ##########################
+##########################  NALU  ######################################
 
 PROJECT(Nalu)
 
@@ -103,6 +114,17 @@ SET(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${Trilinos_Fortran_COMPILER_FLAG
 MESSAGE("-- CMAKE_CXX_FLAGS     = ${CMAKE_CXX_FLAGS}")
 MESSAGE("-- CMAKE_Fortran_FLAGS = ${CMAKE_Fortran_FLAGS}")
 
+if (ENABLE_HYPRE)
+  include(CheckSymbolExists)
+  set(CMAKE_REQUIRED_INCLUDES "${HYPRE_INCLUDE_DIRS}")
+  check_symbol_exists(
+    HYPRE_BIGINT "${HYPRE_INCLUDE_DIRS}/HYPRE_config.h" NALU_HYPRE_BIGINT)
+  if (NOT NALU_HYPRE_BIGINT)
+    message(WARNING
+      "HYPRE does not enable 64-bit integer support; will fail on large problems!")
+  endif()
+endif()
+
 file (GLOB SOURCE src/*.C src/*/*.C src/*/*.F)
 file (GLOB HEADER include/*.h include/*/*.h)
 
@@ -114,10 +136,18 @@ if (ENABLE_OPENFAST)
    target_link_libraries(nalu ${OpenFAST_LIBRARIES} ${OpenFAST_CPP_LIBRARIES})
 endif (ENABLE_OPENFAST)
 
+if (ENABLE_TIOGA)
+  target_link_libraries(nalu ${TIOGA_LIBRARIES})
+endif()
+
+if (ENABLE_HYPRE)
+  target_link_libraries(nalu ${HYPRE_LIBRARIES})
+endif()
+
 file (GLOB UNIT_TESTS_SOURCES unit_tests/*.C unit_tests/*/*.C)
 
 set(nalu_ex_name "naluX")
-message("CMAKE_BUILD_TYPE = ${CMAKE_BUILD_TYPE}")
+message("-- CMAKE_BUILD_TYPE = ${CMAKE_BUILD_TYPE}")
 if (CMAKE_BUILD_TYPE STREQUAL "DEBUG")
    set (nalu_ex_name "naluXd")
    add_definitions("-Wall")
@@ -137,9 +167,6 @@ target_link_libraries(${utest_ex_name} nalu)
 target_include_directories(${utest_ex_name} PUBLIC "${CMAKE_SOURCE_DIR}/unit_tests")
 
 set(nalu_ex_catalyst_name "naluXCatalyst")
-option(ENABLE_PARAVIEW_CATALYST
-      "Enable ParaView Catalyst. Requires external installation of Trilinos Catalyst IOSS adapter."
-       OFF)
 if(ENABLE_PARAVIEW_CATALYST)
    set(PARAVIEW_CATALYST_INSTALL_PATH
        ""
@@ -161,12 +188,10 @@ IF (INSTALL_NALU)
   include(CMakePackageConfigHelpers)
 ENDIF ()
 
-option(ENABLE_DOCUMENTATION "Build documentation." OFF)
 if(ENABLE_DOCUMENTATION)
    add_subdirectory(docs)
 endif()
 
-option(ENABLE_TESTS "Enable regression testing." OFF)
 if(ENABLE_TESTS)
    ENABLE_TESTING()
    INCLUDE(CTest)

@@ -9,7 +9,6 @@
 #include <HeatCondEquationSystem.h>
 
 #include <AssembleElemSolverAlgorithm.h>
-#include <AssembleElemSolverAlgorithmDep.h>
 #include <AssembleHeatCondWallSolverAlgorithm.h>
 #include <AssembleHeatCondIrradWallSolverAlgorithm.h>
 #include <AssembleScalarEdgeDiffSolverAlgorithm.h>
@@ -383,7 +382,7 @@ HeatCondEquationSystem::register_interior_algorithm(
         temperature_, thermalCond_, dataPreReqs
       );
 
-      build_topo_kernel_if_requested<ScalarDiffFemKernel>(
+      build_fem_kernel_if_requested<ScalarDiffFemKernel>(
         partTopo, *this, activeKernels, "FEM_DIFF",
         realm_.bulk_data(), *realm_.solutionOptions_, temperature_, thermalCond_, dataPreReqs
       );

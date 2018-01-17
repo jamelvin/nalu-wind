@@ -65,6 +65,11 @@ void tke_test_function(
   const VectorFieldType& coordinates,
   ScalarFieldType& tke);
 
+void alpha_test_function(
+  const stk::mesh::BulkData& bulk,
+  const VectorFieldType& coordinates,
+  ScalarFieldType& alpha);
+
 void dkdx_test_function(
   const stk::mesh::BulkData& bulk,
   const VectorFieldType& coordinates,
@@ -84,6 +89,11 @@ void turbulent_viscosity_test_function(
   const stk::mesh::BulkData& bulk,
   const VectorFieldType& coordinates,
   ScalarFieldType& turbulent_viscosity);
+
+void tensor_turbulent_viscosity_test_function(
+  const stk::mesh::BulkData& bulk,
+  const VectorFieldType& coordinates,
+  GenericFieldType& mutij);
 
 void sst_f_one_blending_test_function(
   const stk::mesh::BulkData& bulk,
@@ -342,6 +352,44 @@ public:
   ScalarFieldType* temperature_{nullptr};
 };
 
+/** Test Fixture for the hybrid turbulence Kernels
+ *
+ */
+class HybridTurbKernelHex8Mesh : public LowMachKernelHex8Mesh
+{
+public:
+  HybridTurbKernelHex8Mesh()
+    : LowMachKernelHex8Mesh(),
+      tke_(&meta_.declare_field<ScalarFieldType>(
+        stk::topology::NODE_RANK, "turbulent_ke")),
+      alpha_(&meta_.declare_field<ScalarFieldType>(
+        stk::topology::NODE_RANK, "adaptivity_parameter")),
+      mutij_(&meta_.declare_field<GenericFieldType>(
+        stk::topology::NODE_RANK, "tensor_turbulent_viscosity"))
+  {
+    stk::mesh::put_field(*tke_, meta_.universal_part(), 1);
+    stk::mesh::put_field(*alpha_, meta_.universal_part(), 1);
+    stk::mesh::put_field(
+      *mutij_, meta_.universal_part(), spatialDim_ * spatialDim_);
+  }
+
+  virtual ~HybridTurbKernelHex8Mesh() {}
+
+  virtual void fill_mesh_and_init_fields(bool doPerturb = false)
+  {
+    LowMachKernelHex8Mesh::fill_mesh_and_init_fields(doPerturb);
+    stk::mesh::field_fill(0.0, *tke_);
+    stk::mesh::field_fill(1.0, *alpha_);
+    unit_test_kernel_utils::tensor_turbulent_viscosity_test_function(bulk_, *coordinates_, *mutij_);
+    /* unit_test_kernel_utils::tke_test_function(bulk_, *coordinates_, *tke_); */
+    /* unit_test_kernel_utils::alpha_test_function(bulk_, *coordinates_, *alpha_); */
+  }
+
+  ScalarFieldType* tke_{nullptr};
+  ScalarFieldType* alpha_{nullptr};
+  GenericFieldType* mutij_{nullptr};
+};
+
 /** Text fixture for heat conduction equation kernels
  *
  *  This test fixture performs the following actions:
@@ -390,17 +438,17 @@ class MixtureFractionKernelHex8Mesh : public TestKernelHex8Mesh
 public:
   MixtureFractionKernelHex8Mesh()
     : TestKernelHex8Mesh(),
-    mixFraction_(&meta_.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, 
+    mixFraction_(&meta_.declare_field<ScalarFieldType>(stk::topology::NODE_RANK,
                                                        "mixture_fraction")),
-    velocity_(&meta_.declare_field<VectorFieldType>(stk::topology::NODE_RANK, 
+    velocity_(&meta_.declare_field<VectorFieldType>(stk::topology::NODE_RANK,
                                                     "velocity")),
-    density_(&meta_.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, 
+    density_(&meta_.declare_field<ScalarFieldType>(stk::topology::NODE_RANK,
                                                    "density")),
-    viscosity_(&meta_.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, 
+    viscosity_(&meta_.declare_field<ScalarFieldType>(stk::topology::NODE_RANK,
                                                      "viscosity")),
-    effectiveViscosity_(&meta_.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, 
+    effectiveViscosity_(&meta_.declare_field<ScalarFieldType>(stk::topology::NODE_RANK,
                                                               "effective_viscosity")),
-    massFlowRate_(&meta_.declare_field<GenericFieldType>(stk::topology::ELEM_RANK, 
+    massFlowRate_(&meta_.declare_field<GenericFieldType>(stk::topology::ELEM_RANK,
                                                          "mass_flow_rate_scs")),
 
     znot_(1.0),
@@ -450,6 +498,47 @@ public:
   const double rhoSecondary_;
   const double viscPrimary_;
   const double viscSecondary_;
+};
+
+/** Text fixture for actuator source kernels
+ *
+ *  This test fixture performs the following actions:
+ *    - Create a HEX8 mesh with one element
+ *    - Declare all of the set of fields required (actuator_source)
+ *    - Initialize the field with steady 3-D solution;
+ */
+class ActuatorSourceKernelHex8Mesh : public TestKernelHex8Mesh
+{
+public:
+  ActuatorSourceKernelHex8Mesh()
+    : TestKernelHex8Mesh(),
+    actuator_source_(&meta_.declare_field<VectorFieldType>(stk::topology::NODE_RANK,
+                                                          "actuator_source")),
+    actuator_source_lhs_(&meta_.declare_field<VectorFieldType>(stk::topology::NODE_RANK,
+                                                           "actuator_source_lhs"))
+  {
+      stk::mesh::put_field(*actuator_source_, meta_.universal_part(), spatialDim_);
+      stk::mesh::put_field(*actuator_source_lhs_, meta_.universal_part(), spatialDim_);
+  }
+
+  virtual ~ActuatorSourceKernelHex8Mesh() {}
+
+  virtual void fill_mesh_and_init_fields(bool doPerturb = false)
+  {
+    fill_mesh(doPerturb);
+
+    std::vector<double> act_source(spatialDim_,0.0);
+    for(size_t j=0;j<spatialDim_;j++) act_source[j] = j+1;
+    stk::mesh::field_fill_component(act_source.data(), *actuator_source_);
+
+    std::vector<double> act_source_lhs(spatialDim_,0.0);
+    for(size_t j=0;j<spatialDim_;j++) act_source_lhs[j] = 0.1*(j+1);
+    stk::mesh::field_fill_component(act_source_lhs.data(), *actuator_source_lhs_);
+  }
+
+  VectorFieldType* actuator_source_{nullptr};
+  VectorFieldType* actuator_source_lhs_{nullptr};
+
 };
 
 #endif /* KOKKOS_HAVE_CUDA */

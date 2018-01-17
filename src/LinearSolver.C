@@ -54,13 +54,12 @@ TpetraLinearSolver::TpetraLinearSolver(
   const Teuchos::RCP<Teuchos::ParameterList> params,
   const Teuchos::RCP<Teuchos::ParameterList> paramsPrecond,
   LinearSolvers *linearSolvers)
-  : LinearSolver(solverName,linearSolvers, config->recomputePreconditioner(), config->reusePreconditioner()),
-    config_(config),
+  : LinearSolver(solverName,linearSolvers, config),
     params_(params),
     paramsPrecond_(paramsPrecond),
-    activateMueLu_(config->use_MueLu()),
     preconditionerType_(config->preconditioner_type())
 {
+  activateMueLu_ = config->use_MueLu();
 }
 
 TpetraLinearSolver::~TpetraLinearSolver()
@@ -123,6 +122,8 @@ void TpetraLinearSolver::destroyLinearSolver()
 
 void TpetraLinearSolver::setMueLu()
 {
+  TpetraLinearSolverConfig* config = reinterpret_cast<TpetraLinearSolverConfig*>(config_);
+
   if (solver_ != Teuchos::null && !recomputePreconditioner_ && !reusePreconditioner_) return;
 
   {
@@ -131,13 +132,13 @@ void TpetraLinearSolver::setMueLu()
 
     if (recomputePreconditioner_ || mueluPreconditioner_ == Teuchos::null)
     {
-      std::string xmlFileName = config_->muelu_xml_file();
+      std::string xmlFileName = config->muelu_xml_file();
       mueluPreconditioner_ = MueLu::CreateTpetraPreconditioner<SC,LO,GO,NO>(Teuchos::RCP<Tpetra::Operator<SC,LO,GO,NO> >(matrix_), xmlFileName, coords_);
     }
     else if (reusePreconditioner_) {
       MueLu::ReuseTpetraPreconditioner(matrix_, *mueluPreconditioner_);
     }
-    if (config_->getSummarizeMueluTimer())
+    if (config->getSummarizeMueluTimer())
       Teuchos::TimeMonitor::summarize(std::cout, false, true, false, Teuchos::Union);
   }
 
@@ -145,7 +146,7 @@ void TpetraLinearSolver::setMueLu()
 
   // create the solver, e.g., gmres, cg, tfqmr, bicgstab
   LinSys::SolverFactory sFactory;
-  solver_ = sFactory.create(config_->get_method(), params_);
+  solver_ = sFactory.create(config->get_method(), params_);
   solver_->setProblem(problem_);
 }
 
@@ -162,10 +163,8 @@ int TpetraLinearSolver::residual_norm(int whichNorm, Teuchos::RCP<LinSys::Vector
   }
   matrix_->apply(*sln, resid);
 
-  LinSys::OneDVector rhs = rhs_->get1dViewNonConst ();
-  LinSys::OneDVector res = resid.get1dViewNonConst ();
-  for (int i=0; i<rhs.size(); ++i)
-    res[i] -= rhs[i];
+  resid.update(-1.0, *rhs_, 1.0); 
+
   if ( whichNorm == 0 )
     norm = resid.normInf();
   else if ( whichNorm == 1 )
@@ -183,7 +182,8 @@ int
 TpetraLinearSolver::solve(
   Teuchos::RCP<LinSys::Vector> sln,
   int & iters,
-  double & finalResidNrm)
+  double & finalResidNrm,
+  bool isFinalOuterIter)
 {
   ThrowRequire(!sln.is_null());
 
@@ -205,7 +205,20 @@ TpetraLinearSolver::solve(
     preconditioner_->compute();
   }
   time += NaluEnv::self().nalu_time();
-  timerPrecond_ += time;
+
+  // Update preconditioner timer for this timestep; actual summing over
+  // timesteps is handled in EquationSystem::assemble_and_solve
+  timerPrecond_ = time;
+
+  Teuchos::RCP<Teuchos::ParameterList> params(
+    Teuchos::rcp(new Teuchos::ParameterList));
+  if (isFinalOuterIter) {
+    params->set("Convergence Tolerance", config_->finalTolerance());
+  } else {
+    params->set("Convergence Tolerance", config_->tolerance());
+  }
+
+  solver_->setParameters(params);
 
   problem_->setProblem();
   solver_->solve();

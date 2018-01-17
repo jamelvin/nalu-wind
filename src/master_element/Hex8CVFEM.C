@@ -19,6 +19,54 @@
 namespace sierra{
 namespace nalu{
 
+//-------- hex8_derivative -------------------------------------------------
+void hex8_derivative(
+  const int npts,
+  const double *intgLoc,
+  SharedMemView<DoubleType***> &deriv)
+{
+  const DoubleType half = 0.50;
+  const DoubleType one4th = 0.25;
+  for (int  ip = 0; ip < npts; ++ip) {
+    const DoubleType s1 = intgLoc[ip*3];
+    const DoubleType s2 = intgLoc[ip*3+1];
+    const DoubleType s3 = intgLoc[ip*3+2];
+    const DoubleType s1s2 = s1*s2;
+    const DoubleType s2s3 = s2*s3;
+    const DoubleType s1s3 = s1*s3;
+
+    // shape function derivative in the s1 direction -
+    deriv(ip,0,0) = half*( s3 + s2 ) - s2s3 - one4th;
+    deriv(ip,1,0) = half*(-s3 - s2 ) + s2s3 + one4th;
+    deriv(ip,2,0) = half*(-s3 + s2 ) - s2s3 + one4th;
+    deriv(ip,3,0) = half*( s3 - s2 ) + s2s3 - one4th;
+    deriv(ip,4,0) = half*(-s3 + s2 ) + s2s3 - one4th;
+    deriv(ip,5,0) = half*( s3 - s2 ) - s2s3 + one4th;
+    deriv(ip,6,0) = half*( s3 + s2 ) + s2s3 + one4th;
+    deriv(ip,7,0) = half*(-s3 - s2 ) - s2s3 - one4th;
+
+    // shape function derivative in the s2 direction -
+    deriv(ip,0,1) = half*( s3 + s1 ) - s1s3 - one4th;
+    deriv(ip,1,1) = half*( s3 - s1 ) + s1s3 - one4th;
+    deriv(ip,2,1) = half*(-s3 + s1 ) - s1s3 + one4th;
+    deriv(ip,3,1) = half*(-s3 - s1 ) + s1s3 + one4th;
+    deriv(ip,4,1) = half*(-s3 + s1 ) + s1s3 - one4th;
+    deriv(ip,5,1) = half*(-s3 - s1 ) - s1s3 - one4th;
+    deriv(ip,6,1) = half*( s3 + s1 ) + s1s3 + one4th;
+    deriv(ip,7,1) = half*( s3 - s1 ) - s1s3 + one4th;
+
+    // shape function derivative in the s3 direction -
+    deriv(ip,0,2) = half*( s2 + s1 ) - s1s2 - one4th;
+    deriv(ip,1,2) = half*( s2 - s1 ) + s1s2 - one4th;
+    deriv(ip,2,2) = half*(-s2 - s1 ) - s1s2 - one4th;
+    deriv(ip,3,2) = half*(-s2 + s1 ) + s1s2 - one4th;
+    deriv(ip,4,2) = half*(-s2 - s1 ) + s1s2 + one4th;
+    deriv(ip,5,2) = half*(-s2 + s1 ) - s1s2 + one4th;
+    deriv(ip,6,2) = half*( s2 + s1 ) + s1s2 + one4th;
+    deriv(ip,7,2) = half*( s2 - s1 ) - s1s2 + one4th;
+  }
+}
+
 //--------------------------------------------------------------------------
 //-------- constructor -----------------------------------------------------
 //--------------------------------------------------------------------------
@@ -97,8 +145,8 @@ void HexSCV::determinant(
 //-------- determinant -----------------------------------------------------
 //--------------------------------------------------------------------------
 void HexSCV::determinant(
-  SharedMemView<DoubleType**> coords,
-  SharedMemView<DoubleType*> volume)
+  SharedMemView<DoubleType**>& coords,
+  SharedMemView<DoubleType*>& volume)
 {
   constexpr int subDivisionTable[8][8] = {
       {  0,  8, 12, 11, 19, 20, 26, 25},
@@ -125,6 +173,18 @@ void HexSCV::determinant(
     }
     volume(ip) = hex_volume_grandy(scvHex);
   }
+}
+
+//--------------------------------------------------------------------------
+//-------- grad_op ---------------------------------------------------------
+//--------------------------------------------------------------------------
+void HexSCV::grad_op(
+  SharedMemView<DoubleType**>&coords,
+  SharedMemView<DoubleType***>&gradop,
+  SharedMemView<DoubleType***>&deriv)
+{
+  hex8_derivative(numIntPoints_, &intgLoc_[0], deriv);
+  generic_grad_op_3d<AlgTraitsHex8>(deriv, coords, gradop);
 }
 
 //--------------------------------------------------------------------------
@@ -435,56 +495,6 @@ HexSCS::hex8_shape_fcn(
 }
 
 //--------------------------------------------------------------------------
-//-------- hex8_derivative -------------------------------------------------
-//--------------------------------------------------------------------------
-void HexSCS::hex8_derivative(
-  const int npts,
-  const double *intgLoc,
-  SharedMemView<DoubleType***> &deriv)
-{
-  const DoubleType half = 0.50;
-  const DoubleType one4th = 0.25;
-  for (int  ip = 0; ip < npts; ++ip) {
-    const DoubleType s1 = intgLoc[ip*3];
-    const DoubleType s2 = intgLoc[ip*3+1];
-    const DoubleType s3 = intgLoc[ip*3+2];
-    const DoubleType s1s2 = s1*s2;
-    const DoubleType s2s3 = s2*s3;
-    const DoubleType s1s3 = s1*s3;
-
-    // shape function derivative in the s1 direction -
-    deriv(ip,0,0) = half*( s3 + s2 ) - s2s3 - one4th;
-    deriv(ip,1,0) = half*(-s3 - s2 ) + s2s3 + one4th;
-    deriv(ip,2,0) = half*(-s3 + s2 ) - s2s3 + one4th;
-    deriv(ip,3,0) = half*( s3 - s2 ) + s2s3 - one4th;
-    deriv(ip,4,0) = half*(-s3 + s2 ) + s2s3 - one4th;
-    deriv(ip,5,0) = half*( s3 - s2 ) - s2s3 + one4th;
-    deriv(ip,6,0) = half*( s3 + s2 ) + s2s3 + one4th;
-    deriv(ip,7,0) = half*(-s3 - s2 ) - s2s3 - one4th;
-
-    // shape function derivative in the s2 direction -
-    deriv(ip,0,1) = half*( s3 + s1 ) - s1s3 - one4th;
-    deriv(ip,1,1) = half*( s3 - s1 ) + s1s3 - one4th;
-    deriv(ip,2,1) = half*(-s3 + s1 ) - s1s3 + one4th;
-    deriv(ip,3,1) = half*(-s3 - s1 ) + s1s3 + one4th;
-    deriv(ip,4,1) = half*(-s3 + s1 ) + s1s3 - one4th;
-    deriv(ip,5,1) = half*(-s3 - s1 ) - s1s3 - one4th;
-    deriv(ip,6,1) = half*( s3 + s1 ) + s1s3 + one4th;
-    deriv(ip,7,1) = half*( s3 - s1 ) - s1s3 + one4th;
-
-    // shape function derivative in the s3 direction -
-    deriv(ip,0,2) = half*( s2 + s1 ) - s1s2 - one4th;
-    deriv(ip,1,2) = half*( s2 - s1 ) + s1s2 - one4th;
-    deriv(ip,2,2) = half*(-s2 - s1 ) - s1s2 - one4th;
-    deriv(ip,3,2) = half*(-s2 + s1 ) + s1s2 - one4th;
-    deriv(ip,4,2) = half*(-s2 - s1 ) + s1s2 + one4th;
-    deriv(ip,5,2) = half*(-s2 + s1 ) - s1s2 + one4th;
-    deriv(ip,6,2) = half*( s2 + s1 ) + s1s2 + one4th;
-    deriv(ip,7,2) = half*( s2 - s1 ) - s1s2 + one4th;
-  }
-}
-
-//--------------------------------------------------------------------------
 //-------- grad_op ---------------------------------------------------------
 //--------------------------------------------------------------------------
 void HexSCS::grad_op(
@@ -729,10 +739,10 @@ void HexSCS::gij(
 //-------- gij -------------------------------------------------------------
 //--------------------------------------------------------------------------
 void HexSCS::gij(
-    SharedMemView<DoubleType**> coords,
-    SharedMemView<DoubleType***> gupper,
-    SharedMemView<DoubleType***> glower,
-    SharedMemView<DoubleType***> deriv)
+    SharedMemView<DoubleType**>& coords,
+    SharedMemView<DoubleType***>& gupper,
+    SharedMemView<DoubleType***>& glower,
+    SharedMemView<DoubleType***>& deriv)
 {
   hex8_derivative(numIntPoints_, &intgLoc_[0], deriv);
   generic_gij_3d<AlgTraitsHex8>(deriv, coords, gupper, glower);

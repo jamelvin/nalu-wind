@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------*/
-/*  Copyright 2014 National Renewable Energy Laboratory.                  */
+/*  Copyright 2014 Sandia Corporation.                                    */
 /*  This software is released under the license detailed                  */
 /*  in the file, LICENSE, which is located in the top-level Nalu          */
 /*  directory structure                                                   */
@@ -47,9 +47,9 @@ ScalarDiffFemKernel<AlgTraits>::ScalarDiffFemKernel(
 
   // master element, shape function is shifted consistently
   if ( shiftedGradOp_ )
-    get_scs_shape_fn_data<AlgTraits>([&](double* ptr){meFEM_->shifted_shape_fcn(ptr);}, v_shape_function_);
+    get_fem_shape_fn_data<AlgTraits>([&](double* ptr){meFEM_->shifted_shape_fcn(ptr);}, v_shape_function_);
   else
-    get_scs_shape_fn_data<AlgTraits>([&](double* ptr){meFEM_->shape_fcn(ptr);}, v_shape_function_);
+    get_fem_shape_fn_data<AlgTraits>([&](double* ptr){meFEM_->shape_fcn(ptr);}, v_shape_function_);
 
   dataPreReqs.add_fem_volume_me(meFEM_);
 

@@ -24,15 +24,21 @@ public:
 
   const int * ipNodeMap(int ordinal = 0);
 
+  // NGP-ready methods first
+  void determinant(
+    SharedMemView<DoubleType**>& coords,
+    SharedMemView<DoubleType*>& volume);
+
+  void grad_op(
+    SharedMemView<DoubleType**>&coords,
+    SharedMemView<DoubleType***>&gradop,
+    SharedMemView<DoubleType***>&deriv);
+
   void determinant(
     const int nelem,
     const double *coords,
     double *volume,
     double * error );
-
-  void determinant(
-    SharedMemView<DoubleType**> coords,
-    SharedMemView<DoubleType*> volume);
 
   void grad_op(
     const int nelem,
@@ -41,6 +47,9 @@ public:
     double *deriv,
     double *det_j,
     double * error );
+
+  using MasterElement::shape_fcn;
+  using MasterElement::shifted_shape_fcn;
 
   void shape_fcn(
     double *shpfc);
@@ -71,11 +80,6 @@ public:
     const double *isoParCoord,
     SharedMemView<DoubleType**> &shpfc);
 
-  void hex8_derivative(
-    const int npt,
-    const double *par_coord,
-    SharedMemView<DoubleType***> &deriv);
-
   void hex8_gradient_operator(
     const int nodesPerElem,
     const int numIntgPts,
@@ -101,10 +105,10 @@ public:
     SharedMemView<DoubleType**>&areav);
 
   void gij(
-    SharedMemView<DoubleType**> coords,
-    SharedMemView<DoubleType***> gupper,
-    SharedMemView<DoubleType***> glower,
-    SharedMemView<DoubleType***> deriv);
+    SharedMemView<DoubleType**>& coords,
+    SharedMemView<DoubleType***>& gupper,
+    SharedMemView<DoubleType***>& glower,
+    SharedMemView<DoubleType***>& deriv);
 
 
   // non NGP-ready methods second

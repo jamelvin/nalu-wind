@@ -15,7 +15,7 @@ The continuity equation is always solved in the variable density form.
 .. math::
 
    \int \frac{\partial \bar{\rho}} {\partial t}\, dV
-   + \int \bar{\rho} \tilde{u}_i  n_i\, dS = 0
+   + \int \bar{\rho} \widetilde{u}_i  n_i\, dS = 0
 
 Since Nalu uses equal-order interpolation (variables are collocated)
 stabilization is required. The stabilization choice will be developed in
@@ -30,6 +30,8 @@ derivative to include the :math:`\frac{\partial \rho}{\partial p}`
 sensitivity, an equation that admits acoustic pressure waves is
 realized.
 
+.. _supp_eqn_set_mom_cons:
+
 Conservation of Momentum
 ++++++++++++++++++++++++
 
@@ -37,40 +39,38 @@ The integral form of the Favre-filtered momentum equations used for turbulent tr
 
 .. math::
    :label: favmom
-   :nowrap:
 
-   \begin{align}
-   \int {{\partial \bar{\rho} \tilde{u}_i} \over {\partial t}} {\rm d}V
-   + \int \bar{\rho} \tilde{u}_i \tilde{u}_j n_j {\rm d}S 
-   &=
-   \int \tilde{\sigma}_{ij} n_j {\rm d}S 
-   -\int \tau^{sgs}_{ij} n_j {\rm d}S \nonumber \\ 
-   &+ \int \left(\bar{\rho} - \rho_{\circ} \right) g_i {\rm d}V,
-   \end{align}
+   \int \frac{\partial \bar{\rho} \widetilde{u}_i}{\partial t} \, {\rm d}V
+   + \int \bar{\rho} \widetilde{u}_i \widetilde{u}_j n_j \, {\rm d}S
+   =
+   \int \widetilde{\sigma}_{ij} n_j \, {\rm d}S
+   -\int \tau^{sgs}_{ij} n_j \, {\rm d}S \\
+   + \int \left(\bar{\rho} - \rho_{\circ} \right) g_i \, {\rm d}V
+   + \int \mathrm{f}_i \, {\rm d}V,
 
 where the subgrid scale turbulent stress :math:`\tau^{sgs}_{ij}` is defined as
 
 .. math::
    :label: sgsStress
 
-   \tau^{sgs}_{ij} \equiv \bar{\rho} ( \widetilde{u_i u_j} - 
-     \tilde{u}_i \tilde{u}_j ).
+   \tau^{sgs}_{ij} \equiv \bar{\rho} ( \widetilde{u_i u_j} -
+     \widetilde{u}_i \widetilde{u}_j ).
 
+The term :math:`\mathrm{f}_i` is a body force used to represent
+additional momentum sources such as wind turbine
+blades, Coriolis effect, driving forces, etc.
 The Cauchy stress is provided by,
 
 .. math::
 
-   \sigma_{ij}  = 2 \mu \tilde S^*_{ij} - \bar P \delta_{ij}
+   \sigma_{ij}  = 2 \mu \widetilde S^*_{ij} - \bar P \delta_{ij}
 
 and the traceless rate-of-strain tensor defined as follows:
 
 .. math::
-   :nowrap:
 
-   \begin{align}
-   \tilde S^*_{ij} &= \tilde S_{ij} - \frac{1}{3} \delta_{ij} \tilde S_{kk} \nonumber \\
-   &= \tilde S_{ij} - \frac{1}{3} \frac{\partial \tilde u_k }{\partial x_k}\delta_{ij}.
-   \end{align}
+   \widetilde S^*_{ij} = \widetilde S_{ij} - \frac{1}{3} \delta_{ij} \widetilde S_{kk} \\
+   = \widetilde S_{ij} - \frac{1}{3} \frac{\partial \widetilde u_k }{\partial x_k}\delta_{ij}.
 
 In a low Mach flow, as described in the low Mach theory section, the
 above pressure, :math:`\bar P` is the purturbation about the
@@ -80,8 +80,8 @@ addition in which the continuity equation has been modifed to accomodate
 accoustics, this pressure is interpreted at the thermodynamic pressure
 itself.
 
-For LES, :math:`\tau^{sgs}_{ij}` that appears in Equation :eq:`favmom` and 
-defined in Equation :eq:`sgsStress` represents the subgrid stress tensor that 
+For LES, :math:`\tau^{sgs}_{ij}` that appears in Equation :eq:`favmom` and
+defined in Equation :eq:`sgsStress` represents the subgrid stress tensor that
 must be closed. The deviatoric part of the subgrid stress tensor is defined as
 
 .. math::
@@ -95,31 +95,31 @@ k represents the modeled turbulent kinetic energy as is formally defined as,
 
 .. math::
 
-   \bar \rho k = \frac{1}{2} \bar\rho ( \widetilde{u_k u_k} - \tilde u_k \tilde u_k).
+   \bar \rho k = \frac{1}{2} \bar\rho ( \widetilde{u_k u_k} - \widetilde u_k \widetilde u_k).
 
-Model closures can use, Yoshikawa's approach when k is not transported:
+Model closures can use, Yoshizawa's approach when k is not transported:
 
 .. math::
 
-   \tau^{sgs}_{kk} = 2 C_I \bar \rho \Delta^2 | \tilde S | ^2.
+   \tau^{sgs}_{kk} = 2 C_I \bar \rho \Delta^2 | \widetilde S | ^2.
 
-Above, :math:`| \tilde S | = \sqrt {2 \tilde S_{ij} \tilde S_{ij}}`.
+Above, :math:`| \widetilde S | = \sqrt {2 \widetilde S_{ij} \widetilde S_{ij}}`.
 
 For low Mach-number flows, a vast majority of the turbulent kinetic
 energy is contained at resolved scales. For this reason, the subgrid
-turbulent kinetic energy is not directly treated and, rather, is included 
+turbulent kinetic energy is not directly treated and, rather, is included
 in the pressure as an additional normal stress.
 The Favre-filtered momentum equations then become
 
 .. math::
    :label: mod-mom-les
 
-   &\int {{\partial \bar{\rho} \tilde{u}_i} \over {\partial t}}
-   {\rm d}V + \int \bar{\rho} \tilde{u}_i \tilde{u}_j n_j {\rm d}S 
+   &\int \frac{\partial \bar{\rho} \widetilde{u}_i}{\partial t}
+   {\rm d}V + \int \bar{\rho} \widetilde{u}_i \widetilde{u}_j n_j {\rm d}S
    + \int \left( \bar{P} + \frac{2}{3} \bar{\rho} k \right)
-   n_i {\rm d}S = \nonumber \\
-   & \int 2 (\mu + \mu_t) \left( \tilde{S}_{ij} - \frac{1}{3}
-   \tilde{S}_{kk} \delta_{ij} \right) n_j {\rm d}S
+   n_i {\rm d}S = \\
+   & \int 2 (\mu + \mu_t) \left( \widetilde{S}_{ij} - \frac{1}{3}
+   \widetilde{S}_{kk} \delta_{ij} \right) n_j {\rm d}S
    + \int \left(\bar{\rho} - \rho_{\circ} \right) g_i {\rm d}V,
 
 where LES closure models for the subgrid turbulent eddy viscosity
@@ -130,13 +130,13 @@ section).
 Earth Coriolis Force
 ++++++++++++++++++++
 
-For simulation of large-scale atmospheric flows, the following Coriolis 
+For simulation of large-scale atmospheric flows, the following Coriolis
 force term can be added to the right-hand-side of the momentum equation (:eq:`favmom`):
 
 .. math::
    :label: cor-term
 
-   \int -2\bar{\rho}\epsilon_{ijk}\Omega_ju_k ~{\rm d}V.
+   \mathrm{f}_i = -2\bar{\rho}\epsilon_{ijk}\Omega_ju_k .
 
 Here, :math:`\Omega` is the Earth's angular velocity vector,
 and :math:`\epsilon_{ijk}` is the Levi-Civita symbol denoting the cross product
@@ -170,30 +170,38 @@ coordinate system, then calculating the Coriolis acceleration vector
 using user-supplied North and East unit vectors given in the model
 coordinate system.
 
-ABL Forcing Source Terms
-++++++++++++++++++++++++
 
-In LES simulations of wind plant atmospheric flows, it is often necessary to
-drive the flow a predetermined vertical velocity and/or temperature profile. In
-Nalu, this is achieved by adding appropriate source terms :math:`\mathbf{S}_u` to the
-momentum equations (:eq:`favmom`). The present implementation can vary the
-source terms as a function of time and space using either a user-defined table
-of previously computed source terms (e.g., from a *precursor* simulation or
-another model such as WRF), or compute the source term as a function of the
-transient flow solution using the following equation:
+Boussinesq Buoyancy Model
+++++++++++++++++++++
+
+In atmospheric and other flows, the density differences in the domain can be small
+enough as to not significantly affect inertia, but nonetheless the buoyancy term,
 
 .. math::
-  :label: abl-mom-source
+   :label: buoyancy
 
-   \mathbf{S}_u^n = \alpha_u \bar{\rho} \left( \frac{\mathbf{U}^n_\mathrm{ref}
-    - \left<\mathbf{u}^n\right>}{\Delta t^n}\right)
+   \int \left(\bar{\rho} - \rho_{\circ} \right) g_i ~{\rm d}V,
 
-where :math:`\left<\mathbf{u}^n\right>` is the horizontally averaged velocity at a
-given height and instance in time :math:`t=t_n`, :math:`\mathbf{U}^n_\mathrm{ref}` are the desired
-velocities at the corresponding heights and time. The implementation allows the
-user to prescribe relaxation factors :math:`\alpha_u` for the source terms that are
-applied. Nalu uses a default value of 1.0 for the relaxation factors if no
-values are defined in the input file during initialization.
+may still be important.  The Boussinesq model ignores the effect of density on inertia
+while retaining the buoyancy term in Equation :eq:`favmom`.  For the purpose of evaluating 
+the buoyant force, the density is approximated as
+
+.. math::
+   :label: boussdensity
+
+   \frac{\rho}{\rho_{\circ}} \approx 1 - \beta (T-T_{\circ}),
+
+This leads to a buoyancy body force term that depends on temperature (:math:`T`), 
+a reference density (:math:`\rho_{\circ}`), a reference temperature (:math:`T_{\circ}`),
+and a thermal expansion coefficient (:math:`\beta`) as
+
+.. math::
+   :label: boussbuoy
+
+   \int -\rho_{\circ} \beta (T-T_{\circ}) g_i ~{\rm d}V.
+
+The flow is otherwise kept as constant density.
+
 
 Filtered Mixture Fraction
 +++++++++++++++++++++++++
@@ -208,12 +216,12 @@ zero in the secondary stream and unity in the primary stream and is
 transported in laminar flow by the equation,
 
 .. math::
-   :label: eqn:lam_Z
+   :label: lam_Z
 
    \frac{\partial \rho Z}{\partial t}
    + \frac{ \partial \rho u_j Z }{ \partial x_j}
    = \frac{\partial}{\partial x_j} \left( \rho D \frac{\partial Z}{\partial x_j}
-   \right),  
+   \right),
 
 where :math:`D` is an effective molecular mass diffusivity.
 
@@ -221,11 +229,12 @@ Applying either temporal Favre filtering for RANS-based treatments or
 spatial Favre filtering for LES-based treatments yields
 
 .. math::
-   :label: eqn:turb_Z
+   :label: turb_Z
 
-   \int \frac{\partial \bar{\rho} \tilde{Z}}{\partial t} {\rm d}V
-   + \int \bar{\rho} \tilde{u}_j \tilde{Z} n_j {\rm d}S
-   = - \int \tau^{sgs}_{Z,j} n_j {\rm d}S + \int \bar{\rho} D \frac{\partial \tilde{Z}}{\partial x_j} n_j {\rm d}S,  
+   \int \frac{\partial \bar{\rho} \widetilde{Z}}{\partial t} {\rm d}V
+   + \int \bar{\rho} \widetilde{u}_j \widetilde{Z} n_j {\rm d}S
+   = - \int \tau^{sgs}_{Z,j} n_j {\rm d}S + \int \bar{\rho} D
+   \frac{\partial \widetilde{Z}}{\partial x_j} n_j {\rm d}S,
 
 where sub-filter correlations have been neglected in the molecular
 diffusive flux vector and the turbulent diffusive flux vector is defined
@@ -234,7 +243,7 @@ as
 .. math::
 
    \tau^{sgs}_{Z,j} \equiv \bar{\rho} \left( \widetilde{Z u_j} -
-   \tilde{Z} \tilde{u}_j \right).
+   \widetilde{Z} \widetilde{u}_j \right).
 
 This subgrid scale closure is modeled using the gradient diffusion hypothesis,
 
@@ -252,20 +261,20 @@ equation is
 
 .. math::
 
-   \frac{\partial \bar{\rho} \tilde{Z}}{\partial t}
-     + \frac{ \partial \bar{\rho} \tilde{u}_j \tilde{Z} }{ \partial x_j}
-     = \frac{\partial}{\partial x_j} 
+   \frac{\partial \bar{\rho} \widetilde{Z}}{\partial t}
+     + \frac{ \partial \bar{\rho} \widetilde{u}_j \widetilde{Z} }{ \partial x_j}
+     = \frac{\partial}{\partial x_j}
        \left[ \left( \frac{\mu}{\mathrm{Sc}} + \frac{\mu_t}{\mathrm{Sc}_t} \right)
-       \frac{\partial \tilde{Z}}{\partial x_j} \right].
+       \frac{\partial \widetilde{Z}}{\partial x_j} \right].
 
 In integral form the mixture fraction transport equation is
 
 .. math::
 
-   \int \frac{\partial \bar{\rho} \tilde{Z}}{\partial t}\, dV
-     + \int \bar{\rho} \tilde{u}_j \tilde{Z} n_j\, dS
+   \int \frac{\partial \bar{\rho} \widetilde{Z}}{\partial t}\, dV
+     + \int \bar{\rho} \widetilde{u}_j \widetilde{Z} n_j\, dS
      = \int \left( \frac{\mu}{\mathrm{Sc}} + \frac{\mu_t}{\mathrm{Sc}_t} \right)
-       \frac{\partial \tilde{Z}}{\partial x_j} n_j\, dS.
+       \frac{\partial \widetilde{Z}}{\partial x_j} n_j\, dS.
 
 Conservation of Energy
 ++++++++++++++++++++++
@@ -276,20 +285,22 @@ used for turbulent transport is
 .. math::
    :label: fav-enth
 
-     \int {{\partial \bar{\rho} \tilde{h}} \over {\partial t}} {\rm d}V
-     + \int \bar{\rho} \tilde{h} \tilde{u}_j n_j {\rm d}S 
+     \int \frac{\partial \bar{\rho} \widetilde{h}}{\partial t} {\rm d}V
+     + \int \bar{\rho} \widetilde{h} \widetilde{u}_j n_j {\rm d}S
      &= - \int \bar{q}_j n_j {\rm d}S
-     - \int \tau^{sgs}_{h,j} n_j {\rm d}S 
-     - \int {{\partial \bar{q}_i^r} \over {\partial x_i}} {\rm d}V \nonumber \\
-     &+ \int \left({{\partial \bar{P}} \over {\partial t}} + \tilde{u}_j {{\partial \bar{P}} \over {\partial x_j}}\right){\rm d}V
-     + \int \overline{\tau_{ij} {{\partial u_i} \over {\partial x_j }}} {\rm d}V.
-
+     - \int \tau^{sgs}_{h,j} n_j {\rm d}S
+     - \int \frac{\partial \bar{q}_i^r}{\partial x_i} {\rm d}V \\
+     &+ \int \left( \frac{\partial \bar{P}}{\partial t}
+     + \widetilde{u}_j \frac{\partial \bar{P}}{\partial x_j} \right){\rm d}V
+     + \int \overline{\tau_{ij} \frac{\partial u_i}{\partial x_j }} {\rm d}V
+     + \int S_\theta {\rm d}V.
 
 The above equation is derived by starting with the total internal
 energy equation, subtracting the mechanical energy equation and
 enforcing the variable density continuity equation. Note that the above
 equation includes possible source terms due to thermal radiatitive
-transport, viscous dissipation, and pressure work.
+transport, viscous dissipation, pressure work,
+and external driving sources (:math:`S_\theta`).
 
 The simple Fickian diffusion velocity approximation,
 Equation :eq:`diffvel1`, is assumed, so that the mean diffusive heat flux
@@ -297,16 +308,13 @@ vector :math:`\bar{q}_j` is
 
 .. math::
 
-     \bar{q}_j = - \overline{ \left[ {\kappa \over {C_p}}
-                          {{\partial h} \over {\partial x_j}}
-                    -  {\mu \over {\rm Pr}} 
-           \sum_{k=1}^K h_k {{\partial Y_k} \over {\partial x_j}} \right] }
-        - \overline{ {\mu \over {\rm Sc}}
-           \sum_{k=1}^K h_k {{\partial Y_k} \over {\partial x_j}} }.
+     \bar{q}_j = - \overline{ \left[ \frac{\kappa}{C_p} \frac{\partial h}{\partial x_j}
+     - \frac{\mu}{\rm Pr} \sum_{k=1}^K h_k \frac{\partial Y_k} {\partial x_j} \right] }
+     - \overline{ \frac{\mu}{\rm Sc} \sum_{k=1}^K h_k \frac{\partial Y_k}{\partial x_j} }.
 
 If :math:`Sc = Pr`, i.e., unity Lewis number (:math:`Le = 1`), then the diffusive heat
 flux vector simplifies to :math:`\bar{q}_j = -\frac{\mu}{\mathrm{Pr}}
-\frac{\partial \tilde{h}}{\partial x_j}`. In the code base, the user has
+\frac{\partial \widetilde{h}}{\partial x_j}`. In the code base, the user has
 the ability to either specify a laminar Prandtl number, which is a
 constant, or provide a property evaluator for thermal conductivity.
 Inclusion of a Prandtl number prevails and ensures that the thermal
@@ -315,49 +323,48 @@ The viscous dissipation term is closed by
 
 .. math::
 
-   \overline{\tau_{ij} {{\partial u_i} \over {\partial x_j }}}
-     &= \left(\left(\mu + \mu_t\right) \left( {{\partial \tilde{u}_i} 
-         \over {\partial x_j}}
-       + {{\partial \tilde{u}_j} \over {\partial x_i}} \right)
-       - {2 \over 3} \left( \bar{\rho} \tilde{k} + 
-         \mu_t{{\partial \tilde{u}_k} \over {\partial x_k}} \right)
-         \delta_{ij} \right) {{\partial \tilde{u}_i} \over {\partial x_j}}
-         \nonumber \\
-     &= \left[ 2 \mu \tilde{S}_{ij} 
-       + 2 \mu_t \left( \tilde{S}_{ij} - \frac{1}{3} \tilde{S}_{kk}
-         \delta_{ij} \right) - \frac{2}{3} \bar{\rho} \tilde{k}
-         \delta_{ij} \right] \frac{\partial \tilde{u}_i}{\partial x_j}.
+   \overline{\tau_{ij} \frac{\partial u_i}{\partial x_j }}
+   &= \left(\left(\mu + \mu_t\right) \left( \frac{\partial \widetilde{u}_i}{\partial x_j}
+   + \frac{\partial \widetilde{u}_j}{\partial x_i} \right)
+   - \frac{2}{3} \left( \bar{\rho} \widetilde{k} +
+   \mu_t \frac{\partial \widetilde{u}_k}{\partial x_k} \right)
+   \delta_{ij} \right) \frac{\partial \widetilde{u}_i}{\partial x_j}
+   \\
+   &= \left[ 2 \mu \widetilde{S}_{ij}
+   + 2 \mu_t \left( \widetilde{S}_{ij} - \frac{1}{3} \widetilde{S}_{kk}
+   \delta_{ij} \right) - \frac{2}{3} \bar{\rho} \widetilde{k}
+   \delta_{ij} \right] \frac{\partial \widetilde{u}_i}{\partial x_j}.
 
 The subgrid scale turbulent flux vector :math:`\tau^{sgs}_{h}` in
 Equation :eq:`fav-enth` is defined as
 
 .. math::
 
-   \tau_{h u_j} \equiv \bar{\rho} \left( \widetilde{h u_j} - 
-        \tilde{h} \tilde{u}_j \right).
+   \tau_{h u_j} \equiv \bar{\rho} \left( \widetilde{h u_j} -
+        \widetilde{h} \widetilde{u}_j \right).
 
 As with species transport, the gradient diffusion hypothesis is used to close
 this subgrid scale model,
 
 .. math::
 
-   \tau^{sgs}_{h,j} = - \frac{\mu_t}{\mathrm{Pr}_t} \frac{\partial \tilde{h}}{\partial x_j},
+   \tau^{sgs}_{h,j} = - \frac{\mu_t}{\mathrm{Pr}_t} \frac{\partial \widetilde{h}}{\partial x_j},
 
-where :math:`\mathrm{Pr}_t` is the turbulent Prandtl number and :math:`\mu_t` is 
-the modeled turbulent eddy viscosity from momentum closure.  
+where :math:`\mathrm{Pr}_t` is the turbulent Prandtl number and :math:`\mu_t` is
+the modeled turbulent eddy viscosity from momentum closure.
 The resulting filtered and modeled turbulent energy equation is given by,
 
 .. math::
    :label: mod-enth
 
-   \int {{\partial \bar{\rho} \tilde{h}} \over {\partial t}} {\rm d}V
-   + \int \bar{\rho} \tilde{h} \tilde{u}_j n_j {\rm d}S 
-   &= \int \left( {\mu \over {\rm Pr}} + {{\mu_t} \over {{\rm Pr}_t}} \right) 
-   {{\partial \tilde{h}} \over {\partial x_j}}  n_j {\rm d}S 
-   - \int {{\partial \bar{q}_i^r} \over {\partial x_i}} {\rm d}V \nonumber \\
-   &+ \int \left({{\partial \bar{P}} \over {\partial t}} + \tilde{u}_j 
-   {{\partial \bar{P}} \over {\partial x_j}}\right){\rm d}V
-   + \int \overline{\tau_{ij} {{\partial u_j} \over {\partial x_j }}} {\rm d}V.
+   \int \frac{\partial \bar{\rho} \widetilde{h}}{\partial t} {\rm d}V
+   + \int \bar{\rho} \widetilde{h} \widetilde{u}_j n_j {\rm d}S
+   &= \int \left( \frac{\mu}{\rm Pr} + \frac{\mu_t}{{\rm Pr}_t} \right)
+   \frac{\partial \widetilde{h}}{\partial x_j}  n_j {\rm d}S
+   - \int \frac{\partial \bar{q}_i^r}{\partial x_i} {\rm d}V \\
+   &+ \int \left( \frac{\partial \bar{P}}{\partial t} + \widetilde{u}_j
+   \frac{\partial \bar{P}}{\partial x_j}\right){\rm d}V
+   + \int \overline{\tau_{ij} \frac{\partial u_j}{\partial x_j }} {\rm d}V.
 
 
 The turbulent Prandtl number must have the same value as the turbulent
@@ -372,7 +379,7 @@ a binary gas system) the Lewis number is defined as:
 .. math::
    :label: lewisNumber
 
-   {\rm Le} = {{\rm Sc} \over {\rm Pr}} = {{\alpha} \over {D}}. 
+   {\rm Le} = \frac{\rm Sc}{\rm Pr} = \frac{\alpha}{D}.
 
 
 If the diffusion rates of energy and mass are equal,
@@ -380,7 +387,7 @@ If the diffusion rates of energy and mass are equal,
 .. math::
    :label: lewisNumberUnity
 
-   {\rm Sc = Pr \ and \ Le = 1}. 
+   {\rm Sc = Pr \ and \ Le = 1}.
 
 
 For completeness, the thermal diffusivity, Prandtl and Schmidt number
@@ -389,13 +396,13 @@ are defined by,
 .. math::
    :label: thermalDiff
 
-   \alpha = {{\kappa} \over {\rho c_p}},
+   \alpha = \frac{\kappa}{\rho c_p},
 
 
 .. math::
    :label: prandtl
 
-   {\rm Pr} = {{c_p \mu } \over {\kappa}} = {{\mu} \over {\rho \alpha}},
+   {\rm Pr} = \frac{c_p \mu }{\kappa} = \frac{\mu}{\rho \alpha},
 
 
 and
@@ -403,7 +410,7 @@ and
 .. math::
    :label: schmidt
 
-   {\rm Sc} = {{\mu } \over {\rho D}}, 
+   {\rm Sc} = \frac{\mu }{\rho D},
 
 
 where :math:`c_p` is the specific heat, :math:`\kappa`, is the thermal
@@ -430,6 +437,104 @@ following temperature form:
 
    q_j = -\kappa \frac{\partial T}{\partial x_j}.
 
+ABL Forcing Source Terms
+++++++++++++++++++++++++
+
+In LES of wind plant atmospheric flows, it is often necessary to
+drive the flow to a predetermined vertical velocity and/or temperature profile.
+In Nalu, this is achieved by adding appropriate
+source terms :math:`\mathrm{f}_i` to the
+momentum equation :eq:`favmom` and
+:math:`S_\theta` to the enthalpy equation :eq:`fav-enth`.
+
+First, the momentum source term is discussed.
+The main objective of this implementation is to force the volume averaged velocity at
+a certain location to a specified value (:math:`<\mathrm{u}_i>=\mathrm{U}_i`).
+The brackets used here, :math:`<>`, mean volume averaging over a certain region.
+In order to achieve this, a source term must be applied to the momentum equation.
+This source term can be better understood as a proportional controller within the
+momentum equation.
+
+The velocity and density fields can be decomposed into a volume averaged component
+and fluctuations about that volume average as
+:math:`\mathrm{u}_i = \left< \mathrm{u}_i \right> + \mathrm{u}_i'` and
+:math:`\bar{\rho} = \left< \bar{\rho} \right> + \bar{\rho}'`.
+A decomposition of the plane averaged momentum at a given instance in time is then
+
+.. math::
+       \left< \bar{\rho}  \mathrm{u}_i  \right>  =
+        \left< \bar{\rho} \right> \left< \mathrm{u}_i \right>
+        + \left< \bar{\rho}'  \mathrm{u}'_i  \right>.
+
+We now wish to apply a momentum source based on a desired spatial averaged velocity
+:math:`\mathrm{U}_i`.
+This can be expressed as:
+
+.. math::
+       \left< \bar{\rho}  \mathrm{u}_i^*  \right>  =
+        \left< \bar{\rho} \right> \left< \mathrm{u}^*_i \right>
+        + \left< \bar{\rho}'  {\mathrm{u}^*_i}'  \right>,
+
+where :math:`\mathrm{u}_i^*` is an unknown reference velocity field whose volume
+average is the desired  velocity :math:`\left< \mathrm{u}_i^* \right> = \mathrm{U}_i`.
+Since the correlation :math:`\left< \bar{\rho}'  \mathrm{u^*}'_i  \right>`
+is unknown, we assume that
+
+.. math::
+    \left< \bar{\rho}'  \mathrm{u^*}'_i  \right>
+    =
+    \left< \bar{\rho}'  \mathrm{u}'_i  \right>
+
+such that the momentum source can now be defined as:
+
+.. math::
+   :label: abl-mom-source
+
+   {\mathrm{f}_i} = \alpha_u
+        \left(  \, \frac{\left< \bar{\rho} \right> \mathrm{U_i}
+        - \left< \bar{\rho} \right> \left< \mathrm{u}_i \right>}
+        {\Delta t}\right)
+
+where :math:`\left< \right>` denotes volume averaging at a
+certain time :math:`t`,
+:math:`\mathrm{U}_i` is the desired spatial averaged
+velocity,
+and :math:`\Delta t` is the time-scale between when the source term is computed
+(time :math:`t`) and when it is applied (time :math:`t + \Delta t`).
+This is typically chosen to be the simulation time-step.
+In the case of an ABL simulation with flat terrain, the voulme averaging is done
+over an infinitesimally thin slice in the :math:`x` and :math:`y` directions,
+such that the body force is only a
+function of height :math:`z` and time :math:`t`.
+The implementation allows the
+user to prescribe relaxation factors :math:`\alpha_u` for the source terms that are
+applied. Nalu uses a default value of 1.0 for the relaxation factors if no
+values are defined in the input file during initialization.
+
+The enthalpy source term works similarly to the momentum source term.
+A temperature difference is computed at every time-step and a forcing term
+is added to the enthalpy equation:
+
+.. math::
+
+  S_\theta = \alpha_\theta C_p
+      \left(
+         \frac{\theta_{\rm ref} - \left< \theta \right>}{\Delta t}
+      \right)
+
+where :math:`\theta_{\rm ref}` is the desired spatial averaged temperature,
+:math:`\left< \theta \right>` is the spatial averaged temperature,
+:math:`C_p` is the heat capcity,
+:math:`\alpha_\theta` is the relaxation factor,
+and
+:math:`\Delta t` is the time-scale.
+
+The present implementation can vary the
+source terms as a function of time and space using either a user-defined table
+of previously computed source terms (e.g., from a *precursor* simulation or
+another model such as WRF), or compute the source term as a function of the
+transient flow solution.
+
 Conservation of Species
 +++++++++++++++++++++++
 
@@ -439,10 +544,10 @@ turbulent transport is
 .. math::
    :label: fav-species
 
-   \int {{\partial \bar{\rho} \tilde{Y}_k} \over {\partial t}} {\rm d}V
-   + \int \bar{\rho} \tilde{Y}_k \tilde{u}_j n_j {\rm d}S = 
+   \int \frac{\partial \bar{\rho} \widetilde{Y}_k}{\partial t} {\rm d}V
+   + \int \bar{\rho} \widetilde{Y}_k \widetilde{u}_j n_j {\rm d}S =
    - \int \tau^{sgs}_{Y_k,j} n_j {\rm d}S
-   - \int \overline{\rho Y_k \hat{u}_{j,k}} n_j {\rm d}S + 
+   - \int \overline{\rho Y_k \hat{u}_{j,k}} n_j {\rm d}S +
    \int \overline{\dot{\omega}_k} {\rm d}V,
 
 
@@ -455,8 +560,8 @@ same value of mass diffusivity for all species,
 .. math::
    :label: diffvel1
 
-   \hat{u}_{j,k}= - D {1 \over {Y_k}} 
-   {{\partial Y_k} \over {\partial x_j}} .
+   \hat{u}_{j,k}= - D \frac{1}{Y_k}
+   \frac{\partial Y_k}{\partial x_j} .
 
 
 The subgrid scale turbulent diffusive flux vector :math:`\tau^{sgs}_{Y_kj}` is defined
@@ -464,15 +569,15 @@ as
 
 .. math::
 
-   \tau^{sgs}_{Y_k,j} \equiv \bar{\rho} \left( \widetilde{Y_k u_j} - 
-   \tilde{Y_k} \tilde{u}_j \right).
+   \tau^{sgs}_{Y_k,j} \equiv \bar{\rho} \left( \widetilde{Y_k u_j} -
+   \widetilde{Y_k} \widetilde{u}_j \right).
 
 The closure for this model takes on its usual gradient diffusion hypothesis, i.e.,
 
 .. math::
 
-   \tau^{sgs}_{Y_k,j} = - \frac{\mu_t}{\mathrm{Sc}_t} \frac{\partial 
-     \tilde{Y}_k}{\partial x_j}, 
+   \tau^{sgs}_{Y_k,j} = - \frac{\mu_t}{\mathrm{Sc}_t} \frac{\partial
+     \widetilde{Y}_k}{\partial x_j},
 
 where :math:`\mathrm{Sc}_t` is the turbulent Schmidt number for all
 species and :math:`\mu_t` is the modeled turbulent eddy viscosity from
@@ -483,12 +588,11 @@ The Favre-filtered and modeled turbulent species transport equation is,
 .. math::
    :label: mod-species
 
-   \int {{\partial \bar{\rho} \tilde{Y}_k} \over {\partial t}} {\rm d}V
-   + \int \bar{\rho} \tilde{Y}_k \tilde{u}_j n_j {\rm d}S = 
-   \int \left( {\mu \over {\rm Sc}} 
-   + {{\mu_t} \over {{\rm Sc}_t}}  \right)
-   {{\partial \tilde{Y}_k} \over
-   {\partial x_j}} n_j {\rm d}S + 
+   \int \frac{\partial \bar{\rho} \widetilde{Y}_k}{\partial t} {\rm d}V
+   + \int \bar{\rho} \widetilde{Y}_k \widetilde{u}_j n_j {\rm d}S =
+   \int \left( \frac{\mu}{\rm Sc}
+   + \frac{\mu_t}{{\rm Sc}_t}  \right)
+   \frac{\partial \widetilde{Y}_k}{\partial x_j} n_j {\rm d}S +
    \int \overline{\dot{\omega}}_k {\rm d}V .
 
 
@@ -502,7 +606,7 @@ unity and
 
 .. math::
 
-   \tilde{Y}_n = 1 - \sum_{j \ne n}^{n} \tilde{Y}_j .
+   \widetilde{Y}_n = 1 - \sum_{j \ne n}^{n} \widetilde{Y}_j .
 
 Finally, the reaction rate source term is expected to be added based on
 an operator split approach wherebye the set of ODEs are integrated over
@@ -515,7 +619,7 @@ initial values of gas phase mass fraction and density,
 
 .. math::
 
-   \dot{Y}_k = {{\dot{\omega}_k \left( Y_k \right) } \over \rho} \ .
+   \dot{Y}_k = \frac{\dot{\omega}_k \left( Y_k \right) }{\rho} \ .
 
 The sources for the sub-integration are computed with the composition
 and density at the new time level which are used to approximate a mean
@@ -523,8 +627,7 @@ production rate for the time step
 
 .. math::
 
-   \dot{\omega}_k \approx {{\rho^{\ast} Y^{\ast}_k - \rho Y_k}
-                              \over {\Delta t}} \ .
+   \dot{\omega}_k \approx \frac{\rho^{\ast} Y^{\ast}_k - \rho Y_k}{\Delta t} \ .
 
 Subgrid-Scale Kinetic Energy One-Equation LES Model
 +++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -537,12 +640,10 @@ kinetic energy is given by
 .. math::
    :label: ksgs
 
-   \int {{\partial \bar{\rho}{k^\mathrm{sgs}}} \over {\partial t}} {\rm d}V
-     + \int \bar{\rho}{k^\mathrm{sgs}} \tilde{u}_j n_j {\rm d}S = 
-       \int {{\mu_t} \over {\sigma_k}} 
-             {{\partial {k^\mathrm{sgs}}} \over
-              {\partial x_j}} n_j {\rm d}S + 
-      \int \left(P_k^\mathrm{sgs} - D_k^\mathrm{sgs}\right) {\rm d}V.
+   \int \frac{\partial \bar{\rho}{k^\mathrm{sgs}}}{\partial t} {\rm d}V
+   + \int \bar{\rho}{k^\mathrm{sgs}} \widetilde{u}_j n_j {\rm d}S =
+   \int \frac{\mu_t}{\sigma_k} \frac{\partial {k^\mathrm{sgs}}}{\partial x_j} n_j {\rm d}S +
+   \int \left(P_k^\mathrm{sgs} - D_k^\mathrm{sgs}\right) {\rm d}V.
 
 
 The production of subgrid turbulent kinetic energy, :math:`P_k^\mathrm{sgs}`, is modeled by,
@@ -550,32 +651,30 @@ The production of subgrid turbulent kinetic energy, :math:`P_k^\mathrm{sgs}`, is
 .. math::
    :label: mod-prod
 
-   P_k \equiv  -\overline{\rho u_i'' u_j''}
-         {{\partial \tilde{u}_i} \over {\partial x_j}},
+   P_k \equiv -\overline{\rho u_i'' u_j''} \frac{\partial \widetilde{u}_i}{\partial x_j},
 
 
 while the dissipation of turbulent kinetic energy, :math:`D_k^\mathrm{sgs}`, is given by
 
 .. math::
 
-   D_k^\mathrm{sgs} = \rho C_{\epsilon} { { {k^\mathrm{sgs}}^{{3}\over {2}} } 
-        \over { \Delta} },
+   D_k^\mathrm{sgs} = \rho C_{\epsilon} \frac{{k^\mathrm{sgs}}^{\frac{3}{2}}}{\Delta},
 
 where the grid filter length, :math:`\Delta`, is given in terms of the
 grid cell volume by
 
-.. math:: \Delta = V^{{1}\over{3}}.
+.. math:: \Delta = V^{\frac{1}{3}}.
 
 The subgrid turbulent eddy viscosity is then provided by
 
-.. math:: \mu_t = C_{\mu_{\epsilon}} \Delta {k^\mathrm{sgs}}^{{1} \over {2}},
+.. math:: \mu_t = C_{\mu_{\epsilon}} \Delta {k^\mathrm{sgs}}^{\frac{1}{2}},
 
 where the values of :math:`C_{\epsilon}` and :math:`C_{\mu_{\epsilon}}`
 are 0.845 and 0.0856, respectively.
 
 For simulations in which a buoyancy source term is desired, the code supports the Rodi form,
 
-.. math:: P_b = \beta {{\mu^T} \over {Pr}} g_i {{\partial T} \over {\partial x_i}}.
+.. math:: P_b = \beta \frac{\mu^T}{Pr} g_i \frac{\partial T}{\partial x_i}.
 
 Shear Stress Transport (SST) RANS Model Suite
 +++++++++++++++++++++++++++++++++++++++++++++
@@ -600,17 +699,20 @@ the Mentor 2003 model are then
 
 .. math::
 
-   \int{\partial \bar{\rho} k \over \partial t}\text{d}V + \int \bar{\rho} k\tilde{u}_{j} n_{j} \text{d} S = \int {(\mu + \hat \sigma_k \mu_{t})} {\partial k \over \partial x_{j}} n_{j} + \int \left(P_{k}^{\omega} - \beta^* \bar{\rho} k \omega\right) \text{d} V,
+   \int \frac{\partial \bar{\rho} k}{\partial t} \text{d}V
+   + \int \bar{\rho} k\widetilde{u}_{j} n_{j} \text{d} S =
+   \int {(\mu + \hat \sigma_k \mu_{t})} \frac{\partial k}{\partial x_{j}} n_{j}
+   + \int \left(P_{k}^{\omega} - \beta^* \bar{\rho} k \omega\right) \text{d} V,
 
 .. math::
-   :nowrap:
 
-   \begin{align}
-   \int {\partial \bar{\rho} \omega \over \partial t}\text{d} V + \int \bar{\rho} \omega \tilde{u}_{j} n_{j} \text{d}S &=
-   \int  {(\mu + \hat\sigma_{\omega} \mu_{t})} {\partial \omega \over \partial x_{j}} n_{j}
-   + \int  {2(1-F) \frac{\bar{\rho}\sigma_{\omega2}} {\omega} {\partial k \over \partial x_j} {\partial \omega \over \partial x_j} } \text{d}V \nonumber \\ 
-   &+  \int \left(\frac{\hat\gamma}{\nu_t} P_{k}^{\omega} - \hat \beta \bar{\rho} \omega^{2}\right) \text{d}V.
-   \end{align}
+   \int \frac{\partial \bar{\rho} \omega}{\partial t}\text{d} V
+   + \int \bar{\rho} \omega \widetilde{u}_{j} n_{j} \text{d}S =
+   \int  {(\mu + \hat\sigma_{\omega} \mu_{t})} \frac{\partial \omega}{\partial x_{j}} n_{j}
+   + \int {2(1-F) \frac{\bar{\rho}\sigma_{\omega2}} {\omega}
+   \frac{\partial k}{\partial x_j} \frac{\partial \omega}{\partial x_j} } \text{d}V \\
+   + \int \left(\frac{\hat\gamma}{\nu_t} P_{k}^{\omega} -
+   \hat \beta \bar{\rho} \omega^{2}\right) \text{d}V.
 
 The model coefficients, :math:`\hat\sigma_k`, :math:`\hat\sigma_{\omega}`, :math:`\hat\gamma` and :math:`\hat\beta`
 must also be blended, which is represented by
@@ -633,13 +735,16 @@ where
 
 .. math::
 
-   arg_{1} = \min \left( \max \left( {\sqrt{k} \over \beta^* \omega y}, {500 \mu \over \bar{\rho} y^{2} \omega}\right), {4 \bar{\rho} \sigma_{\omega2} k \over CD_{k\omega} y^{2}} \right).
+   arg_{1} = \min \left( \max \left( \frac{\sqrt{k}}{\beta^* \omega y},
+   \frac{500 \mu}{\bar{\rho} y^{2} \omega} \right),
+   \frac{4 \bar{\rho} \sigma_{\omega2} k}{CD_{k\omega} y^{2}} \right).
 
 The final parameter is
 
 .. math::
 
-   CD_{k\omega} = \max \left( 2 \bar{\rho} \sigma_{\omega2} \frac{1}{\omega} {\partial k \over \partial x_{j}} {\partial \omega \over \partial x_{j}}, 10^{-10} \right).
+   CD_{k\omega} = \max \left( 2 \bar{\rho} \sigma_{\omega2} \frac{1}{\omega}
+   \frac{\partial k}{\partial x_{j}} \frac{\partial \omega}{\partial x_{j}}, 10^{-10} \right).
 
 An important component of the SST model is the different expression used
 for the turbulent viscosity,
@@ -658,7 +763,8 @@ The final parameter is
 
 .. math::
 
-   arg_{2} = \max\left({2 \sqrt{k} \over \beta^* \omega y}, {500 \mu \over \bar{\rho} \omega y^{2}} \right).
+   arg_{2} = \max\left( \frac{2 \sqrt{k}}{\beta^* \omega y},
+   \frac{500 \mu}{\bar{\rho} \omega y^{2}} \right).
 
 Direct Eddy Simulation (DES) Formulation
 ++++++++++++++++++++++++++++++++++++++++
@@ -696,7 +802,8 @@ Consider the displacement for component i, :math:`u_i` equation set,
 .. math::
    :label: linearElastic
 
-   \rho \frac{\partial^2 u_i} {{\partial t}^2} - \frac{\partial \sigma_{ij}}{\partial x_j} = F_i,
+   \rho \frac{\partial^2 u_i} {{\partial t}^2}
+   - \frac{\partial \sigma_{ij}}{\partial x_j} = F_i,
 
 
 where the Cauchy stress tensor, :math:`\sigma_{ij}` assuming Hooke’s law
@@ -705,8 +812,9 @@ is given by,
 .. math::
    :label: stress
 
-   \sigma_{ij} = \mu \left ( \frac{\partial u_i}{\partial x_j} +  \frac{\partial u_j}{\partial x_i} \right)
-    + \lambda \frac{\partial u_k}{\partial x_k} \delta_{ij}.
+   \sigma_{ij} = \mu \left ( \frac{\partial u_i}{\partial x_j}
+   + \frac{\partial u_j}{\partial x_i} \right)
+   + \lambda \frac{\partial u_k}{\partial x_k} \delta_{ij}.
 
 
 Above, the so-called Lame coefficients, Lame’s first parameter,
@@ -754,7 +862,7 @@ Numerically, the velocity might be obtained by a backward Euler or BDF2
 scheme,
 
 .. math::
-   :label: mesh_velocity+numerical
+   :label: mesh_velocity
 
    v_i = \frac{\gamma_1 u^{n+1}_i + \gamma_2 u^n_i + \gamma_3 u^{n-1}_i}{\Delta t}
 
@@ -764,7 +872,7 @@ Moving Mesh
 
 The code base supports three notions of moving mesh: 1) linear elastic
 equation system that computes the stress of a solid 2) solid body
-rotation mesh motion and 3) mesh mesh deformation via an external
+rotation mesh motion and 3) mesh deformation via an external
 source.
 
 The linear elastic equation system is activated via the standard
@@ -787,8 +895,9 @@ as:
 .. math::
    :label: gcl
 
-   \int \frac {\rho \phi } {\partial t}\, dV + \int \rho \phi \left ( u_j - v_j \right) n_j\, dS 
-      + \int \rho \phi \frac{\partial v_k}{\partial x_j}\, dV,
+   \int \frac {\rho \phi } {\partial t}\, dV
+   + \int \rho \phi \left ( u_j - v_j \right) n_j\, dS
+   + \int \rho \phi \frac{\partial v_k}{\partial x_j}\, dV,
 
 
 where :math:`u_j` is the fluid velocity and :math:`v_j` is the mesh
@@ -842,8 +951,9 @@ Botzmann radiative transport is
 .. math::
    :label: lam-scalar-flux
 
-   s_i {{\partial} \over {\partial x_i}} I\left(s\right)
-      + \left(\mu_a + \mu_s \right) I\left(s\right) = {{\mu_a \sigma T^4} \over {\pi}} + \frac{\mu_s}{4\pi}G,
+   s_i \frac{\partial}{\partial x_i} I\left(s\right)
+   + \left(\mu_a + \mu_s \right) I\left(s\right) =
+   \frac{\mu_a \sigma T^4}{\pi} + \frac{\mu_s}{4\pi}G,
 
 
 where :math:`\mu_a` is the absorption coeffiecient, :math:`\mu_s` is
@@ -860,7 +970,7 @@ emission and mean incident radiation at a point,
 .. math::
    :label: div-qrad
 
-   {{\partial q_i^r} \over {\partial x_i}} =
+   \frac{\partial q_i^r}{\partial x_i} =
        \mu_a \left[ 4 \sigma T^4 - G \right] ,
 
 
@@ -908,9 +1018,9 @@ intensity leaving a diffuse surface in all directions is given by
 .. math::
    :label: intBc2
 
-   I\left(s\right) = {1 \over \pi} \left[ \tau \sigma T_\infty^4 
-                     + \epsilon \sigma T_w^4
-                     + \left(1 - \epsilon - \tau \right) K \right] ,
+   I\left(s\right) = \frac{1}{\pi} \left[ \tau \sigma T_\infty^4
+                   + \epsilon \sigma T_w^4
+                   + \left(1 - \epsilon - \tau \right) K \right] ,
 
 where :math:`\epsilon` is the total normal emissivity of the surface,
 :math:`\tau` is the transmissivity of the surface, :math:`T_w` is the

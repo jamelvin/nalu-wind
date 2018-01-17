@@ -19,38 +19,17 @@
 namespace sierra{
 namespace nalu{
 
+LinearSolverConfig::LinearSolverConfig()
+  : params_(Teuchos::rcp(new Teuchos::ParameterList)),
+    paramsPrecond_(Teuchos::rcp(new Teuchos::ParameterList))
+{}
+
 TpetraLinearSolverConfig::TpetraLinearSolverConfig() :
-  params_(Teuchos::rcp(new Teuchos::ParameterList)),
-  paramsPrecond_(Teuchos::rcp(new Teuchos::ParameterList)),
-  useMueLu_(false),
-  recomputePreconditioner_(true),
-  reusePreconditioner_(false),
-  writeMatrixFiles_(false),
-  summarizeMueluTimer_(false),
-  preconditionerType_("RELAXATION")
+  LinearSolverConfig()
 {}
 
 TpetraLinearSolverConfig::~TpetraLinearSolverConfig()
-{
-}
-
-std::string
-TpetraLinearSolverConfig::name() const
-{
-  return name_;
-}
-
-const Teuchos::RCP<Teuchos::ParameterList> &
-TpetraLinearSolverConfig::params() const
-{
-  return params_;
-}
-
-const Teuchos::RCP<Teuchos::ParameterList> &
-TpetraLinearSolverConfig::paramsPrecond() const
-{
-  return paramsPrecond_;
-}
+{}
 
 void
 TpetraLinearSolverConfig::load(const YAML::Node & node)
@@ -58,23 +37,26 @@ TpetraLinearSolverConfig::load(const YAML::Node & node)
   name_ = node["name"].as<std::string>() ;
   method_ = node["method"].as<std::string>() ;
   get_if_present(node, "preconditioner", precond_, std::string("default"));
+  solverType_ = "tpetra";
 
   double tol;
   int max_iterations, kspace, output_level;
 
-  get_if_present(node, "tolerance", tol, 1.e-4);
+  get_if_present(node, "tolerance", tolerance_, 1.e-4);
+  get_if_present(node, "final_tolerance", finalTolerance_, tolerance_);
   get_if_present(node, "max_iterations", max_iterations, 50);
   get_if_present(node, "kspace", kspace, 50);
   get_if_present(node, "output_level", output_level, 0);
+
+  tol = tolerance_;
 
   //Teuchos::RCP<Teuchos::ParameterList> params = Teuchos::params();
   params_->set("Convergence Tolerance", tol);
   params_->set("Maximum Iterations", max_iterations);
   if (output_level > 0)
   {
-    params_->set("Verbosity", Belos::Debug + Belos::Warnings + Belos::IterationDetails
-      + Belos::OrthoDetails + Belos::FinalSummary
-      + Belos::TimingDetails + Belos::StatusTestDetails);
+    params_->set("Verbosity", Belos::Errors + Belos::Warnings + Belos::StatusTestDetails);
+    params_->set("Output Style",Belos::Brief); 
   }
 
   params_->set("Output Frequency", output_level);

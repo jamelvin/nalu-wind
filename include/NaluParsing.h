@@ -155,6 +155,13 @@ struct NormalHeatFlux {
   {}
 };
 
+struct NormalTemperatureGradient {
+  double tempGradN_;
+  NormalTemperatureGradient()
+    : tempGradN_(0.0)
+  {}
+};
+
 struct RoughnessHeight {
   double z0_;
   RoughnessHeight()
@@ -257,26 +264,55 @@ struct OpenUserData : public UserData {
 };
 
 struct OversetUserData : public UserData {
-  // at present, simulation can have one background mesh with multiple, non-interacting overset blocks
+  // at present, simulation can have one background mesh with multiple,
+  // non-interacting overset blocks
+
+  /// Percentage overlap between background and interior mesh
   double percentOverlap_;
   bool clipIsoParametricCoords_;
   bool detailedOutput_;
+  /// Part name for the background  mesh
   std::string backgroundBlock_;
+
+  /// Part name for the interior fringe surface created on the background mesh
+  /// by hole cutting algorithm
   std::string backgroundSurface_;
+
+  /// Part name for the inactive elements on the background mesh as a result of
+  /// hole cutting.
   std::string backgroundCutBlock_;
+
+  /// Exterior boundary of the internal meshe(s) that are mandatory receptors
   std::string oversetSurface_;
+
+  /// List of part names for the interior meshes
   std::vector<std::string> oversetBlockVec_;
- OversetUserData()
-   : UserData(),
-    percentOverlap_(10.0), clipIsoParametricCoords_(false), detailedOutput_(false), backgroundBlock_("na"),
-    backgroundSurface_("na"), backgroundCutBlock_("na"), oversetSurface_("na")
-    {} 
+
+#ifdef NALU_USES_TIOGA
+  YAML::Node oversetBlocks_;
+#endif
+
+  OversetUserData()
+    : UserData(),
+      percentOverlap_(10.0),
+      clipIsoParametricCoords_(false),
+      detailedOutput_(false),
+      backgroundBlock_("na"),
+      backgroundSurface_("na"),
+      backgroundCutBlock_("na"),
+      oversetSurface_("na")
+  {}
 };
- 
+
 struct SymmetryUserData : public UserData {
+  NormalTemperatureGradient normalTemperatureGradient_;
+
+  bool normalTemperatureGradientSpec_;
+
   SymmetryUserData()
-    : UserData()
-  {/* nothing yet*/}
+    : UserData(),
+      normalTemperatureGradientSpec_(false)
+  {}
 };
 
 struct PeriodicUserData : public UserData {
@@ -296,9 +332,10 @@ struct NonConformalUserData : public UserData {
   double expandBoxPercentage_;
   bool clipIsoParametricCoords_;
   double searchTolerance_;
+  bool dynamicSearchTolAlg_;
   NonConformalUserData()
     : UserData(),
-    searchMethodName_("na"), expandBoxPercentage_(0.0), clipIsoParametricCoords_(false), searchTolerance_(1.0e-16)
+    searchMethodName_("na"), expandBoxPercentage_(0.0), clipIsoParametricCoords_(false), searchTolerance_(1.0e-16), dynamicSearchTolAlg_(false)
   {}
 };
 
@@ -318,8 +355,15 @@ struct OpenBoundaryConditionData : public BoundaryCondition {
 };
 
 struct OversetBoundaryConditionData : public BoundaryCondition {
+  enum OversetAPI {
+    NALU_STK      = 0, ///< Native Nalu holecutting using STK search
+    TPL_TIOGA     = 1, ///< Overset connectivity using TIOGA
+    OVERSET_NONE  = 2  ///< Guard for error messages
+  };
+
   OversetBoundaryConditionData(BoundaryConditions& bcs) : BoundaryCondition(bcs){};
   OversetUserData userData_;
+  OversetAPI oversetConnectivityType_;
 };
 
 struct SymmetryBoundaryConditionData : public BoundaryCondition {
@@ -530,6 +574,10 @@ template<> struct convert<sierra::nalu::RoughnessHeight> {
 
 template<> struct convert<sierra::nalu::NormalHeatFlux> {
   static bool decode(const Node& node, sierra::nalu::NormalHeatFlux& rhs) ;
+};
+
+template<> struct convert<sierra::nalu::NormalTemperatureGradient> {
+  static bool decode(const Node& node, sierra::nalu::NormalTemperatureGradient& rhs) ;
 };
 
 template<> struct convert<sierra::nalu::MasterSlave> {

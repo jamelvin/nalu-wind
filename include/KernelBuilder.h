@@ -40,6 +40,13 @@ namespace nalu{
   }
 
   template <template <typename> class T, typename... Args>
+  Kernel* build_fem_kernel(stk::topology topo, Args&&... args)
+  {
+    ThrowRequireMsg(topo == stk::topology::HEXAHEDRON_8, "FEM kernels only implemented for Hex8 topology");
+    return new T<AlgTraitsHex8>(std::forward<Args>(args)...);
+  }
+
+  template <template <typename> class T, typename... Args>
   Kernel* build_topo_kernel(int dimension, stk::topology topo, Args&&... args)
   {
     if (!topo.is_super_topology()) {
@@ -103,6 +110,26 @@ namespace nalu{
     return isCreated;
   }
 
+  template <template <typename> class T, typename... Args>
+  bool build_fem_kernel_if_requested(
+    stk::topology topo,
+    EquationSystem& eqSys,
+    std::vector<Kernel*>& kernelVec,
+    std::string name,
+    Args&&... args)
+  {
+    bool isCreated = false;
+    KernelBuilderLog::self().add_valid_name(eqSys.eqnTypeName_,  name);
+    if (eqSys.supp_alg_is_requested(name)) {
+      Kernel* compKernel = build_fem_kernel<T>(topo, std::forward<Args>(args)...);
+      ThrowRequire(compKernel != nullptr);
+      KernelBuilderLog::self().add_built_name(eqSys.eqnTypeName_,  name);
+      kernelVec.push_back(compKernel);
+      isCreated = true;
+    }
+    return isCreated;
+  }
+
   inline std::pair<AssembleElemSolverAlgorithm*, bool>
   build_or_add_part_to_solver_alg(
     EquationSystem& eqSys,
@@ -112,7 +139,13 @@ namespace nalu{
     const stk::topology topo = part.topology();
     const std::string algName = "AssembleElemSolverAlg_" + topo.name();
 
-    bool isNotNGP = !(topo == stk::topology::HEXAHEDRON_8 || topo == stk::topology::HEXAHEDRON_27);
+    bool isNotNGP = !(topo == stk::topology::HEXAHEDRON_8 ||
+                      topo == stk::topology::HEXAHEDRON_27 ||
+                      topo == stk::topology::QUADRILATERAL_4_2D ||
+                      topo == stk::topology::TRIANGLE_3_2D ||
+                      topo == stk::topology::WEDGE_6 ||
+                      topo == stk::topology::TETRAHEDRON_4 ||
+                      topo == stk::topology::PYRAMID_5);
 
     auto itc = solverAlgs.find(algName);
     bool createNewAlg = itc == solverAlgs.end();

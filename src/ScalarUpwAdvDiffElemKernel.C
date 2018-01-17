@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------*/
-/*  Copyright 2014 National Renewable Energy Laboratory.                  */
+/*  Copyright 2014 Sandia Corporation.                                    */
 /*  This software is released under the license detailed                  */
 /*  in the file, LICENSE, which is located in the top-level Nalu          */
 /*  directory structure                                                   */
@@ -82,7 +82,7 @@ ScalarUpwAdvDiffElemKernel<AlgTraits>::ScalarUpwAdvDiffElemKernel(
   dataPreReqs.add_element_field(*massFlowRate_, AlgTraits::numScsIp_);
   dataPreReqs.add_master_element_call(SCS_AREAV, CURRENT_COORDINATES);
   if ( shiftedGradOp_ )
-    dataPreReqs.add_master_element_call(SCS_GRAD_OP, CURRENT_COORDINATES);
+    dataPreReqs.add_master_element_call(SCS_SHIFTED_GRAD_OP, CURRENT_COORDINATES);
   else
     dataPreReqs.add_master_element_call(SCS_GRAD_OP, CURRENT_COORDINATES);
 }
@@ -169,7 +169,7 @@ ScalarUpwAdvDiffElemKernel<AlgTraits>::execute(
       udotx += uj*dxj;
     }
     const DoubleType tmp = stk::math::abs(udotx)/(diffIp+small_);
-    //ugh, should we do this tedious loop over ndoubles, or convert PecletFunction to DoubleType?
+    //FIXME: modify pecletFunction to be double type
     DoubleType pecfac = 0.0;
     for(int simdIndex=0; simdIndex<stk::simd::ndoubles; ++simdIndex) {
       stk::simd::set_data(pecfac, simdIndex, pecletFunction_->execute(stk::simd::get_data(tmp, simdIndex)));
