@@ -5,7 +5,7 @@
 /*  directory structure                                                   */
 /*------------------------------------------------------------------------*/
 
-#include "AdaptivityParameterSFLESSrcElemKernel.h"
+#include "kernel/AdaptivityParameterSFLESSrcElemKernel.h"
 #include "AlgTraits.h"
 #include "Enums.h"
 #include "SolutionOptions.h"

@@ -49,15 +49,15 @@
 
 // template for supp algs
 #include <AlgTraits.h>
-#include <KernelBuilder.h>
-#include <KernelBuilderLog.h>
+#include <kernel/KernelBuilder.h>
+#include <kernel/KernelBuilderLog.h>
 
 // consolidated
 #include <AssembleElemSolverAlgorithm.h>
-#include <ScalarMassElemKernel.h>
-#include <ScalarAdvDiffElemKernel.h>
-#include <ScalarUpwAdvDiffElemKernel.h>
-#include <AdaptivityParameterSFLESSrcElemKernel.h>
+#include <kernel/ScalarMassElemKernel.h>
+#include <kernel/ScalarAdvDiffElemKernel.h>
+#include <kernel/ScalarUpwAdvDiffElemKernel.h>
+#include <kernel/AdaptivityParameterSFLESSrcElemKernel.h>
 
 // nso
 #include <nso/ScalarNSOElemKernel.h>
