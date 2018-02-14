@@ -63,12 +63,14 @@ enum EquationType {
   EQ_MESH_DISPLACEMENT = 7,
   EQ_SPEC_DISS_RATE = 8,
   EQ_MASS_FRACTION = 9,
-  EQ_PNG   = 10,
-  EQ_PNG_P = 11,
-  EQ_PNG_Z = 12,
-  EQ_PNG_H = 13,
-  EQ_PNG_U = 14,
-  EQ_PNG_TKE = 15, // FIXME... Last PNG managed like this..
+  EQ_ADAPT_PARAM = 10,
+  EQ_PNG   = 11,
+  EQ_PNG_P = 12,
+  EQ_PNG_Z = 13,
+  EQ_PNG_H = 14,
+  EQ_PNG_U = 15,
+  EQ_PNG_TKE = 16, 
+  EQ_PNG_ALPHA = 17, // FIXME... Last PNG managed like this..
   EquationSystemType_END
 };
 
@@ -83,12 +85,14 @@ static const std::string EquationTypeMap[] = {
   "MeshVelocity",
   "Specific_Dissipation_Rate",
   "Mass_Fraction",
+  "Adaptivity_Parameter",
   "PNG",
   "PNG_P",
   "PNG_Z",
   "PNG_H",
   "PNG_U",
-  "PNG_TKE"
+  "PNG_TKE",
+  "PNG_ALPHA"
 };
 
 enum UserDataType {
@@ -149,6 +153,7 @@ enum TurbulenceModel {
   WALE = 3,
   SST = 4,
   SST_DES = 5,
+  SFLES = 6,
   TurbulenceModel_END
 };  
 
@@ -159,7 +164,8 @@ static const std::string TurbulenceModelNames[] = {
   "smagorinsky",
   "wale",
   "sst",
-  "sst_des"};
+  "sst_des",
+  "alpha_sfles"};
 
 enum TurbulenceModelConstant {
   TM_cMu = 0,
@@ -185,6 +191,8 @@ enum TurbulenceModelConstant {
   TM_SDRWallFactor = 20,
   TM_zCV = 21,
   TM_ci = 22,
+  TM_cT = 23,
+  TM_cNu = 24,
   TM_END = 23
 };
 
@@ -212,6 +220,8 @@ static const std::string TurbulenceModelConstantNames[] = {
   "SDRWallFactor",
   "Z_CV",
   "ci",
+  "cT",
+  "cNu",
   "END"};
 
 enum ActuatorType {

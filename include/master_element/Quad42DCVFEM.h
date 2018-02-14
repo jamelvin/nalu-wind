@@ -137,6 +137,11 @@ public:
      double *gij,
      double *deriv) override ;
 
+  void Mij(
+    SharedMemView<DoubleType** >& coords,
+    SharedMemView<DoubleType***>& metric,
+    SharedMemView<DoubleType***>& deriv) override ;
+
   const int * adjacentNodes() override;
 
   int opposingNodes(

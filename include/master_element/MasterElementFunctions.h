@@ -178,6 +178,173 @@ namespace nalu {
   }
 
   template <typename AlgTraits, typename GradViewType, typename CoordViewType, typename OutputViewType>
+  void generic_Mij_3d(
+    const GradViewType& referenceGradWeights,
+    const CoordViewType& coords,
+    OutputViewType& metric)
+  {
+    using ftype = typename CoordViewType::value_type;
+    static_assert(std::is_same<ftype, typename GradViewType::value_type>::value,
+      "Incompatiable value type for views");
+    static_assert(std::is_same<ftype, typename OutputViewType::value_type>::value,
+      "Incompatiable value type for views");
+    static_assert(GradViewType::Rank == 3, "grad view assumed to be 3D");
+    static_assert(CoordViewType::Rank == 2, "Coordinate view assumed to be 2D");
+    static_assert(OutputViewType::Rank == 3, "Mij view assumed to be 3D");
+    static_assert(AlgTraits::nDim_ == 3, "3D method");
+
+    for (unsigned ip = 0; ip < referenceGradWeights.extent(0); ++ip) {
+
+      ftype jac[3][3] = { {0.0, 0.0, 0.0}, {0.0, 0.0, 0.0}, {0.0, 0.0, 0.0} };
+      for (int n = 0; n < AlgTraits::nodesPerElement_; ++n) {
+        jac[0][0] += referenceGradWeights(ip, n, 0) * coords(n, 0);
+        jac[0][1] += referenceGradWeights(ip, n, 1) * coords(n, 0);
+        jac[0][2] += referenceGradWeights(ip, n, 2) * coords(n, 0);
+
+        jac[1][0] += referenceGradWeights(ip, n, 0) * coords(n, 1);
+        jac[1][1] += referenceGradWeights(ip, n, 1) * coords(n, 1);
+        jac[1][2] += referenceGradWeights(ip, n, 2) * coords(n, 1);
+
+        jac[2][0] += referenceGradWeights(ip, n, 0) * coords(n, 2);
+        jac[2][1] += referenceGradWeights(ip, n, 1) * coords(n, 2);
+        jac[2][2] += referenceGradWeights(ip, n, 2) * coords(n, 2);
+      }
+
+      // Here we calculate Mij^2 = J J^T
+      metric(ip, 0, 0) = jac[0][0] * jac[0][0] + jac[0][1] * jac[0][1] + jac[0][2] * jac[0][2];
+      metric(ip, 0, 1) = jac[0][0] * jac[1][0] + jac[0][1] * jac[1][1] + jac[0][2] * jac[1][2];
+      metric(ip, 0, 2) = jac[0][0] * jac[2][0] + jac[0][1] * jac[2][1] + jac[0][2] * jac[2][2];
+
+      metric(ip, 1, 0) = metric(ip, 0, 1);
+      metric(ip, 1, 1) = jac[1][0] * jac[1][0] + jac[1][1] * jac[1][1] + jac[1][2] * jac[1][2];
+      metric(ip, 1, 2) = jac[1][0] * jac[2][0] + jac[1][1] * jac[2][1] + jac[1][2] * jac[2][2];
+
+      metric(ip, 2, 0) = metric(ip, 0, 2);
+      metric(ip, 2, 1) = metric(ip, 1, 2);
+      metric(ip, 2, 2) = jac[2][0] * jac[2][0] + jac[2][1] * jac[2][1] + jac[2][2] * jac[2][2];
+
+      // Now we take the sqrt(M^2) using eigenvalue decomposition, i.e. M = A sqrt(L) A^T
+      // where M^2 = A L A^T since M^2 is symmetric positive definite as is M
+
+      // TODO: Should this be abstracted from here?
+      /*
+        obtained from: 
+        http://stackoverflow.com/questions/4372224/
+        fast-method-for-computing-3x3-symmetric-matrix-spectral-decomposition
+    
+        metric must be a symmetric matrix.
+        returns Q and D such that 
+        Diagonal matrix D = QT * metric * Q;  and  metric = Q*D*QT
+      */
+   
+//*****FIXME: THIS IS A HACK FOR DEBUGGING PURPOSES*******//
+   for(int jjj=0; jjj<2; jjj++) { 
+      const int maxsteps=24;
+      int k0, k1, k2;
+      double o[3], m[3];
+      double q [4] = {0.0,0.0,0.0,1.0};
+      double jr[4];
+      double sqw, sqx, sqy, sqz;
+      double tmp1, tmp2, mq;
+      double AQ[3][3];
+      double Q[3][3];
+      double D[3][3];
+      double thet, sgn, t, c;
+      for(int i=0;i < maxsteps;++i) {
+        // quat to matrix
+        sqx      = q[0]*q[0];
+        sqy      = q[1]*q[1];
+        sqz      = q[2]*q[2];
+        sqw      = q[3]*q[3];
+        Q[0][0]  = ( sqx - sqy - sqz + sqw);
+        Q[1][1]  = (-sqx + sqy - sqz + sqw);
+        Q[2][2]  = (-sqx - sqy + sqz + sqw);
+        tmp1     = q[0]*q[1];
+        tmp2     = q[2]*q[3];
+        Q[1][0]  = 2.0 * (tmp1 + tmp2);
+        Q[0][1]  = 2.0 * (tmp1 - tmp2);
+        tmp1     = q[0]*q[2];
+        tmp2     = q[1]*q[3];
+        Q[2][0]  = 2.0 * (tmp1 - tmp2);
+        Q[0][2]  = 2.0 * (tmp1 + tmp2);
+        tmp1     = q[1]*q[2];
+        tmp2     = q[0]*q[3];
+        Q[2][1]  = 2.0 * (tmp1 + tmp2);
+        Q[1][2]  = 2.0 * (tmp1 - tmp2);
+    
+        // AQ = A * Q
+        AQ[0][0] = Q[0][0]*metric(ip, 0, 0)._data[jjj]+Q[1][0]*metric(ip, 0, 1)._data[jjj]+Q[2][0]*metric(ip, 0, 2)._data[jjj];
+        AQ[0][1] = Q[0][1]*metric(ip, 0, 0)._data[jjj]+Q[1][1]*metric(ip, 0, 1)._data[jjj]+Q[2][1]*metric(ip, 0, 2)._data[jjj];
+        AQ[0][2] = Q[0][2]*metric(ip, 0, 0)._data[jjj]+Q[1][2]*metric(ip, 0, 1)._data[jjj]+Q[2][2]*metric(ip, 0, 2)._data[jjj];
+        AQ[1][0] = Q[0][0]*metric(ip, 0, 1)._data[jjj]+Q[1][0]*metric(ip, 1, 1)._data[jjj]+Q[2][0]*metric(ip, 1, 2)._data[jjj];
+        AQ[1][1] = Q[0][1]*metric(ip, 0, 1)._data[jjj]+Q[1][1]*metric(ip, 1, 1)._data[jjj]+Q[2][1]*metric(ip, 1, 2)._data[jjj];
+        AQ[1][2] = Q[0][2]*metric(ip, 0, 1)._data[jjj]+Q[1][2]*metric(ip, 1, 1)._data[jjj]+Q[2][2]*metric(ip, 1, 2)._data[jjj];
+        AQ[2][0] = Q[0][0]*metric(ip, 0, 2)._data[jjj]+Q[1][0]*metric(ip, 1, 2)._data[jjj]+Q[2][0]*metric(ip, 2, 2)._data[jjj];
+        AQ[2][1] = Q[0][1]*metric(ip, 0, 2)._data[jjj]+Q[1][1]*metric(ip, 1, 2)._data[jjj]+Q[2][1]*metric(ip, 2, 2)._data[jjj];
+        AQ[2][2] = Q[0][2]*metric(ip, 0, 2)._data[jjj]+Q[1][2]*metric(ip, 1, 2)._data[jjj]+Q[2][2]*metric(ip, 2, 2)._data[jjj];
+        // D = Qt * AQ
+        D[0][0] = AQ[0][0]*Q[0][0]+AQ[1][0]*Q[1][0]+AQ[2][0]*Q[2][0];
+        D[0][1] = AQ[0][0]*Q[0][1]+AQ[1][0]*Q[1][1]+AQ[2][0]*Q[2][1];
+        D[0][2] = AQ[0][0]*Q[0][2]+AQ[1][0]*Q[1][2]+AQ[2][0]*Q[2][2];
+        D[1][0] = AQ[0][1]*Q[0][0]+AQ[1][1]*Q[1][0]+AQ[2][1]*Q[2][0];
+        D[1][1] = AQ[0][1]*Q[0][1]+AQ[1][1]*Q[1][1]+AQ[2][1]*Q[2][1];
+        D[1][2] = AQ[0][1]*Q[0][2]+AQ[1][1]*Q[1][2]+AQ[2][1]*Q[2][2];
+        D[2][0] = AQ[0][2]*Q[0][0]+AQ[1][2]*Q[1][0]+AQ[2][2]*Q[2][0];
+        D[2][1] = AQ[0][2]*Q[0][1]+AQ[1][2]*Q[1][1]+AQ[2][2]*Q[2][1];
+        D[2][2] = AQ[0][2]*Q[0][2]+AQ[1][2]*Q[1][2]+AQ[2][2]*Q[2][2];
+        o[0]    = D[1][2];
+        o[1]    = D[0][2];
+        o[2]    = D[0][1];
+        m[0]    = std::abs(o[0]);
+        m[1]    = std::abs(o[1]);
+        m[2]    = std::abs(o[2]);
+
+        k0      = (m[0] > m[1] && m[0] > m[2])?0: (m[1] > m[2])? 1 : 2; // index of largest element of offdiag
+        k1      = (k0+1)%3;
+        k2      = (k0+2)%3;
+        if (o[k0]==0.0) {
+          break;  // diagonal already
+        }
+        thet    = (D[k2][k2]-D[k1][k1])/(2.0*o[k0]);
+        sgn     = (thet > 0.0)?1.0:-1.0;
+        thet   *= sgn; // make it positive
+        t       = sgn /(thet +((thet < 1.E6)? stk::math::sqrt(thet*thet+1.0):thet)) ; // sign(T)/(|T|+sqrt(T^2+1))
+        c       = 1.0/stk::math::sqrt(t*t+1.0); //  c= 1/(t^2+1) , t=s/c 
+ 
+        if(c == 1.0) {
+          break;  // no room for improvement - reached machine precision.
+        }
+        jr[0 ]  = jr[1] = jr[2] = jr[3] = 0.0;
+        jr[k0]  = sgn*stk::math::sqrt((1.0-c)/2.0);  // using 1/2 angle identity sin(a/2) = std::sqrt((1-cos(a))/2)  
+        jr[k0] *= -1.0; // since our quat-to-matrix convention was for v*M instead of M*v
+        jr[3 ]  = stk::math::sqrt(1.0f - jr[k0] * jr[k0]);
+        
+        if(jr[3] == 1.0) {
+          break; // reached limits of floating point precision
+        }
+        q[0]    = (q[3]*jr[0] + q[0]*jr[3] + q[1]*jr[2] - q[2]*jr[1]);
+        q[1]    = (q[3]*jr[1] - q[0]*jr[2] + q[1]*jr[3] + q[2]*jr[0]);
+        q[2]    = (q[3]*jr[2] + q[0]*jr[1] - q[1]*jr[0] + q[2]*jr[3]);
+        q[3]    = (q[3]*jr[3] - q[0]*jr[0] - q[1]*jr[1] - q[2]*jr[2]);
+        mq      = stk::math::sqrt(q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3]);
+        q[0]   /= mq;
+        q[1]   /= mq;
+        q[2]   /= mq;
+        q[3]   /= mq;
+      }
+     
+      // At this point we have Q, the eigenvectors and D the eigenvalues of Mij^2, so to 
+      // create Mij, we use Q sqrt(D) Q^T
+      for (int i = 0; i < 3; i++) 
+        for (int j = 0; j < 3; j++) 
+          metric(ip,i,j)._data[jjj] = Q[i][0]*Q[j][0]*stk::math::sqrt(D[0][0]) + 
+                           	      Q[i][1]*Q[j][1]*stk::math::sqrt(D[1][1]) + 
+                           	      Q[i][2]*Q[j][2]*stk::math::sqrt(D[2][2]);  
+  }  // THIS IS THE END OF THE FIXME: HACK
+    }
+  }
+
+  template <typename AlgTraits, typename GradViewType, typename CoordViewType, typename OutputViewType>
   void generic_determinant_3d(GradViewType referenceGradWeights, CoordViewType coords, OutputViewType detj)
   {
     using ftype = typename CoordViewType::value_type;

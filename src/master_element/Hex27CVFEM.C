@@ -1639,6 +1639,26 @@ void Hex27SCS::gij(
 }
 
 //--------------------------------------------------------------------------
+//-------- Mij -------------------------------------------------------------
+//--------------------------------------------------------------------------
+void Hex27SCS::Mij(
+  SharedMemView<DoubleType**>& coords,
+  SharedMemView<DoubleType***>& metric,
+  SharedMemView<DoubleType***>& deriv)
+{
+  generic_Mij_3d<AlgTraits>(referenceGradWeights_, coords, metric);
+
+  // TODO: What is this part for?  Shouldn't deriv already be defined?
+  for (unsigned ip = 0; ip < 216; ++ip) {
+    for (unsigned n = 0; n < 27; ++n) {
+      for (unsigned d = 0; d < 3; ++d) {
+        deriv(ip,n,d) = referenceGradWeights_(ip,n,d);
+      }
+    }
+  }
+}
+
+//--------------------------------------------------------------------------
 //-------- general_face_grad_op --------------------------------------------
 //--------------------------------------------------------------------------
 void

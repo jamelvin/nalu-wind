@@ -630,6 +630,19 @@ namespace YAML
     return true;
   }
 
+  bool convert<sierra::nalu::AdaptParam>::decode(const Node& node,
+    sierra::nalu::AdaptParam& alpha)
+  {
+    if (!node.IsScalar())
+    {
+      return false;
+    }
+
+    alpha.adaptParam_ = node.as<double>();
+
+    return true;
+  }
+
   bool convert<sierra::nalu::Emissivity>::decode(const Node& node,
     sierra::nalu::Emissivity& emiss)
   {
@@ -808,6 +821,14 @@ namespace YAML
       wallData.bcDataSpecifiedMap_["mass_fraction"] = true;
       wallData.bcDataTypeMap_["mass_fraction"] = sierra::nalu::CONSTANT_UD;
     }
+
+    if (node["adaptivity_parameter"])
+    {
+      wallData.alpha_ = node["adaptivity_parameter"].as<sierra::nalu::AdaptParam>();
+      wallData.bcDataSpecifiedMap_["adaptivity_parameter"] = true;
+      wallData.bcDataTypeMap_["adaptivity_parameter"] = sierra::nalu::CONSTANT_UD;
+    }
+
     if (node["emissivity"])
     {
       wallData.emissivity_ = node["emissivity"].as<sierra::nalu::Emissivity>();
@@ -985,6 +1006,11 @@ namespace YAML
           sierra::nalu::MassFraction>();
       inflowData.massFractionSpec_ = true;
     }
+    if (node["adaptivity_parameter"])
+    {
+      inflowData.alpha_ = node["adaptivity_parameter"].as<sierra::nalu::AdaptParam>();
+      inflowData.alphaSpec_ = true;
+    }
     if (node["temperature"])
     {
       inflowData.temperature_ =
@@ -1065,6 +1091,11 @@ namespace YAML
       openData.massFraction_ = node["mass_fraction"].as<
           sierra::nalu::MassFraction>();
       openData.massFractionSpec_ = true;
+    }
+    if (node["adaptivity_parameter"])
+    {
+      openData.alpha_ = node["adaptvitiy_parameter"].as<sierra::nalu::AdaptParam>();
+      openData.alphaSpec_ = true;
     }
     if (node["temperature"])
     {

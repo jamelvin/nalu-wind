@@ -83,6 +83,13 @@ struct MassFraction {
   {}
 };
 
+struct AdaptParam {
+  double adaptParam_;
+  AdaptParam()
+    : adaptParam_(0.0)
+  {}
+};
+
 struct Emissivity {
   double emissivity_;
   Emissivity()
@@ -182,6 +189,7 @@ struct WallUserData : public UserData {
   TurbKinEnergy tke_;
   MixtureFraction mixFrac_;
   MassFraction massFraction_;
+  AdaptParam alpha_;
   Emissivity emissivity_;
   Irradiation irradiation_;
   Transmissivity transmissivity_;
@@ -230,15 +238,17 @@ struct InflowUserData : public UserData {
   SpecDissRate sdr_;
   MixtureFraction mixFrac_;
   MassFraction massFraction_;
+  AdaptParam alpha_;
  
   bool uSpec_;
   bool tkeSpec_;
   bool sdrSpec_;
   bool mixFracSpec_;
   bool massFractionSpec_;
+  bool alphaSpec_;
   InflowUserData()
     : UserData(),
-    uSpec_(false), tkeSpec_(false), sdrSpec_(false), mixFracSpec_(false), massFractionSpec_(false)
+    uSpec_(false), tkeSpec_(false), sdrSpec_(false), mixFracSpec_(false), massFractionSpec_(false), alphaSpec_(false)
   {}
 };
 
@@ -249,6 +259,7 @@ struct OpenUserData : public UserData {
   SpecDissRate sdr_;
   MixtureFraction mixFrac_;
   MassFraction massFraction_;
+  AdaptParam alpha_;
  
   bool uSpec_;
   bool pSpec_;
@@ -256,10 +267,11 @@ struct OpenUserData : public UserData {
   bool sdrSpec_;
   bool mixFracSpec_;
   bool massFractionSpec_;
+  bool alphaSpec_;
 
   OpenUserData()
     : UserData(),
-      uSpec_(false), pSpec_(false), tkeSpec_(false), sdrSpec_(false), mixFracSpec_(false), massFractionSpec_(false)
+      uSpec_(false), pSpec_(false), tkeSpec_(false), sdrSpec_(false), mixFracSpec_(false), massFractionSpec_(false), alphaSpec_(false)
   {}
 };
 
@@ -534,6 +546,10 @@ template<> struct convert<sierra::nalu::MixtureFraction> {
 
 template<> struct convert<sierra::nalu::MassFraction> {
   static bool decode(const Node& node, sierra::nalu::MassFraction& rhs) ;
+};
+
+template<> struct convert<sierra::nalu::AdaptParam> {
+  static bool decode(const Node& node, sierra::nalu::AdaptParam& rhs) ;
 };
 
 template<> struct convert<sierra::nalu::Emissivity> {

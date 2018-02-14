@@ -749,6 +749,19 @@ void HexSCS::gij(
 }
 
 //--------------------------------------------------------------------------
+//-------- Mij -------------------------------------------------------------
+//--------------------------------------------------------------------------
+void HexSCS::Mij(
+    SharedMemView<DoubleType**>& coords,
+    SharedMemView<DoubleType***>& metric,
+    SharedMemView<DoubleType***>& deriv)
+{
+  // TODO: Do I need to call derivative here?  It's not already defined...?
+  hex8_derivative(numIntPoints_, &intgLoc_[0], deriv);
+  generic_Mij_3d<AlgTraitsHex8>(deriv, coords, metric);
+}
+
+//--------------------------------------------------------------------------
 //-------- adjacentNodes ---------------------------------------------------
 //--------------------------------------------------------------------------
 const int *

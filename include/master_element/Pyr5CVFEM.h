@@ -134,6 +134,11 @@ public:
     double *glowerij,
     double *deriv);
 
+  void Mij(
+    SharedMemView<DoubleType**>& coords,
+    SharedMemView<DoubleType***>& metric,
+    SharedMemView<DoubleType***>& deriv);
+
   const int * adjacentNodes();
 
   void shape_fcn(

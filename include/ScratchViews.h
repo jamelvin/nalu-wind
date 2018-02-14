@@ -79,6 +79,7 @@ public:
   SharedMemView<T*> scv_volume;
   SharedMemView<T***> gijUpper;
   SharedMemView<T***> gijLower;
+  SharedMemView<T***> metric;
 };
 
 template<typename T>
@@ -217,6 +218,13 @@ int MasterElementViews<T>::create_master_element_views(
          needDeriv = true;
          break;
 
+      case SCS_MIJ:
+         ThrowRequireMsg(numScsIp > 0, "ERROR, meSCS must be non-null if SCS_MIJ is requested.");
+         metric = get_shmem_view_3D<T>(team, numScsIp, nDim, nDim);
+         numScalars += 2 * numScsIp * nDim * nDim;
+         needDeriv = true;
+         break;
+
       case SCV_VOLUME:
          ThrowRequireMsg(numScvIp > 0, "ERROR, meSCV must be non-null if SCV_VOLUME is requested.");
          scv_volume = get_shmem_view_1D<T>(team, numScvIp);
@@ -326,6 +334,11 @@ void MasterElementViews<T>::fill_master_element_views(
          ThrowRequireMsg(coordsView != nullptr, "ERROR, coords null but SCS_GIJ requested.");
          meSCS->gij(&((*coordsView)(0,0)), &gijUpper(0,0,0), &gijLower(0,0,0), &deriv(0,0,0));
          break;
+      case SCS_MIJ:
+         ThrowRequireMsg(meSCS != nullptr, "ERROR, meSCS needs to be non-null if SCS_MIJ is requested.");
+         ThrowRequireMsg(coordsView != nullptr, "ERROR, coords null but SCS_MIJ requested.");
+         meSCS->Mij(&((*coordsView)(0,0)), &metric(0,0,0), &deriv(0,0,0));
+         break;
       case SCV_VOLUME:
          ThrowRequireMsg(meSCV != nullptr, "ERROR, meSCV needs to be non-null if SCV_VOLUME is requested.");
          ThrowRequireMsg(coordsView != nullptr, "ERROR, coords null but SCV_VOLUME requested.");
@@ -382,6 +395,11 @@ void MasterElementViews<T>::fill_master_element_views_new_me(
          ThrowRequireMsg(meSCS != nullptr, "ERROR, meSCS needs to be non-null if SCS_GIJ is requested.");
          ThrowRequireMsg(coordsView != nullptr, "ERROR, coords null but SCS_GIJ requested.");
          meSCS->gij(*coordsView, gijUpper, gijLower, deriv);
+         break;
+      case SCS_MIJ:
+         ThrowRequireMsg(meSCS != nullptr, "ERROR, meSCS needs to be non-null if SCS_MIJ is requested.");
+         ThrowRequireMsg(coordsView != nullptr, "ERROR, coords null but SCS_MIJ requested.");
+         meSCS->Mij(*coordsView, metric, deriv);
          break;
       case SCV_VOLUME:
          ThrowRequireMsg(meSCV != nullptr, "ERROR, meSCV needs to be non-null if SCV_VOLUME is requested.");

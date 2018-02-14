@@ -123,7 +123,7 @@ int get_num_scalars_pre_req_data(ElemDataRequests& dataNeededBySuppAlgs, int nDi
   {
     const std::set<ELEM_DATA_NEEDED>& dataEnums =
       dataNeededBySuppAlgs.get_data_enums(it->first);
-    int dndxLength = 0, gUpperLength = 0, gLowerLength = 0;
+    int dndxLength = 0, gUpperLength = 0, gLowerLength = 0, metricLength = 0;
 
     // Updated logic for data sharing of deriv and det_j
     bool needDeriv = false; bool needDerivScv = false; bool needDerivFem = false;
@@ -156,6 +156,11 @@ int get_num_scalars_pre_req_data(ElemDataRequests& dataNeededBySuppAlgs, int nDi
         gLowerLength = nDim*nDim*numScsIp;
         needDeriv = true;
         numScalars += (gUpperLength + gLowerLength );
+        break;
+      case SCS_MIJ:
+        metricLength = nDim*nDim*numScsIp;
+        needDeriv = true;
+        numScalars += metricLength;
         break;
       case FEM_GRAD_OP:
       case FEM_SHIFTED_GRAD_OP:

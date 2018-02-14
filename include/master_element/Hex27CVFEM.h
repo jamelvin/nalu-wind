@@ -281,6 +281,11 @@ public:
     SharedMemView<DoubleType***>& glower,
     SharedMemView<DoubleType***>& deriv);
 
+  void Mij(
+    SharedMemView<DoubleType**>& coords,
+    SharedMemView<DoubleType***>& metric,
+    SharedMemView<DoubleType***>& deriv);
+
   void determinant(
     const int nelem,
     const double *coords,
