@@ -90,6 +90,10 @@ TestTurbulenceAlgorithm::declare_fields()
      &meta.declare_field<ScalarFieldType>(
        stk::topology::NODE_RANK, "specific_heat"));
 
+  resolutionAdequacy_ = (
+     &meta.declare_field<ScalarFieldType>(
+       stk::topology::NODE_RANK, "resolution_adequacy_parameter"));
+
   stk::mesh::put_field(*density_, meta.universal_part(), 1);
   stk::mesh::put_field(*viscosity_, meta.universal_part(), 1);
   stk::mesh::put_field(*tke_, meta.universal_part(), 1);
@@ -105,6 +109,7 @@ TestTurbulenceAlgorithm::declare_fields()
   stk::mesh::put_field(*dwdx_, meta.universal_part(), spatialDim);
   stk::mesh::put_field(*dhdx_, meta.universal_part(), spatialDim);
   stk::mesh::put_field(*specificHeat_, meta.universal_part(), 1);
+  stk::mesh::put_field(*resolutionAdequacy_, meta.universal_part(), 1);
 }
 
 void

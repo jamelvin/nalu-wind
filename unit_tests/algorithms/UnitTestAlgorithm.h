@@ -108,6 +108,7 @@ public:
   VectorFieldType* dwdx_{nullptr};
   VectorFieldType* dhdx_{nullptr};
   ScalarFieldType* specificHeat_{nullptr};
+  ScalarFieldType* resolutionAdequacy_{nullptr};
 };
 
 struct NodeSuppHelper {

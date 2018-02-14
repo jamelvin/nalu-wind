@@ -672,6 +672,8 @@ SolutionOptions::initialize_turbulence_constants()
   turbModelConstantMap_[TM_ci] = 0.9;
   turbModelConstantMap_[TM_cT] = 6.0;
   turbModelConstantMap_[TM_cNu] = 140.0;
+  turbModelConstantMap_[TM_Ch] = 1.0;
+  turbModelConstantMap_[TM_Chmu] = 0.22;
 }
 
 
