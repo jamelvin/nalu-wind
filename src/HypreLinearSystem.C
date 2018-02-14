@@ -369,10 +369,11 @@ HypreLinearSystem::sumInto(
 {
   const size_t n_obj = numEntities;
   HypreIntType numRows = n_obj * numDof_;
+  const HypreIntType bufSize = idBuffer_.size();
 
   ThrowAssertMsg(lhs.is_contiguous(), "LHS assumed contiguous");
   ThrowAssertMsg(rhs.is_contiguous(), "RHS assumed contiguous");
-  if (idBuffer_.size() < numRows) idBuffer_.resize(numRows);
+  if (bufSize < numRows) idBuffer_.resize(numRows);
 
   for (size_t in=0; in < n_obj; in++) {
     HypreIntType hid = get_entity_hypre_id(entities[in]);
@@ -418,11 +419,12 @@ HypreLinearSystem::sumInto(
 {
   const size_t n_obj = entities.size();
   HypreIntType numRows = n_obj * numDof_;
+  const HypreIntType bufSize = idBuffer_.size();
 
-  ThrowAssert(numRows == rhs.size());
-  ThrowAssert(numRows*numRows == lhs.size());
+  ThrowAssert(numRows == static_cast<HypreIntType>(rhs.size()));
+  ThrowAssert(numRows*numRows == static_cast<HypreIntType>(lhs.size()));
 
-  if (idBuffer_.size() < numRows) idBuffer_.resize(numRows);
+  if (bufSize < numRows) idBuffer_.resize(numRows);
 
   for (size_t in=0; in < n_obj; in++) {
     HypreIntType hid = get_entity_hypre_id(entities[in]);
@@ -554,7 +556,11 @@ HypreLinearSystem::solve(stk::mesh::FieldBase* linearSolutionField)
   sync_field(linearSolutionField);
 
   linearSolveIterations_ = iters;
-  linearResidual_ = finalResidNorm;
+  // Hypre provides relative residuals not the final residual, so multiply by
+  // the non-linear residual to obtain a final residual that is comparable to
+  // what is reported by TpetraLinearSystem. Note that this assumes the initial
+  // solution vector is set to 0 at the start of linear iterations.
+  linearResidual_ = finalResidNorm * norm2;
   nonLinearResidual_ = realm_.l2Scaling_ * norm2;
 
   if (eqSys_->firstTimeStepSolve_)
@@ -569,7 +575,7 @@ HypreLinearSystem::solve(stk::mesh::FieldBase* linearSolutionField)
     NaluEnv::self().naluOutputP0()
       << std::setw(nameOffset) << std::right << eqSysName_
       << std::setw(32 - nameOffset) << std::right << iters << std::setw(18)
-      << std::right << finalResidNorm << std::setw(15) << std::right
+      << std::right << linearResidual_ << std::setw(15) << std::right
       << nonLinearResidual_ << std::setw(14) << std::right
       << scaledNonLinearResidual_ << std::endl;
   }
@@ -594,6 +600,7 @@ HypreLinearSystem::copy_hypre_to_stk(
     stk::topology::NODE_RANK, sel);
 
   double lclnorm2 = 0.0;
+  double rhsVal = 0.0;
   for (auto b: bkts) {
     double* field = (double*) stk::mesh::field_data(*stkField, *b);
     for (size_t in=0; in < b->size(); in++) {
@@ -604,8 +611,9 @@ HypreLinearSystem::copy_hypre_to_stk(
         HypreIntType lid = hid * numDof_ + d;
         int sid = in * numDof_ + d;
         HYPRE_IJVectorGetValues(sln_, 1, &lid, &field[sid]);
+        HYPRE_IJVectorGetValues(rhs_, 1, &lid, &rhsVal);
 
-        lclnorm2 += field[sid] * field[sid];
+        lclnorm2 += rhsVal * rhsVal;
       }
     }
   }

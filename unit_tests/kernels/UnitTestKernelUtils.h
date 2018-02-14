@@ -8,11 +8,10 @@
 #ifndef UNITTESTKERNELUTILS_H
 #define UNITTESTKERNELUTILS_H
 
-#include <gtest/gtest.h>
 #include "UnitTestUtils.h"
 
 #include "SolutionOptions.h"
-#include "Kernel.h"
+#include "kernel/Kernel.h"
 #include "ElemDataRequests.h"
 #include "ScratchViews.h"
 #include "CopyAndInterleave.h"
@@ -22,6 +21,7 @@
 
 #include <gtest/gtest.h>
 
+#include <mpi.h>
 #include <vector>
 #include <memory>
 #include <iostream>
