@@ -126,6 +126,11 @@ void EquationSystems::load(const YAML::Node & y_node)
           get_if_present_no_default(y_eqsys, "clipping_delta", deltaZClip);
           eqSys = new MixtureFractionEquationSystem(*this, ouputClipDiag, deltaZClip);
         }
+        else if( expect_map(y_system, "AdaptivityParameter", true) ) {
+          y_eqsys =  expect_map(y_system, "AdaptivityParameter", true) ;
+          if (root()->debug()) NaluEnv::self().naluOutputP0() << "eqSys = alpha " << std::endl;
+          eqSys = new AdaptivityParameterEquationSystem(*this);
+        }
         else if( expect_map(y_system, "Enthalpy", true) ) {
 	  y_eqsys =  expect_map(y_system, "Enthalpy", true);
           if (root()->debug()) NaluEnv::self().naluOutputP0() << "eqSys = enthalpy " << std::endl;

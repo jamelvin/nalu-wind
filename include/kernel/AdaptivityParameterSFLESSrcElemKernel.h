@@ -47,6 +47,7 @@ public:
 private:
   AdaptivityParameterSFLESSrcElemKernel() = delete;
 
+  VectorFieldType *coordinates_{nullptr};
   ScalarFieldType *alphaNp1_{nullptr};
   ScalarFieldType *densityNp1_{nullptr};
   VectorFieldType *velocityNp1_{nullptr};
