@@ -1096,7 +1096,19 @@ void PyrSCS::gij(
 //--------------------------------------------------------------------------
 //-------- Mij -------------------------------------------------------------
 //--------------------------------------------------------------------------
-void PyrSCS::Mij(
+void PyrSCV::Mij(
+  const double *coords,
+  double *metric,
+  double *deriv)
+{
+  SIERRA_FORTRAN(threed_mij)
+    ( &nodesPerElement_,
+      &numIntPoints_,
+      deriv,
+      coords, metric);
+}
+//-------------------------------------------------------------------------
+void PyrSCV::Mij(
     SharedMemView<DoubleType**>& coords,
     SharedMemView<DoubleType***>& metric,
     SharedMemView<DoubleType***>& deriv)

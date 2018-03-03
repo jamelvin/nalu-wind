@@ -55,6 +55,8 @@ private:
   ScalarFieldType *tkeNp1_{nullptr};
   ScalarFieldType *sdrNp1_{nullptr};
   ScalarFieldType *dualNodalVolume_{nullptr};
+  ScalarFieldType *resolutionAdequacy_{nullptr};
+  GenericFieldType *Mij_{nullptr};
 
   double cT_{0.0};
   double cNu_{0.0};

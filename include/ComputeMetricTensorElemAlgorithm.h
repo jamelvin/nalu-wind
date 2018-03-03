@@ -5,8 +5,8 @@
 /*  directory structure                                                   */
 /*------------------------------------------------------------------------*/
 
-#ifndef COMPUTERESOLUTIONADEQUACYELEMALGORITHM_H
-#define COMPUTERESOLUTIONADEQUACYELEMALGORITHM_H
+#ifndef COMPUTEMETRICTENSORELEMALGORITHM_H
+#define COMPUTEMETRICTENSORELEMALGORITHM_H
 
 #include <Algorithm.h>
 #include <FieldTypeDef.h>
@@ -15,25 +15,21 @@ namespace sierra {
 namespace nalu {
 
 class Realm;
-class ComputeResolutionAdequacyElemAlgorithm : public Algorithm
+class ComputeMetricTensorElemAlgorithm : public Algorithm
 {
 public:
-  ComputeResolutionAdequacyElemAlgorithm(Realm& realm, stk::mesh::Part* part);
-  virtual ~ComputeResolutionAdequacyElemAlgorithm() {}
+  ComputeMetricTensorElemAlgorithm(Realm& realm, stk::mesh::Part* part);
+  virtual ~ComputeMetricTensorElemAlgorithm() {}
 
   virtual void execute();
 
-  void zero_nodal_fields();
-
-  ScalarFieldType* sdr_{nullptr};
-  ScalarFieldType* tvisc_{nullptr};
-  ScalarFieldType* resolutionAdequacy_{nullptr};
-  GenericFieldType* dudx_{nullptr};
+  VectorFieldType* coordinates_{nullptr};
   GenericFieldType* Mij_{nullptr};
 
-  const double Ch_;
-  const double Chmu_;
-
+  std::vector<double> ws_coordinates;
+  std::vector<double> ws_dndx;
+  std::vector<double> ws_deriv;
+  std::vector<double> ws_det_j;
   std::vector<double> ws_Mij;
 };
 

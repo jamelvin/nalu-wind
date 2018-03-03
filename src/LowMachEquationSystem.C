@@ -1400,7 +1400,7 @@ MomentumEquationSystem::register_interior_algorithm(
         case WALE:
           theAlg = new TurbViscWaleAlgorithm(realm_, part);
           break;
-        case SST: case SST_DES:
+        case SST: case SST_DES: case SFLES:
           theAlg = new TurbViscSSTAlgorithm(realm_, part);
           break;
         default:

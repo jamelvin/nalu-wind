@@ -727,7 +727,19 @@ void Quad42DSCS::gij(
 // modeling with specific application to the simulation of pulse-actuated 
 // dynamic stall control.
 //--------------------------------------------------------------------------
-void Quad42DSCS::Mij(
+void Quad42DSCV::Mij(
+  const double *coords,
+  double *metric,
+  double *deriv)
+{
+  SIERRA_FORTRAN(twod_mij)
+    ( &nodesPerElement_,
+      &numIntPoints_,
+      deriv,
+      coords, metric);
+}
+//-------------------------------------------------------------------------
+void Quad42DSCV::Mij(
   SharedMemView<DoubleType**>& coords,
   SharedMemView<DoubleType***>& metric,
   SharedMemView<DoubleType***>& deriv) {

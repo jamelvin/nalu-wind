@@ -50,11 +50,13 @@ AdaptivityParameterSFLESSrcElemKernel<AlgTraits>::AdaptivityParameterSFLESSrcEle
     stk::topology::NODE_RANK, "turbulent_ke");
   sdrNp1_ = metaData.get_field<ScalarFieldType>(
     stk::topology::NODE_RANK, "specific_dissipation_rate");
-  dualNodalVolume_ = metaData.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "dual_nodal_volume");
+  resolutionAdequacy_ = metaData.get_field<ScalarFieldType>(
+    stk::topology::NODE_RANK, "resolution_adequacy");
+  Mij_ = metaData.get_field<GenericFieldType>(
+    stk::topology::ELEMENT_RANK, "metric_tensor");
 
   MasterElement *meSCV = sierra::nalu::MasterElementRepo::get_volume_master_element(AlgTraits::topo_);
-  MasterElement *meSCS = sierra::nalu::MasterElementRepo::get_surface_master_element(AlgTraits::topo_);
-  get_scs_shape_fn_data<AlgTraits>([&](double* ptr){meSCS->shape_fcn(ptr);}, v_shape_function_);
+  get_scv_shape_fn_data<AlgTraits>([&](double* ptr){meSCV->shape_fcn(ptr);}, v_shape_function_);
   
   // add master elements
   dataPreReqs.add_cvfem_volume_me(meSCV);
@@ -67,9 +69,14 @@ AdaptivityParameterSFLESSrcElemKernel<AlgTraits>::AdaptivityParameterSFLESSrcEle
   dataPreReqs.add_gathered_nodal_field(*visc_, 1);
   dataPreReqs.add_gathered_nodal_field(*tkeNp1_, 1);
   dataPreReqs.add_gathered_nodal_field(*sdrNp1_, 1);
-  dataPreReqs.add_gathered_nodal_field(*dualNodalVolume_, 1);
+  dataPreReqs.add_gathered_nodal_field(*resolutionAdequacy_, 1);
+  dataPreReqs.add_element_field(*Mij_, AlgTraits::nDim_, AlgTraits::nDim_);
+
+  // Do I needed a shifted_grad_op check here?
+  dataPreReqs.add_master_element_call(SCV_GRAD_OP, CURRENT_COORDINATES);
   dataPreReqs.add_master_element_call(SCV_VOLUME, CURRENT_COORDINATES);
-  dataPreReqs.add_master_element_call(SCS_MIJ, CURRENT_COORDINATES);
+  // Removing the ip based in favor of element based for now
+  //dataPreReqs.add_master_element_call(SCV_MIJ, CURRENT_COORDINATES);
 }
 
 template<typename AlgTraits>
@@ -95,58 +102,60 @@ AdaptivityParameterSFLESSrcElemKernel<AlgTraits>::execute(
     *tkeNp1_);
   SharedMemView<DoubleType*>& v_sdrNp1 = scratchViews.get_scratch_view_1D(
     *sdrNp1_);
-  SharedMemView<DoubleType*>& v_dualNodalVolume = scratchViews.get_scratch_view_1D(
-    *dualNodalVolume_);
+  SharedMemView<DoubleType*>& v_resAdeq = scratchViews.get_scratch_view_1D(
+    *resolutionAdequacy_);
+  SharedMemView<DoubleType***>& v_Mij = scratchViews.get_scratch_view_3D(
+    *Mij_);
   SharedMemView<DoubleType*>& v_scv_volume = scratchViews.get_me_views(CURRENT_COORDINATES).scv_volume;
-  SharedMemView<DoubleType***>& v_Mij = scratchViews.get_me_views(CURRENT_COORDINATES).metric;
+  //SharedMemView<DoubleType***>& v_Mij = scratchViews.get_me_views(CURRENT_COORDINATES).metric;
 
   for (int ip=0; ip < AlgTraits::numScvIp_; ++ip) {
     const int nearestNode = ipNodeMap_[ip];
 
     // zero out; scalar
-    DoubleType alphaNp1Scs = 0.0;
-    DoubleType rhoNp1Scs = 0.0;
-    DoubleType tkeNp1Scs = 0.0;
-    DoubleType sdrNp1Scs = 0.0;
-    DoubleType viscScs = 0.0;
+    DoubleType alphaNp1Scv = 0.0;
+    DoubleType rhoNp1Scv = 0.0;
+    DoubleType tkeNp1Scv = 0.0;
+    DoubleType sdrNp1Scv = 0.0;
+    DoubleType viscScv = 0.0;
+    DoubleType resAdeqScv = 0.0;
     
-    DoubleType uNp1Scs[AlgTraits::nDim_]; 
+    DoubleType uNp1Scv[AlgTraits::nDim_]; 
     for ( int i = 0; i < AlgTraits::nDim_; ++i ) 
-      uNp1Scs[i] = 0.0;
+      uNp1Scv[i] = 0.0;
     
     // First we interpolate the nodal quantities to the integration points
     for ( int ic = 0; ic < AlgTraits::nodesPerElement_; ++ic ) {
       // save off shape function
       const DoubleType r = v_shape_function_(ip,ic);
 
-      alphaNp1Scs += r * v_alphaNp1(ic);
-      rhoNp1Scs   += r * v_densityNp1(ic);
-      tkeNp1Scs   += r * v_tkeNp1(ic);
-      sdrNp1Scs   += r * v_sdrNp1(ic);
-      viscScs     += r * v_visc(ic);
+      alphaNp1Scv += r * v_alphaNp1(ic);
+      rhoNp1Scv   += r * v_densityNp1(ic);
+      tkeNp1Scv   += r * v_tkeNp1(ic);
+      sdrNp1Scv   += r * v_sdrNp1(ic);
+      viscScv     += r * v_visc(ic);
+      resAdeqScv  += r * v_resAdeq(ic);
       for ( int j = 0; j < AlgTraits::nDim_; ++j)
-        uNp1Scs[j] += v_uNp1(ic, j);
+        uNp1Scv[j] += v_uNp1(ic, j);
     }
 
-    // FIXME: Need to link in resolution adequacy parameter
-    DoubleType resAdeqScs = 1.0;
-
     // Define length and timescales
-    const DoubleType T = stk::math::max(1.0/sdrNp1Scs, cT_*stk::math::sqrt(viscScs/(tkeNp1Scs*sdrNp1Scs)));
+    const DoubleType T = stk::math::max(1.0/sdrNp1Scv, cT_*stk::math::sqrt(viscScv/(tkeNp1Scv*sdrNp1Scv)));
 
-    const DoubleType L = stk::math::max(stk::math::sqrt(tkeNp1Scs/sdrNp1Scs), cNu_*stk::math::pow(stk::math::pow(viscScs,3)/(tkeNp1Scs*sdrNp1Scs),0.75));
+    //const DoubleType L = stk::math::max(stk::math::sqrt(tkeNp1Scv/sdrNp1Scv), cNu_*stk::math::pow(stk::math::pow(viscScv,3)/(tkeNp1Scv*sdrNp1Scv),0.75));
 
-    const DoubleType Sr = stk::math::if_then_else(resAdeqScs < 1.0, stk::math::tanh(1.0 - 1.0/resAdeqScs), stk::math::tanh(resAdeqScs - 1.0));
+    const DoubleType Sr = stk::math::if_then_else(resAdeqScv < 1.0, stk::math::tanh(1.0 - 1.0/resAdeqScv), stk::math::tanh(resAdeqScv - 1.0));
 
     // FIXME: I need to take a derivative in space of the metric tensor (defined at IPs), how would I do this?
-    const DoubleType Tc = L / 1.0;  // stk::math::max(ujdjMmn)
+    //const DoubleType Tc = L / 1.0;  // stk::math::max(ujdjMmn)
 
     // FIXME: Is there a better way to do a compound if statement?  Does this way even work?
-    const DoubleType Sc = stk::math::if_then_else(Sr >= 0.0, stk::math::if_then_else(Tc >= 0.0, 1.0, 0.0), 0.0);
+    //const DoubleType Sc = stk::math::if_then_else(Sr >= 0.0, stk::math::if_then_else(Tc >= 0.0, 1.0, 0.0), 0.0);
 
     // rhs assembly
     const DoubleType scvol = v_scv_volume(ip);
-    rhs(nearestNode) += (Sr/T + Sc/Tc)*scvol;
+    // The Sc/Tc term has been removed for the time being as its form is undergoing modifications
+    rhs(nearestNode) += (Sr/T)*scvol; // (Sr/T + Sc/Tc)*scvol
 
     // FIXME: Do I have a LHS contribution here??? I think this would only be the case if I had an alpha term in the source
     //        and thus there would be a LHS contribution from the implicitness, but since alpha doesn't appear in the source

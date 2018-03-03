@@ -138,8 +138,8 @@ TurbKineticEnergyEquationSystem::TurbKineticEnergyEquationSystem(
   realm_.push_equation_to_systems(this);
 
   // sanity check on turbulence model
-  if ( (turbulenceModel_ != SST) && (turbulenceModel_ != KSGS) && (turbulenceModel_ != SST_DES) ) {
-    throw std::runtime_error("User has requested TurbKinEnergyEqs, however, turbulence model is not KSGS, SST or SST_DES");
+  if ( (turbulenceModel_ != SST) && (turbulenceModel_ != KSGS) && (turbulenceModel_ != SST_DES) && (turbulenceModel_ != SFLES) ) {
+    throw std::runtime_error("User has requested TurbKinEnergyEqs, however, turbulence model is not KSGS, SST, SST_DES or SFLES");
   }
 
   // create projected nodal gradient equation system
@@ -457,7 +457,7 @@ TurbKineticEnergyEquationSystem::register_interior_algorithm(
         effDiffAlg = new EffectiveDiffFluxCoeffAlgorithm(realm_, part, visc_, tvisc_, evisc_, lamSc, turbSc);
       }
       break;
-      case SST: case SST_DES:
+      case SST: case SST_DES: case SFLES:
       {
         const double sigmaKOne = realm_.get_turb_model_constant(TM_sigmaKOne);
         const double sigmaKTwo = realm_.get_turb_model_constant(TM_sigmaKTwo);
@@ -894,7 +894,7 @@ TurbKineticEnergyEquationSystem::solve_and_update()
 {
 
   // sometimes, a higher level equation system manages the solve and update
-  if ( turbulenceModel_ != KSGS)
+  if ( (turbulenceModel_ != KSGS) and (turbulenceModel_ != SFLES) )
     return;
 
   // compute dk/dx

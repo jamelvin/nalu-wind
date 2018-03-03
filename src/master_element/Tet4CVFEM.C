@@ -724,7 +724,19 @@ void TetSCS::gij(
 //--------------------------------------------------------------------------
 //-------- Mij ------------------------------------------------------------
 //--------------------------------------------------------------------------
-void TetSCS::Mij(
+void TetSCV::Mij(
+  const double *coords,
+  double *metric,
+  double *deriv)
+{
+  SIERRA_FORTRAN(threed_mij)
+    ( &nodesPerElement_,
+      &numIntPoints_,
+      deriv,
+      coords, metric);
+}
+//-------------------------------------------------------------------------
+void TetSCV::Mij(
     SharedMemView<DoubleType**>& coords,
     SharedMemView<DoubleType***>& metric,
     SharedMemView<DoubleType***>& deriv)

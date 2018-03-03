@@ -28,6 +28,7 @@
 #include <TurbKineticEnergyEquationSystem.h>
 #include <pmr/RadiativeTransportEquationSystem.h>
 #include <mesh_motion/MeshDisplacementEquationSystem.h>
+#include <AdaptivityParameterEquationSystem.h>
 
 #include <vector>
 

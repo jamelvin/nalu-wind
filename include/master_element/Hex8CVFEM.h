@@ -34,6 +34,11 @@ public:
     SharedMemView<DoubleType***>&gradop,
     SharedMemView<DoubleType***>&deriv);
 
+  void Mij(
+    SharedMemView<DoubleType**>& coords,
+    SharedMemView<DoubleType***>& metric,
+    SharedMemView<DoubleType***>& deriv);
+
   void determinant(
     const int nelem,
     const double *coords,
@@ -47,6 +52,11 @@ public:
     double *deriv,
     double *det_j,
     double * error );
+
+  void Mij(
+    const double *coords,
+    double *metric,
+    double *deriv);
 
   using MasterElement::shape_fcn;
   using MasterElement::shifted_shape_fcn;
@@ -108,11 +118,6 @@ public:
     SharedMemView<DoubleType**>& coords,
     SharedMemView<DoubleType***>& gupper,
     SharedMemView<DoubleType***>& glower,
-    SharedMemView<DoubleType***>& deriv);
-
-  void Mij(
-    SharedMemView<DoubleType**>& coords,
-    SharedMemView<DoubleType***>& metric,
     SharedMemView<DoubleType***>& deriv);
 
   // non NGP-ready methods second

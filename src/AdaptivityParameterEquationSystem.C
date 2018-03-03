@@ -22,9 +22,10 @@
 #include <AuxFunctionAlgorithm.h>
 #include <ConstantAuxFunction.h>
 #include <CopyFieldAlgorithm.h>
+#include <ComputeResolutionAdequacyElemAlgorithm.h>
+#include <ComputeMetricTensorElemAlgorithm.h>
 #include <DirichletBC.h>
-#include <EffectiveDiffFluxCoeffAlgorithm.h>
-#include <EffectiveSSTDiffFluxCoeffAlgorithm.h>
+#include <EffectiveAdaptivityParameterDiffFluxCoeffAlgorithm.h>
 #include <EquationSystem.h>
 #include <EquationSystems.h>
 #include <Enums.h>
@@ -110,8 +111,12 @@ AdaptivityParameterEquationSystem::AdaptivityParameterEquationSystem(
     dadx_(NULL),
     aTmp_(NULL),
     evisc_(NULL),
+    resAdeq_(NULL),
+    metric_(NULL),
     assembleNodalGradAlgDriver_(new AssembleNodalGradAlgorithmDriver(realm_, "adaptivity_parameter", "dadx")),
     diffFluxCoeffAlgDriver_(new AlgorithmDriver(realm_)),
+    resolutionAdequacyAlgDriver_(new AlgorithmDriver(realm_)),
+    metricTensorAlgDriver_(new AlgorithmDriver(realm_)),
     turbulenceModel_(realm_.solutionOptions_->turbulenceModel_),
     projectedNodalGradEqs_(NULL),
     isInit_(true)
@@ -128,10 +133,9 @@ AdaptivityParameterEquationSystem::AdaptivityParameterEquationSystem(
   // push back EQ to manager
   realm_.push_equation_to_systems(this);
 
-  // FIXME: Probably want to do something along these lines, but don't know what the options will be yet...
-  //if ( (turbulenceModel_ != SST) && (turbulenceModel_ != KSGS) && (turbulenceModel_ != SST_DES) ) {
-  //  throw std::runtime_error("User has requested AdaptParamEqs, however, turbulence model is not KSGS, SST or SST_DES");
-  //}
+  if ( turbulenceModel_ != SFLES ) {
+    throw std::runtime_error("User has requested AdaptParamEqs, however, turbulence model has not been set to alpha_SFLES, the only one supported by this equation system currently.");
+  }
 
   // create projected nodal gradient equation system
   if ( managePNG_ ) {
@@ -145,6 +149,11 @@ AdaptivityParameterEquationSystem::AdaptivityParameterEquationSystem(
 AdaptivityParameterEquationSystem::~AdaptivityParameterEquationSystem()
 {
   delete assembleNodalGradAlgDriver_;
+  delete diffFluxCoeffAlgDriver_;
+  if (NULL != resolutionAdequacyAlgDriver_)
+    delete resolutionAdequacyAlgDriver_;
+  if (NULL != metricTensorAlgDriver_)
+    delete metricTensorAlgDriver_;
 }
 
 //--------------------------------------------------------------------------
@@ -171,6 +180,15 @@ AdaptivityParameterEquationSystem::register_nodal_fields(
   // delta solution for linear solver; share delta since this is a split system
   aTmp_ =  &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "aTmp"));
   stk::mesh::put_field(*aTmp_, *part);
+
+  evisc_ = &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "effective_viscosity_alpha"));
+  stk::mesh::put_field(*evisc_, *part);
+
+  resAdeq_ = &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "resolution_adequacy"));
+  stk::mesh::put_field(*resAdeq_, *part);
+
+  metric_ = &(meta_data.declare_field<GenericFieldType>(stk::topology::ELEMENT_RANK, "metric_tensor"));
+  stk::mesh::put_field(*metric_, *part, nDim*nDim);
 
   // make sure all states are properly populated (restart can handle this)
   if ( numStates > 2 && (!realm_.restarted_simulation() || realm_.support_inconsistent_restart()) ) {
@@ -221,7 +239,9 @@ AdaptivityParameterEquationSystem::register_interior_algorithm(
 
   // solver; interior contribution (advection + diffusion)
   if ( !realm_.solutionOptions_->useConsolidatedSolverAlg_ ) {
-    
+
+    throw std::runtime_error("AdaptivityParameterEquationSystem::Error: This is not set up to use non kernel-based source terms.");
+   /* 
     std::map<AlgorithmType, SolverAlgorithm *>::iterator itsi = solverAlgDriver_->solverAlgMap_.find(algType);
     if ( itsi == solverAlgDriver_->solverAlgMap_.end() ) {
       SolverAlgorithm *theAlg = NULL;
@@ -241,7 +261,6 @@ AdaptivityParameterEquationSystem::register_interior_algorithm(
         if ( realm_.realmUsesEdges_ )
           throw std::runtime_error("AdaptivityParameterElemSrcTerms::Error can not use element source terms for an edge-based scheme");
         
-        // FIXME: Do we need source terms here?
         std::vector<std::string> mapNameVec = isrc->second;
         for (size_t k = 0; k < mapNameVec.size(); ++k ) {
           std::string sourceName = mapNameVec[k];
@@ -333,6 +352,7 @@ AdaptivityParameterEquationSystem::register_interior_algorithm(
     else {
       itsm->second->partVec_.push_back(part);
     }
+   */
   }
   else {
     // Homogeneous kernel implementation
@@ -377,29 +397,50 @@ AdaptivityParameterEquationSystem::register_interior_algorithm(
     }
   }
 
-  // effective viscosity alg FIXME: See below
-  //std::map<AlgorithmType, Algorithm *>::iterator itev =
-  //  diffFluxCoeffAlgDriver_->algMap_.find(algType);
-  //if ( itev == diffFluxCoeffAlgDriver_->algMap_.end() ) {
-  //  Algorithm *effDiffAlg = NULL;
-  //  switch(turbulenceModel_) {
-  //    case SFLES:
-  //    {
-  //      //FIXME: This will need to be adjusted as alpha doesn't use the same evisc? It's 0 for now...
-  //      const double lamSc = realm_.get_lam_schmidt(alpha_->name());
-  //      const double turbSc = realm_.get_turb_schmidt(alpha_->name());
-  //      //effDiffAlg = new EffectiveDiffFluxCoeffAlgorithm(realm_, part, visc_, tvisc_, evisc_, lamSc, turbSc);
-  //    }
-  //    break;
-  //    default:
-  //      throw std::runtime_error("Unsupported turbulence model in AdaptParam: only SFLES supported");
-  //  }
-  //  //diffFluxCoeffAlgDriver_->algMap_[algType] = effDiffAlg; FIXME: See above
-  //}
-  //else {
-  //  itev->second->partVec_.push_back(part);
-  //}
+  // effective viscosity alg FIXME: Right now this is just needed to set evisc_ to 0.0, there must
+  // be an easier way to do this? 
+  std::map<AlgorithmType, Algorithm *>::iterator itev =
+    diffFluxCoeffAlgDriver_->algMap_.find(algType);
+  if ( itev == diffFluxCoeffAlgDriver_->algMap_.end() ) {
+    Algorithm *effDiffAlg = NULL;
+    effDiffAlg = new EffectiveAdaptivityParameterDiffFluxCoeffAlgorithm(realm_, part, evisc_);
+    diffFluxCoeffAlgDriver_->algMap_[algType] = effDiffAlg;
+  }
+  else {
+    itev->second->partVec_.push_back(part);
+  }
 
+  // resolution adequacy algorithm
+  if ( NULL == resolutionAdequacyAlgDriver_ )
+    resolutionAdequacyAlgDriver_ = new AlgorithmDriver(realm_);
+  
+  std::map<AlgorithmType, Algorithm *>::iterator it = 
+    resolutionAdequacyAlgDriver_->algMap_.find(algType);
+
+  if (it == resolutionAdequacyAlgDriver_->algMap_.end() ) {
+    ComputeResolutionAdequacyElemAlgorithm *resAdeqAlg =
+      new ComputeResolutionAdequacyElemAlgorithm(realm_, part);
+    resolutionAdequacyAlgDriver_->algMap_[algType] = resAdeqAlg;
+  }
+  else {
+    it->second->partVec_.push_back(part);
+  }
+
+  // metric tensor algorithm
+  if ( NULL == metricTensorAlgDriver_ )
+    metricTensorAlgDriver_ = new AlgorithmDriver(realm_);
+
+  std::map<AlgorithmType, Algorithm *>::iterator itmt =
+    metricTensorAlgDriver_->algMap_.find(algType);
+
+  if (itmt == metricTensorAlgDriver_->algMap_.end() ) {
+    ComputeMetricTensorElemAlgorithm *metricTensorAlg =
+      new ComputeMetricTensorElemAlgorithm(realm_, part);
+    metricTensorAlgDriver_->algMap_[algType] = metricTensorAlg;
+  }
+  else {
+    itmt->second->partVec_.push_back(part);
+  }
 }
 
 //--------------------------------------------------------------------------
@@ -587,60 +628,30 @@ AdaptivityParameterEquationSystem::register_wall_bc(
     wallFunctionApproach = false;
   }
 
-// TODO: There shouldn't be a wall function for alpha, right? FIXME
-//  if ( wallFunctionApproach ) {
-//
-//    // create wallFunctionParamsAlgDriver
-//    if ( NULL == wallFunctionAdaptivityParameterAlgDriver_)
-//      wallFunctionAdaptivityParameterAlgDriver_ = new AlgorithmDriver(realm_);
-//
-//    // need to register the assembles wall value for alpha; can not share with alpha_bc
-//    ScalarFieldType *theAssembledField = &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "wall_model_alpha_bc"));
-//    stk::mesh::put_field(*theAssembledField, *part);
-//
-//    // wall function value will prevail at bc intersections
-//    std::map<AlgorithmType, Algorithm *>::iterator it_alpha =
-//        wallFunctionAdaptivityParameterAlgDriver_->algMap_.find(algType);
-//    if ( it_alpha == wallFunctionAdaptivityParameterAlgDriver_->algMap_.end() ) {
-//      ComputeAdaptivityParameterWallFunctionAlgorithm *theUtauAlg =
-//          new ComputeAdaptivityParameterWallFunctionAlgorithm(realm_, part);
-//      wallFunctionAdaptivityParameterAlgDriver_->algMap_[algType] = theUtauAlg;
-//    }
-//    else {
-//      it_alpha->second->partVec_.push_back(part);
-//    }
-//  }
-//  else if ( alphaSpecified ) {
+  // FIXME: Generalize for constant vs function
 
-    // FIXME: Generalize for constant vs function
+  // extract data
+  std::vector<double> userSpec(1);
+  AdaptParam alpha = userData.alpha_;
+  userSpec[0] = alpha.adaptParam_;
 
-    // extract data
-    std::vector<double> userSpec(1);
-    AdaptParam alpha = userData.alpha_;
-    userSpec[0] = alpha.adaptParam_;
+  // new it
+  ConstantAuxFunction *theAuxFunc = new ConstantAuxFunction(0, 1, userSpec);
 
-    // new it
-    ConstantAuxFunction *theAuxFunc = new ConstantAuxFunction(0, 1, userSpec);
-
-    // bc data alg
-    AuxFunctionAlgorithm *auxAlg
-      = new AuxFunctionAlgorithm(realm_, part,
-                                 theBcField, theAuxFunc,
-                                 stk::topology::NODE_RANK);
-    bcDataAlg_.push_back(auxAlg);
-
-    // copy alpha_bc to alpha np1...
-    CopyFieldAlgorithm *theCopyAlg
-      = new CopyFieldAlgorithm(realm_, part,
-                               theBcField, &alphaNp1,
-                               0, 1,
+  // bc data alg
+  AuxFunctionAlgorithm *auxAlg
+    = new AuxFunctionAlgorithm(realm_, part,
+                               theBcField, theAuxFunc,
                                stk::topology::NODE_RANK);
-    bcDataMapAlg_.push_back(theCopyAlg);
+  bcDataAlg_.push_back(auxAlg);
 
-//  }
-//  else {
-//    throw std::runtime_error("Alpha active with wall bc, however, no value of alpha or wall function specified");
-//  }
+  // copy alpha_bc to alpha np1...
+  CopyFieldAlgorithm *theCopyAlg
+    = new CopyFieldAlgorithm(realm_, part,
+                             theBcField, &alphaNp1,
+                             0, 1,
+                             stk::topology::NODE_RANK);
+  bcDataMapAlg_.push_back(theCopyAlg);
 
   // Dirichlet bc
   std::map<AlgorithmType, SolverAlgorithm *>::iterator itd =
@@ -824,16 +835,15 @@ AdaptivityParameterEquationSystem::solve_and_update()
   // compute dk/dx
   if ( isInit_ ) {
     compute_projected_nodal_gradient();
+    compute_metric_tensor();
     isInit_ = false;
   }
 
-  // FIXME: Replace with proper diffusion coefficient calcuation
-  // compute effective viscosity
   compute_effective_diff_flux_coeff();
 
-  // FIXME: There shouldn't be any wall parameters?
-  // deal with any special wall function approach
-  //compute_wall_model_parameters();
+  compute_resolution_adequacy_parameters();
+
+  // TODO: Add recalculation of metric tensor if mesh changes
 
   // start the iteration loop
   for ( int k = 0; k < maxIterations_; ++k ) {
@@ -866,15 +876,15 @@ AdaptivityParameterEquationSystem::initial_work()
   // do not let the user specify a negative field
   //const double clipValue = 1.0e-16;
 
-  stk::mesh::MetaData & meta_data = realm_.meta_data();
+  //stk::mesh::MetaData & meta_data = realm_.meta_data();
 
   // define some common selectors
-  stk::mesh::Selector s_all_nodes
-    = (meta_data.locally_owned_part() | meta_data.globally_shared_part())
-    &stk::mesh::selectField(*alpha_);
+  //stk::mesh::Selector s_all_nodes
+  //  = (meta_data.locally_owned_part() | meta_data.globally_shared_part())
+  //  &stk::mesh::selectField(*alpha_);
 
-  stk::mesh::BucketVector const& node_buckets =
-    realm_.get_buckets( stk::topology::NODE_RANK, s_all_nodes );
+  //stk::mesh::BucketVector const& node_buckets =
+  //  realm_.get_buckets( stk::topology::NODE_RANK, s_all_nodes );
   //for ( stk::mesh::BucketVector::const_iterator ib = node_buckets.begin();
   //      ib != node_buckets.end() ; ++ib ) {
     //stk::mesh::Bucket & b = **ib ;
@@ -899,23 +909,28 @@ void
 AdaptivityParameterEquationSystem::compute_effective_diff_flux_coeff()
 {
   const double timeA = NaluEnv::self().nalu_time();
-  // FIXME: This needs to be replaced with the proper call... or function?
-  //diffFluxCoeffAlgDriver_->execute();
-  //evisc_ = 0.0;
+  diffFluxCoeffAlgDriver_->execute();
   timerMisc_ += (NaluEnv::self().nalu_time() - timeA);
 }
 
 //--------------------------------------------------------------------------
-//-------- compute_wall_model_parameters() ----------------------------------
+//-------- compute_resolution_adequacy_parameters() ------------------------
 //--------------------------------------------------------------------------
 void
-AdaptivityParameterEquationSystem::compute_wall_model_parameters()
+AdaptivityParameterEquationSystem::compute_resolution_adequacy_parameters()
 {
-//  if ( NULL != wallFunctionAdaptivityParameterAlgDriver_)
-//    wallFunctionAdaptivityParameterAlgDriver_->execute();
+  if ( NULL != resolutionAdequacyAlgDriver_)
+    resolutionAdequacyAlgDriver_->execute();
+}
 
-  // FIXME: There should be no wall model for alpha right?
-  throw std::runtime_error("No wall model available for alpha");
+//--------------------------------------------------------------------------
+//-------- compute_metric_tensor() -----------------------------------------
+//--------------------------------------------------------------------------
+void
+AdaptivityParameterEquationSystem::compute_metric_tensor()
+{
+  if ( NULL != metricTensorAlgDriver_)
+    metricTensorAlgDriver_->execute();
 }
 
 //--------------------------------------------------------------------------

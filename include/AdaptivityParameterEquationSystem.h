@@ -76,7 +76,8 @@ public:
   void initial_work();
 
   void compute_effective_diff_flux_coeff();
-  void compute_wall_model_parameters();
+  void compute_resolution_adequacy_parameters();
+  void compute_metric_tensor();
   void update_and_clip();
 
   void manage_projected_nodal_gradient(
@@ -89,9 +90,13 @@ public:
   VectorFieldType *dadx_;
   ScalarFieldType *aTmp_;
   ScalarFieldType *evisc_;
-  
+  ScalarFieldType *resAdeq_;
+  GenericFieldType *metric_;
+ 
   AssembleNodalGradAlgorithmDriver *assembleNodalGradAlgDriver_;
   AlgorithmDriver *diffFluxCoeffAlgDriver_;
+  AlgorithmDriver *resolutionAdequacyAlgDriver_;
+  AlgorithmDriver *metricTensorAlgDriver_;
   const TurbulenceModel turbulenceModel_;
 
   ProjectedNodalGradientEquationSystem *projectedNodalGradEqs_;

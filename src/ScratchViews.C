@@ -177,8 +177,8 @@ int get_num_scalars_pre_req_data(ElemDataRequests& dataNeededBySuppAlgs, int nDi
           needDeriv = true;
           numScalars += (gUpperLength + gLowerLength );
           break;
-        case SCS_MIJ:
-          metricLength = nDim*nDim*numScsIp;
+        case SCV_MIJ:
+          metricLength = nDim*nDim*numScvIp;
           needDeriv = true;
           numScalars += metricLength;
           break;

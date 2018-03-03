@@ -751,7 +751,19 @@ void HexSCS::gij(
 //--------------------------------------------------------------------------
 //-------- Mij -------------------------------------------------------------
 //--------------------------------------------------------------------------
-void HexSCS::Mij(
+void HexSCV::Mij(
+  const double *coords,
+  double *metric,
+  double *deriv)
+{
+  SIERRA_FORTRAN(threed_mij)
+    ( &nodesPerElement_,
+      &numIntPoints_,
+      deriv,
+      coords, metric);
+}
+//-------------------------------------------------------------------------
+void HexSCV::Mij(
     SharedMemView<DoubleType**>& coords,
     SharedMemView<DoubleType***>& metric,
     SharedMemView<DoubleType***>& deriv)
