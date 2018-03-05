@@ -46,6 +46,7 @@
 #include <TimeIntegrator.h>
 #include <TurbKineticEnergyKsgsNodeSourceSuppAlg.h>
 #include <TurbKineticEnergySSTNodeSourceSuppAlg.h>
+#include <TurbKineticEnergySFLESNodeSourceSuppAlg.h>
 #include <TurbKineticEnergySSTDESNodeSourceSuppAlg.h>
 #include <TurbKineticEnergyKsgsBuoyantElemSuppAlg.h>
 #include <TurbKineticEnergyRodiNodeSourceSuppAlg.h>
@@ -349,9 +350,13 @@ TurbKineticEnergyEquationSystem::register_interior_algorithm(
         {
           theSrc = new TurbKineticEnergySSTDESNodeSourceSuppAlg(realm_);
         }
+      case SFLES:
+        {
+          theSrc = new TurbKineticEnergySFLESNodeSourceSuppAlg(realm_);
+        }
         break;
       default:
-        throw std::runtime_error("Unsupported turbulence model in TurbKe: only SST, SST_DES and Ksgs supported");
+        throw std::runtime_error("Unsupported turbulence model in TurbKe: only SST, SST_DES, SFLES and Ksgs supported");
       }
       theAlg->supplementalAlg_.push_back(theSrc);
       
@@ -465,7 +470,7 @@ TurbKineticEnergyEquationSystem::register_interior_algorithm(
       }
       break;
       default:
-        throw std::runtime_error("Unsupported turbulence model in TurbKe: only SST, SST_DES and Ksgs supported");
+        throw std::runtime_error("Unsupported turbulence model in TurbKe: only SST, SST_DES, SFLES and Ksgs supported");
     }
     diffFluxCoeffAlgDriver_->algMap_[algType] = effDiffAlg;
   }

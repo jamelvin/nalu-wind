@@ -30,6 +30,7 @@ public:
   ScalarFieldType* resolutionAdequacy_{nullptr};
   GenericFieldType* dudx_{nullptr};
   GenericFieldType* Mij_{nullptr};
+  VectorFieldType *coordinates_{nullptr}; //FIXME: DEBUGGING
 
   const double Ch_;
   const double Chmu_;

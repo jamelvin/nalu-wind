@@ -1094,7 +1094,7 @@ namespace YAML
     }
     if (node["adaptivity_parameter"])
     {
-      openData.alpha_ = node["adaptvitiy_parameter"].as<sierra::nalu::AdaptParam>();
+      openData.alpha_ = node["adaptivity_parameter"].as<sierra::nalu::AdaptParam>();
       openData.alphaSpec_ = true;
     }
     if (node["temperature"])

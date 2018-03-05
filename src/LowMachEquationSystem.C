@@ -56,6 +56,7 @@
 #include <CopyFieldAlgorithm.h>
 #include <DirichletBC.h>
 #include <EffectiveDiffFluxCoeffAlgorithm.h>
+#include <EffectiveSFLESDiffFluxCoeffAlgorithm.h>
 #include <Enums.h>
 #include <EquationSystem.h>
 #include <EquationSystems.h>
@@ -1377,8 +1378,17 @@ MomentumEquationSystem::register_interior_algorithm(
     std::map<AlgorithmType, Algorithm *>::iterator itev =
       diffFluxCoeffAlgDriver_->algMap_.find(algType);
     if ( itev == diffFluxCoeffAlgDriver_->algMap_.end() ) {
-      EffectiveDiffFluxCoeffAlgorithm *theAlg
-        = new EffectiveDiffFluxCoeffAlgorithm(realm_, part, visc_, tvisc_, evisc_, 1.0, 1.0);
+      Algorithm * theAlg = NULL;
+      switch (realm_.solutionOptions_->turbulenceModel_ ) {
+        case SFLES:
+          theAlg = new EffectiveSFLESDiffFluxCoeffAlgorithm(realm_, part, visc_, tvisc_, evisc_, 1.0, 1.0);
+          break;
+        case KSGS: case SMAGORINSKY: case WALE: case SST: case SST_DES:
+          theAlg = new EffectiveDiffFluxCoeffAlgorithm(realm_, part, visc_, tvisc_, evisc_, 1.0, 1.0); 
+          break;
+        default:
+          throw std::runtime_error("non-supported turb model");
+      }
       diffFluxCoeffAlgDriver_->algMap_[algType] = theAlg;
     }
     else {

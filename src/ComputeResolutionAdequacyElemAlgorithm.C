@@ -62,6 +62,10 @@ ComputeResolutionAdequacyElemAlgorithm::ComputeResolutionAdequacyElemAlgorithm(
     stk::topology::NODE_RANK, "dudx");
   Mij_ =  meta_data.get_field<GenericFieldType>(
     stk::topology::ELEMENT_RANK, "metric_tensor");
+
+  //FIXME: Debugging
+  coordinates_ = meta_data.get_field<VectorFieldType>(
+    stk::topology::NODE_RANK, realm_.get_coordinates_name());
 }
 
 //--------------------------------------------------------------------------
@@ -96,6 +100,11 @@ ComputeResolutionAdequacyElemAlgorithm::execute()
     stk::mesh::Bucket& b = **ib;
     const stk::mesh::Bucket::size_type length = b.size();
 
+    std::vector<double> ws_coordinates; // FIXME: DEBUGGING
+    ws_coordinates.resize(nDim); //FIXME: DEBUGGING
+
+    double *p_coords = &ws_coordinates[0]; // FIXME: DEBUGGING
+
     for (stk::mesh::Bucket::size_type k = 0; k < length; ++k) {
 
       //===============================================
@@ -104,6 +113,12 @@ ComputeResolutionAdequacyElemAlgorithm::execute()
       stk::mesh::Entity const *  elem_rels = b.begin_elements(k);
       int num_elements = b.num_elements(k);
 
+      const double *coords = stk::mesh::field_data(*coordinates_, b[k]); //FIXME: DEBUGGING
+
+      // gather coords vector FIXME: DEBUGGING
+      for ( int j=0; j < nDim; ++j )
+        p_coords[j] = coords[j];
+ 
       // zero out Mij
       for ( int j=0; j < nDim; ++j )        
         for ( int i=0; i < nDim; ++i )
@@ -143,8 +158,11 @@ ComputeResolutionAdequacyElemAlgorithm::execute()
       }
 
       const double v2 = tvisc[0] * sdr[0] / Chmu_;
-      resAdeq[0] *= Ch_ / v2;
-
+      if (v2 == 0.0)
+        resAdeq[0] = 1.0;
+      else
+        resAdeq[0] *= Ch_ / v2;
+      num_elements = num_elements + 0.0;  //FIXME: Debugging
     }
   }
 

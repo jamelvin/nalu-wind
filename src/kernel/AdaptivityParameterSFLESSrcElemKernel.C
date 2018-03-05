@@ -90,6 +90,9 @@ AdaptivityParameterSFLESSrcElemKernel<AlgTraits>::execute(
   SharedMemView<DoubleType *>&rhs,
   ScratchViews<DoubleType>& scratchViews)
 {
+  // FIXME: DEBUGGING
+  SharedMemView<DoubleType**>& v_coords = scratchViews.get_scratch_view_2D(*coordinates_);
+
   SharedMemView<DoubleType*>& v_alphaNp1 = scratchViews.get_scratch_view_1D(
     *alphaNp1_);
   SharedMemView<DoubleType*>& v_densityNp1 = scratchViews.get_scratch_view_1D(
@@ -119,15 +122,22 @@ AdaptivityParameterSFLESSrcElemKernel<AlgTraits>::execute(
     DoubleType sdrNp1Scv = 0.0;
     DoubleType viscScv = 0.0;
     DoubleType resAdeqScv = 0.0;
+    DoubleType coords[AlgTraits::nDim_]; // FIXME: DEBUGGING
     
     DoubleType uNp1Scv[AlgTraits::nDim_]; 
-    for ( int i = 0; i < AlgTraits::nDim_; ++i ) 
+    for ( int i = 0; i < AlgTraits::nDim_; ++i ) { 
       uNp1Scv[i] = 0.0;
-    
+      coords[i] = 0.0; // FIXME: DEBUGGING
+    }
+
     // First we interpolate the nodal quantities to the integration points
     for ( int ic = 0; ic < AlgTraits::nodesPerElement_; ++ic ) {
       // save off shape function
       const DoubleType r = v_shape_function_(ip,ic);
+
+      //FIXME: FOR DEBUGGING, REMOVE
+      for (int j = 0; j < AlgTraits::nDim_; ++j)
+        coords[j] = v_coords(ic, j);
 
       alphaNp1Scv += r * v_alphaNp1(ic);
       rhoNp1Scv   += r * v_densityNp1(ic);

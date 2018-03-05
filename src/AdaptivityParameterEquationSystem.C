@@ -238,9 +238,10 @@ AdaptivityParameterEquationSystem::register_interior_algorithm(
   }
 
   // solver; interior contribution (advection + diffusion)
-  if ( !realm_.solutionOptions_->useConsolidatedSolverAlg_ ) {
+  // FIXME: Disabling this flag for now
+  //if ( !realm_.solutionOptions_->useConsolidatedSolverAlg_ ) {
 
-    throw std::runtime_error("AdaptivityParameterEquationSystem::Error: This is not set up to use non kernel-based source terms.");
+  //  throw std::runtime_error("AdaptivityParameterEquationSystem::Error: This is not set up to use non kernel-based source terms.");
    /* 
     std::map<AlgorithmType, SolverAlgorithm *>::iterator itsi = solverAlgDriver_->solverAlgMap_.find(algType);
     if ( itsi == solverAlgDriver_->solverAlgMap_.end() ) {
@@ -353,8 +354,8 @@ AdaptivityParameterEquationSystem::register_interior_algorithm(
       itsm->second->partVec_.push_back(part);
     }
    */
-  }
-  else {
+  //}
+  //else {
     // Homogeneous kernel implementation
     if ( realm_.realmUsesEdges_ )
       throw std::runtime_error("AdaptivityParameterEquationSystem::Error can not use element source terms for an edge-based scheme");
@@ -395,7 +396,7 @@ AdaptivityParameterEquationSystem::register_interior_algorithm(
       report_invalid_supp_alg_names();
       report_built_supp_alg_names();
     }
-  }
+  //}
 
   // effective viscosity alg FIXME: Right now this is just needed to set evisc_ to 0.0, there must
   // be an easier way to do this? 
