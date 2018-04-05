@@ -236,6 +236,31 @@ HexSCV::shifted_shape_fcn(double *shpfc)
 }
 
 //--------------------------------------------------------------------------
+//-------- Mij -------------------------------------------------------------
+//--------------------------------------------------------------------------
+void HexSCV::Mij(
+  const double *coords,
+  double *metric,
+  double *deriv)
+{
+  SIERRA_FORTRAN(threed_mij)
+    ( &nodesPerElement_,
+      &numIntPoints_,
+      deriv,
+      coords, metric);
+}
+//-------------------------------------------------------------------------
+void HexSCV::Mij(
+    SharedMemView<DoubleType**>& coords,
+    SharedMemView<DoubleType***>& metric,
+    SharedMemView<DoubleType***>& deriv)
+{
+  // TODO: Do I need to call derivative here?  It's not already defined...?
+  hex8_derivative(numIntPoints_, &intgLoc_[0], deriv);
+  generic_Mij_3d<AlgTraitsHex8>(deriv, coords, metric);
+}
+
+//--------------------------------------------------------------------------
 //-------- constructor -----------------------------------------------------
 //--------------------------------------------------------------------------
 HexSCS::HexSCS()
@@ -751,7 +776,7 @@ void HexSCS::gij(
 //--------------------------------------------------------------------------
 //-------- Mij -------------------------------------------------------------
 //--------------------------------------------------------------------------
-void HexSCV::Mij(
+void HexSCS::Mij(
   const double *coords,
   double *metric,
   double *deriv)
@@ -763,7 +788,7 @@ void HexSCV::Mij(
       coords, metric);
 }
 //-------------------------------------------------------------------------
-void HexSCV::Mij(
+void HexSCS::Mij(
     SharedMemView<DoubleType**>& coords,
     SharedMemView<DoubleType***>& metric,
     SharedMemView<DoubleType***>& deriv)

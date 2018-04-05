@@ -818,6 +818,38 @@ Hex27SCV::jacobian_determinant(
 }
 
 //--------------------------------------------------------------------------
+//-------- Mij -------------------------------------------------------------
+//--------------------------------------------------------------------------
+void Hex27SCV::Mij(
+  const double *coords,
+  double *metric,
+  double *deriv)
+{
+  SIERRA_FORTRAN(threed_mij)
+    ( &nodesPerElement_,
+      &numIntPoints_,
+      deriv,
+      coords, metric);
+}
+//--------------------------------------------------------------------------
+void Hex27SCV::Mij(
+  SharedMemView<DoubleType**>& coords,
+  SharedMemView<DoubleType***>& metric,
+  SharedMemView<DoubleType***>& deriv)
+{
+  generic_Mij_3d<AlgTraits>(referenceGradWeights_, coords, metric);
+
+  // TODO: What is this part for?  Shouldn't deriv already be defined?
+//  for (unsigned ip = 0; ip < 216; ++ip) {
+//    for (unsigned n = 0; n < 27; ++n) {
+//      for (unsigned d = 0; d < 3; ++d) {
+//        deriv(ip,n,d) = referenceGradWeights_(ip,n,d);
+//      }
+//    }
+//  }
+}
+
+//--------------------------------------------------------------------------
 //-------- constructor -----------------------------------------------------
 //--------------------------------------------------------------------------
 Hex27SCS::Hex27SCS()
@@ -1641,7 +1673,7 @@ void Hex27SCS::gij(
 //--------------------------------------------------------------------------
 //-------- Mij -------------------------------------------------------------
 //--------------------------------------------------------------------------
-void Hex27SCV::Mij(
+void Hex27SCS::Mij(
   const double *coords,
   double *metric,
   double *deriv)
@@ -1653,7 +1685,7 @@ void Hex27SCV::Mij(
       coords, metric);
 }
 //--------------------------------------------------------------------------
-void Hex27SCV::Mij(
+void Hex27SCS::Mij(
   SharedMemView<DoubleType**>& coords,
   SharedMemView<DoubleType***>& metric,
   SharedMemView<DoubleType***>& deriv)
@@ -1661,13 +1693,13 @@ void Hex27SCV::Mij(
   generic_Mij_3d<AlgTraits>(referenceGradWeights_, coords, metric);
 
   // TODO: What is this part for?  Shouldn't deriv already be defined?
-  for (unsigned ip = 0; ip < 216; ++ip) {
-    for (unsigned n = 0; n < 27; ++n) {
-      for (unsigned d = 0; d < 3; ++d) {
-        deriv(ip,n,d) = referenceGradWeights_(ip,n,d);
-      }
-    }
-  }
+//  for (unsigned ip = 0; ip < 216; ++ip) {
+//    for (unsigned n = 0; n < 27; ++n) {
+//      for (unsigned d = 0; d < 3; ++d) {
+//        deriv(ip,n,d) = referenceGradWeights_(ip,n,d);
+//      }
+//    }
+//  }
 }
 
 //--------------------------------------------------------------------------

@@ -3098,7 +3098,7 @@ c
          do i = 1, 2
             do j = 1, 2
                metric(i,j,ki) =
-     $              dx_ds(i,1)*dx_ds(j,1)+dx_ds(i,2)*dx_ds(j,2)
+     $              dx_ds(1,i)*dx_ds(1,j)+dx_ds(2,i)*dx_ds(2,j)
             end do
          end do
 
@@ -3210,8 +3210,8 @@ c
          do i = 1, 3
             do j = 1, 3
                metric(i,j,ki) =
-     $              dx_ds(i,1)*dx_ds(j,1)+dx_ds(i,2)*dx_ds(j,2)
-     $              +dx_ds(i,3)*dx_ds(j,3)
+     $              dx_ds(1,i)*dx_ds(1,j)+dx_ds(2,i)*dx_ds(2,j)
+     $              +dx_ds(3,i)*dx_ds(3,j)
             end do
          end do
 c FIXME: THIS IS A HACK FOR DEBUGGING PURPOSES*******//

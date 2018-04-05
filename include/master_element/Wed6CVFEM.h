@@ -137,6 +137,16 @@ public:
     double *glowerij,
     double *deriv);
 
+  void Mij(
+    SharedMemView<DoubleType**>& coords,
+    SharedMemView<DoubleType***>& metric,
+    SharedMemView<DoubleType***>& deriv);
+
+  void Mij(
+    const double *coords,
+    double *metric,
+    double *deriv);
+
   const int * adjacentNodes();
 
   int opposingNodes(

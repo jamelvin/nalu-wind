@@ -98,8 +98,8 @@ TurbKineticEnergySFLESNodeSourceSuppAlg::node_execute(
   if ( Pk > tkeProdLimitRatio_*Dk )
     Pk = tkeProdLimitRatio_*Dk;
 
-  //rhs[0] += (alpha*Pk - Dk)*dualVolume;
-  rhs[0] += (Pk - Dk)*dualVolume;
+  rhs[0] += (alpha*Pk - Dk)*dualVolume;
+  //rhs[0] += (Pk - Dk)*dualVolume;
   lhs[0] += betaStar_*rho*sdr*dualVolume;
 }
 

@@ -84,8 +84,8 @@ EffectiveSFLESDiffFluxCoeffAlgorithm::execute()
       double * evisc = stk::mesh::field_data(*evisc_, b);
 
       for ( stk::mesh::Bucket::size_type k = 0 ; k < length ; ++k ) {
-        //evisc[k] = visc[k]*invSigmaLam + alpha[k]*tvisc[k]*invSigmaTurb;
-        evisc[k] = visc[k]*invSigmaLam + tvisc[k]*invSigmaTurb;
+        evisc[k] = visc[k]*invSigmaLam + alpha[k]*tvisc[k]*invSigmaTurb;
+        //evisc[k] = visc[k]*invSigmaLam + tvisc[k]*invSigmaTurb;
       }
     }
   }

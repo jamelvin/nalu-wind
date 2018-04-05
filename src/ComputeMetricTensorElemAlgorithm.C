@@ -68,6 +68,7 @@ ComputeMetricTensorElemAlgorithm::execute()
 
     // extract master element
     MasterElement *meSCV = sierra::nalu::MasterElementRepo::get_volume_master_element(b.topology());
+    //MasterElement *meSCS = sierra::nalu::MasterElementRepo::get_surface_master_element(b.topology());
 
     // extract master element specifics
     const int nodesPerElement = meSCV->nodesPerElement_;

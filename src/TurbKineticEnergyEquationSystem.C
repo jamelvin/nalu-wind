@@ -899,7 +899,7 @@ TurbKineticEnergyEquationSystem::solve_and_update()
 {
 
   // sometimes, a higher level equation system manages the solve and update
-  if ( (turbulenceModel_ != KSGS) and (turbulenceModel_ != SFLES) )
+  if ( (turbulenceModel_ != KSGS) )
     return;
 
   // compute dk/dx

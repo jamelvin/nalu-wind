@@ -506,6 +506,9 @@ ShearStressTransportEquationSystem::compute_f_one_blending()
   VectorFieldType *dkdx = tkeEqSys_->dkdx_;
   VectorFieldType *dwdx = sdrEqSys_->dwdx_;
 
+  // JAM: DEBUGGING
+  VectorFieldType *vels = meta_data.get_field<VectorFieldType>(stk::topology::NODE_RANK, "velocity");
+
   //select all nodes (locally and shared)
   stk::mesh::Selector s_all_nodes
     = (meta_data.locally_owned_part() | meta_data.globally_shared_part())
@@ -527,6 +530,9 @@ ShearStressTransportEquationSystem::compute_f_one_blending()
     const double * dk = stk::mesh::field_data(*dkdx, b);
     const double * dw = stk::mesh::field_data(*dwdx, b);
     double * fOne = stk::mesh::field_data(*fOneBlending_, b);
+
+    // JAM: DEBUGGING
+    const double * vel = stk::mesh::field_data(*vels, b);
 
     for ( stk::mesh::Bucket::size_type k = 0 ; k < length ; ++k ) {
 

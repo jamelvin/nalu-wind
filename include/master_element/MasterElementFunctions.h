@@ -211,17 +211,17 @@ namespace nalu {
       }
 
       // Here we calculate Mij^2 = J J^T
-      metric(ip, 0, 0) = jac[0][0] * jac[0][0] + jac[0][1] * jac[0][1] + jac[0][2] * jac[0][2];
-      metric(ip, 0, 1) = jac[0][0] * jac[1][0] + jac[0][1] * jac[1][1] + jac[0][2] * jac[1][2];
-      metric(ip, 0, 2) = jac[0][0] * jac[2][0] + jac[0][1] * jac[2][1] + jac[0][2] * jac[2][2];
+      metric(ip, 0, 0) = jac[0][0] * jac[0][0] + jac[1][0] * jac[1][0] + jac[2][0] * jac[2][0];
+      metric(ip, 0, 1) = jac[0][0] * jac[0][1] + jac[1][0] * jac[1][1] + jac[2][0] * jac[2][1];
+      metric(ip, 0, 2) = jac[0][0] * jac[0][2] + jac[1][0] * jac[1][2] + jac[2][0] * jac[2][2];
 
       metric(ip, 1, 0) = metric(ip, 0, 1);
-      metric(ip, 1, 1) = jac[1][0] * jac[1][0] + jac[1][1] * jac[1][1] + jac[1][2] * jac[1][2];
-      metric(ip, 1, 2) = jac[1][0] * jac[2][0] + jac[1][1] * jac[2][1] + jac[1][2] * jac[2][2];
+      metric(ip, 1, 1) = jac[0][1] * jac[0][1] + jac[1][1] * jac[1][1] + jac[2][1] * jac[2][1];
+      metric(ip, 1, 2) = jac[0][1] * jac[0][2] + jac[1][1] * jac[1][2] + jac[2][1] * jac[2][2];
 
       metric(ip, 2, 0) = metric(ip, 0, 2);
       metric(ip, 2, 1) = metric(ip, 1, 2);
-      metric(ip, 2, 2) = jac[2][0] * jac[2][0] + jac[2][1] * jac[2][1] + jac[2][2] * jac[2][2];
+      metric(ip, 2, 2) = jac[0][2] * jac[0][2] + jac[1][2] * jac[1][2] + jac[2][2] * jac[2][2];
 
       // Now we take the sqrt(M^2) using eigenvalue decomposition, i.e. M = A sqrt(L) A^T
       // where M^2 = A L A^T since M^2 is symmetric positive definite as is M

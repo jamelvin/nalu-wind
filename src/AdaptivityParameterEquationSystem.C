@@ -873,34 +873,37 @@ AdaptivityParameterEquationSystem::solve_and_update()
 void
 AdaptivityParameterEquationSystem::initial_work()
 {
-  // TODO: Do we need clipping... I believe we are not clipping alpha FIXME
+  // TODO: Do we need clipping... I believe we should clip alpha btwn 0 and 1 FIXME
   // do not let the user specify a negative field
-  //const double clipValue = 1.0e-16;
+  const double clipValue = 1.0e-16;
 
-  //stk::mesh::MetaData & meta_data = realm_.meta_data();
+  stk::mesh::MetaData & meta_data = realm_.meta_data();
 
   // define some common selectors
-  //stk::mesh::Selector s_all_nodes
-  //  = (meta_data.locally_owned_part() | meta_data.globally_shared_part())
-  //  &stk::mesh::selectField(*alpha_);
+  stk::mesh::Selector s_all_nodes
+    = (meta_data.locally_owned_part() | meta_data.globally_shared_part())
+    &stk::mesh::selectField(*alpha_);
 
-  //stk::mesh::BucketVector const& node_buckets =
-  //  realm_.get_buckets( stk::topology::NODE_RANK, s_all_nodes );
-  //for ( stk::mesh::BucketVector::const_iterator ib = node_buckets.begin();
-  //      ib != node_buckets.end() ; ++ib ) {
-    //stk::mesh::Bucket & b = **ib ;
-    //const stk::mesh::Bucket::size_type length   = b.size();
+  stk::mesh::BucketVector const& node_buckets =
+    realm_.get_buckets( stk::topology::NODE_RANK, s_all_nodes );
+  for ( stk::mesh::BucketVector::const_iterator ib = node_buckets.begin();
+        ib != node_buckets.end() ; ++ib ) {
+    stk::mesh::Bucket & b = **ib ;
+    const stk::mesh::Bucket::size_type length   = b.size();
 
-    //double *alpha = stk::mesh::field_data(*alpha_, b);
+    double *alpha = stk::mesh::field_data(*alpha_, b);
 
-    //for ( stk::mesh::Bucket::size_type k = 0 ; k < length ; ++k ) {
-      //const double alphaNp1 = alpha[k];
-      //FIXME: No clipping for now...
-      //if ( alphaNp1 < 0.0 ) {
-      //  alpha[k] = clipValue;
-      //}
-  //  }
-  //}
+    for ( stk::mesh::Bucket::size_type k = 0 ; k < length ; ++k ) {
+      const double alphaNp1 = alpha[k];
+      //FIXME: clipping for now btwn 0 and 1...
+      if ( alphaNp1 < 0.0 ) {
+        alpha[k] = clipValue;
+      }
+      else if ( alphaNp1 > 1.0) {
+        alpha[k] = 1.0;
+      }
+    }
+  }
 }
 
 //--------------------------------------------------------------------------
@@ -940,9 +943,9 @@ AdaptivityParameterEquationSystem::compute_metric_tensor()
 void
 AdaptivityParameterEquationSystem::update_and_clip()
 {
-  // FIXME: No clipping for alpha as of now...
-  //const double clipValue = 1.0e-16;
-  //size_t numClip = 0;
+  // FIXME: Clipping for alpha as of now btwn 0 and 1...
+  const double clipValue = 1.0e-16;
+  size_t numClip = 0;
 
   stk::mesh::MetaData & meta_data = realm_.meta_data();
 
@@ -963,29 +966,33 @@ AdaptivityParameterEquationSystem::update_and_clip()
 
     for ( stk::mesh::Bucket::size_type k = 0 ; k < length ; ++k ) {
       const double alphaNp1 = alpha[k] + aTmp[k];
-      // FIXME: No clipping for alph as of now...
-      //if ( alphaNp1 < 0.0 ) {
-      //  alpha[k] = clipValue;
-      //  numClip++;
-      //}
-      //else {
+      // FIXME: Clipping for alph as of now btwn 0 and 1...
+      if ( alphaNp1 < 0.0 ) {
+        alpha[k] = clipValue;
+        numClip++;
+      }
+      else if (alphaNp1 > 1.0 ) {
+        alpha[k] = 1.0;
+        numClip++;
+      }
+      else {
         alpha[k] = alphaNp1;
-      //}
+      }
     }
   }
 
   // FIXME: No clipping for alpha as of now...
   // parallel assemble clipped value
-  //if (realm_.debug()) {
-  //  size_t g_numClip = 0;
-  //  stk::ParallelMachine comm =  NaluEnv::self().parallel_comm();
-  //  stk::all_reduce_sum(comm, &numClip, &g_numClip, 1);
+  if (realm_.debug()) {
+    size_t g_numClip = 0;
+    stk::ParallelMachine comm =  NaluEnv::self().parallel_comm();
+    stk::all_reduce_sum(comm, &numClip, &g_numClip, 1);
 
-  //  if ( g_numClip > 0 ) {
-  //    NaluEnv::self().naluOutputP0() << "alpha clipped " << g_numClip << " times " << std::endl;
-  //  }
+    if ( g_numClip > 0 ) {
+      NaluEnv::self().naluOutputP0() << "alpha clipped " << g_numClip << " times " << std::endl;
+    }
 
-  //}
+  }
 }
 
 void

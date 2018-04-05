@@ -43,21 +43,35 @@ ComputeResolutionAdequacyElemAlgorithm::ComputeResolutionAdequacyElemAlgorithm(
   Realm& realm, stk::mesh::Part* part)
   : Algorithm(realm, part),
     sdr_(NULL),
+    tke_(NULL),
     tvisc_(NULL),
+    density_(NULL),
+    viscosity_(NULL),
     resolutionAdequacy_(NULL),
+    minDistance_(NULL),
     dudx_(NULL),
     Mij_(NULL),
     Ch_(realm.get_turb_model_constant(TM_Ch)),
-    Chmu_(realm.get_turb_model_constant(TM_Chmu))
+    Chmu_(realm.get_turb_model_constant(TM_Chmu)),
+    aOne_(realm.get_turb_model_constant(TM_aOne)),
+    betaStar_(realm.get_turb_model_constant(TM_betaStar))
 {
   // save off data
   stk::mesh::MetaData& meta_data = realm_.meta_data();
   sdr_ = meta_data.get_field<ScalarFieldType>(
     stk::topology::NODE_RANK, "specific_dissipation_rate");
+  tke_ = meta_data.get_field<ScalarFieldType>(
+    stk::topology::NODE_RANK, "turbulent_ke");
   tvisc_ = meta_data.get_field<ScalarFieldType>(
     stk::topology::NODE_RANK, "turbulent_viscosity");
+  density_ = meta_data.get_field<ScalarFieldType>(
+    stk::topology::NODE_RANK, "density");
+  viscosity_ = meta_data.get_field<ScalarFieldType>(
+    stk::topology::NODE_RANK, "viscosity");
   resolutionAdequacy_ = meta_data.get_field<ScalarFieldType>(
     stk::topology::NODE_RANK, "resolution_adequacy");
+  minDistance_ = meta_data.get_field<ScalarFieldType>(
+    stk::topology::NODE_RANK, "minimum_distance_to_wall");
   dudx_ = meta_data.get_field<GenericFieldType>(
     stk::topology::NODE_RANK, "dudx");
   Mij_ =  meta_data.get_field<GenericFieldType>(
@@ -137,8 +151,12 @@ ComputeResolutionAdequacyElemAlgorithm::execute()
       }
 
       // gather nodal scalars
+      const double *rho = stk::mesh::field_data(*density_, b);
+      const double *visc = stk::mesh::field_data(*viscosity_, b);
       const double *sdr = stk::mesh::field_data(*sdr_, b[k]);
+      const double *tke = stk::mesh::field_data(*tke_, b[k]);
       const double *tvisc = stk::mesh::field_data(*tvisc_, b[k]);
+      const double *minD = stk::mesh::field_data(*minDistance_, b);
       double *resAdeq = stk::mesh::field_data(*resolutionAdequacy_, b[k]);
 
       // gather nodal vector
@@ -148,16 +166,39 @@ ComputeResolutionAdequacyElemAlgorithm::execute()
         for (int j = 0; j < nDim; ++j) {
           double Pij = 0.0;
           for (int k = 0; k < nDim; ++k) {
-            Pij +=
+            Pij += 0.5 * (
               dudx[nDim * j + k] * (dudx[nDim * i + k] + dudx[nDim * k + i]) +
-              dudx[nDim * i + k] * (dudx[nDim * j + k] + dudx[nDim * k + j]);
+              dudx[nDim * i + k] * (dudx[nDim * j + k] + dudx[nDim * k + j]));
           }
 
-          resAdeq[0] += p_Mij[nDim * i + j] * -1.0 * tvisc[0] * Pij;
+          resAdeq[0] += p_Mij[nDim * i + j] * 1.0 * tvisc[0] * Pij;
         }
       }
 
-      const double v2 = tvisc[0] * sdr[0] / Chmu_;
+      // Alternate denominator for nu_t switch in SST
+      // compute strain rate magnitude; pull pointer within the loop to make it managable
+      double sijMag = 0.0;
+      for ( int i = 0; i < nDim; ++i ) {
+        const int offSet = nDim*i;
+        for ( int j = 0; j < nDim; ++j ) {
+          const double rateOfStrain = 0.5*(dudx[offSet+j] + dudx[nDim*j+i]);
+          sijMag += rateOfStrain*rateOfStrain;
+        }
+      }
+      sijMag = std::sqrt(2.0*sijMag);
+     
+      // some temps
+      const double minDSq = minD[k]*minD[k];
+      const double trbDiss = std::sqrt(tke[k])/betaStar_/sdr[k]/minD[k];
+      const double lamDiss = 500.0*visc[k]/rho[k]/sdr[k]/minDSq;
+      const double fArgTwo = std::max(2.0*trbDiss, lamDiss);
+      const double fTwo = std::tanh(fArgTwo*fArgTwo);
+
+      // tvisc[k] = aOne_*tke[k]/std::max(aOne_*sdr[k], sijMag*fTwo);
+
+ 
+      //const double v2 = tvisc[0] * sdr[0] / Chmu_;
+      const double v2 = betaStar_ * sdr[0] * tvisc[0] / Chmu_;
       if (v2 == 0.0)
         resAdeq[0] = 1.0;
       else

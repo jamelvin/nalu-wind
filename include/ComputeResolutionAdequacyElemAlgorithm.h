@@ -26,14 +26,20 @@ public:
   void zero_nodal_fields();
 
   ScalarFieldType* sdr_{nullptr};
+  ScalarFieldType* tke_{nullptr};
   ScalarFieldType* tvisc_{nullptr};
+  ScalarFieldType* density_{nullptr};
+  ScalarFieldType* viscosity_{nullptr};
   ScalarFieldType* resolutionAdequacy_{nullptr};
+  ScalarFieldType* minDistance_{nullptr};
   GenericFieldType* dudx_{nullptr};
   GenericFieldType* Mij_{nullptr};
   VectorFieldType *coordinates_{nullptr}; //FIXME: DEBUGGING
 
   const double Ch_;
   const double Chmu_;
+  const double aOne_;
+  const double betaStar_;
 
   std::vector<double> ws_Mij;
 };
