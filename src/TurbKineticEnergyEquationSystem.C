@@ -350,6 +350,7 @@ TurbKineticEnergyEquationSystem::register_interior_algorithm(
         {
           theSrc = new TurbKineticEnergySSTDESNodeSourceSuppAlg(realm_);
         }
+        break;
       case SFLES:
         {
           theSrc = new TurbKineticEnergySFLESNodeSourceSuppAlg(realm_);
