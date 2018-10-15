@@ -84,11 +84,12 @@ private:
   const bool shiftedGradOp_;
   const double small_{1.0e-16};
   
-  /// Peclet function
+  // Peclet function
   PecletFunction<DoubleType>* pecletFunction_{nullptr};
 
   // fixed scratch space
-  Kokkos::View<DoubleType[AlgTraits::numScsIp_][AlgTraits::nodesPerElement_]> v_shape_function_{"v_shape_function"};
+  AlignedViewType<DoubleType[AlgTraits::numScsIp_][AlgTraits::nodesPerElement_]> v_shape_function_{"v_shape_function"};
+  AlignedViewType<DoubleType[AlgTraits::numScsIp_][AlgTraits::nodesPerElement_]> v_adv_shape_function_{"v_adv_shape_function"};
 };
 
 }  // nalu

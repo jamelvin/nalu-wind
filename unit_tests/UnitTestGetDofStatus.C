@@ -7,6 +7,8 @@
 
 #include <TpetraLinearSystem.h>
 
+#ifndef KOKKOS_HAVE_CUDA
+
 class DofStatusHex8Mesh : public Hex8Mesh {};
 
 TEST_F(DofStatusHex8Mesh, getDofStatus_basic)
@@ -40,10 +42,12 @@ TEST_F(DofStatusHex8Mesh, getDofStatus_shared)
                         sierra::nalu::getDofStatus_impl(node, helperObjs.realm));
           }
           else {
-              EXPECT_EQ(sierra::nalu::DS_GloballyOwnedDOF,
+              EXPECT_EQ(sierra::nalu::DS_SharedNotOwnedDOF,
                         sierra::nalu::getDofStatus_impl(node, helperObjs.realm));
           }
       }
   }
 }
+
+#endif
 

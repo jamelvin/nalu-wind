@@ -77,7 +77,7 @@ TurbKineticEnergyKsgsDesignOrderSrcElemKernel<AlgTraits>::execute(
   SharedMemView<DoubleType *>&rhs,
   ScratchViews<DoubleType>& scratchViews)
 {
-  DoubleType w_dudx [AlgTraits::nDim_][AlgTraits::nDim_];
+  NALU_ALIGNED DoubleType w_dudx [AlgTraits::nDim_][AlgTraits::nDim_];
  
   SharedMemView<DoubleType**>& v_velocityNp1 = scratchViews.get_scratch_view_2D(*velocityNp1_);
   SharedMemView<DoubleType*>& v_tkeNp1 = scratchViews.get_scratch_view_1D(
@@ -130,8 +130,12 @@ TurbKineticEnergyKsgsDesignOrderSrcElemKernel<AlgTraits>::execute(
         Pk += w_dudx[i][j]*(w_dudx[i][j] + w_dudx[j][i]);
       }
     }
-    Pk *= tviscIp;
-    
+    Pk *= stk::math::max(tviscIp,0);
+    tkeIp = stk::math::max(tkeIp,0);
+    dualNodalVolIp = stk::math::max(dualNodalVolIp,0);
+    rhoIp = stk::math::max(rhoIp,0);
+
+
     // tke factor
     const DoubleType tkeFac = (AlgTraits::nDim_ == 2) 
       ? cEps_*rhoIp*stk::math::sqrt(tkeIp/dualNodalVolIp)

@@ -45,6 +45,11 @@ public:
     SharedMemView<DoubleType***>& gradop,
     SharedMemView<DoubleType***>& deriv) override ;
 
+  void shifted_grad_op(
+    SharedMemView<DoubleType** >& coords,
+    SharedMemView<DoubleType***>& gradop,
+    SharedMemView<DoubleType***>& deriv) override ;
+
   void Mij(
     SharedMemView<DoubleType** >& coords,
     SharedMemView<DoubleType***>& metric,
@@ -120,12 +125,22 @@ public:
     double * error ) override ;
 
   void face_grad_op(
+    int face_ordinal,
+    SharedMemView<DoubleType**>& coords,
+    SharedMemView<DoubleType***>& gradop) final;
+
+  void face_grad_op(
     const int nelem,
     const int face_ordinal,
     const double *coords,
     double *gradop,
     double *det_j,
     double * error ) override ;
+
+  void shifted_face_grad_op(
+    int face_ordinal,
+    SharedMemView<DoubleType**>& coords,
+    SharedMemView<DoubleType***>& gradop) final;
 
   void shifted_face_grad_op(
     const int nelem,
@@ -159,6 +174,7 @@ public:
 
   const int * adjacentNodes() override;
 
+  const int * scsIpEdgeOrd() override;
   int opposingNodes(
     const int ordinal, const int node) override;
 
@@ -207,6 +223,13 @@ public:
     double *elem_pcoords) override;
 
   const int* side_node_ordinals(int sideOrdinal) final;
+private :
+  void face_grad_op(
+    const int face_ordinal,
+    const bool shifted,
+    SharedMemView<DoubleType**>& coords,
+    SharedMemView<DoubleType***>& gradop);
+
 };
 
 } // namespace nalu

@@ -38,6 +38,8 @@ class MasterElement;
 class PyrSCV : public MasterElement
 {
 public:
+  using AlgTraits = AlgTraitsPyr5;
+
 
   PyrSCV();
   virtual ~PyrSCV();
@@ -49,6 +51,11 @@ public:
     SharedMemView<DoubleType*>& vol);
 
   void grad_op(
+    SharedMemView<DoubleType**>& coords,
+    SharedMemView<DoubleType***>& gradop,
+    SharedMemView<DoubleType***>& deriv);
+
+  void shifted_grad_op(
     SharedMemView<DoubleType**>& coords,
     SharedMemView<DoubleType***>& gradop,
     SharedMemView<DoubleType***>& deriv);
@@ -79,12 +86,18 @@ public:
     const int &npts,
     const double *par_coord, 
     double* shape_fcn);
+
+  void shifted_pyr_shape_fcn(
+    const int &npts,
+    const double *par_coord, 
+    double* shape_fcn);
 };
 
 // Pyramid 5 subcontrol surface
 class PyrSCS : public MasterElement
 {
 public:
+  using AlgTraits = AlgTraitsPyr5;
 
   PyrSCS();
   virtual ~PyrSCS();
@@ -132,6 +145,11 @@ public:
     const double *intLoc,
     double *deriv);
 
+  void shifted_pyr_derivative(
+    const int npts,
+    const double *intLoc,
+    double *deriv);
+
   void gij( 
     SharedMemView<DoubleType**>& coords,
     SharedMemView<DoubleType***>& gupper,
@@ -156,6 +174,8 @@ public:
 
   const int * adjacentNodes();
 
+  const int * scsIpEdgeOrd();
+
   void shape_fcn(
     double *shpfc);
 
@@ -166,6 +186,17 @@ public:
     const int &npts,
     const double *par_coord, 
     double* shape_fcn);
+
+  void shifted_pyr_shape_fcn(
+    const int &npts,
+    const double *par_coord, 
+    double* shape_fcn);
+
+  void
+  general_shape_fcn(const int numIp, const double* isoParCoord, double* shpfc)
+  {
+    pyr_shape_fcn(numIp, isoParCoord, shpfc);
+  }
 
   void sidePcoords_to_elemPcoords(
     const int & side_ordinal,
@@ -187,6 +218,11 @@ public:
     double *det_j,
     double *error);
 
+  void face_grad_op(
+    int face_ordinal,
+    SharedMemView<DoubleType**>& coords,
+    SharedMemView<DoubleType***>& gradop) final;
+
   void shifted_face_grad_op(
     const int nelem,
     const int face_ordinal,
@@ -194,6 +230,11 @@ public:
     double *gradop,
     double *det_j,
     double * error );
+
+  void shifted_face_grad_op(
+    int face_ordinal,
+    SharedMemView<DoubleType**>& coords,
+    SharedMemView<DoubleType***>& gradop) final;
 
   void general_face_grad_op(
     const int face_ordinal,
@@ -217,6 +258,7 @@ public:
     const double *isoParCoord,
     const double *field,
     double *result);
+
 };
 
 } // namespace nalu

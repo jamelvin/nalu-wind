@@ -1,0 +1,13 @@
+add_sources(GlobalSourceList
+   ElementCondenser.C
+   ElementDescription.C
+   HexNElementDescription.C
+   LagrangeBasis.C
+   NodeMapMaker.C
+   PromoteElement.C
+   PromotedElementIO.C
+   PromotedPartHelper.C
+   QuadNElementDescription.C
+   QuadratureRule.C
+   TensorProductQuadratureRule.C
+)

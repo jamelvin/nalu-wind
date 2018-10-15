@@ -21,7 +21,7 @@
 #include <NaluEnv.h>
 #include <FORTRAN_Proto.h>
 
-#include <stk_util/environment/ReportHandler.hpp>
+#include <stk_util/util/ReportHandler.hpp>
 #include <stk_topology/topology.hpp>
 
 #include <iostream>
@@ -39,7 +39,7 @@ namespace nalu{
 void quad_derivative(const std::vector<double> &par_coord, 
                      SharedMemView<DoubleType***>& deriv) {
   const double half = 0.5;
-  const size_t npts = deriv.dimension(0);
+  const size_t npts = deriv.extent(0);
 
   for(size_t j=0; j<npts; ++j) {
     const DoubleType s1 = par_coord[2*j+0];
@@ -250,6 +250,18 @@ void Quad42DSCV::determinant(
 }
 
 //--------------------------------------------------------------------------
+//-------- shifted_grad_op -------------------------------------------------
+//--------------------------------------------------------------------------
+void Quad42DSCV::shifted_grad_op(
+  SharedMemView<DoubleType**>& coords,
+  SharedMemView<DoubleType***>& gradop,
+  SharedMemView<DoubleType***>& deriv) {
+
+  quad_derivative(intgLocShift_, deriv);
+  quad_gradient_operator<Traits::numScsIp_, Traits::nodesPerElement_>(deriv, coords, gradop);
+}
+
+//--------------------------------------------------------------------------
 //-------- shape_fcn -------------------------------------------------------
 //--------------------------------------------------------------------------
 void
@@ -408,6 +420,11 @@ Quad42DSCS::Quad42DSCS()
   lrscv_[4]  = 2; lrscv_[5]  = 3;
   lrscv_[6]  = 0; lrscv_[7]  = 3;
   
+  // elem-edge mapping from ip
+  scsIpEdgeOrd_.resize(numIntPoints_);
+  scsIpEdgeOrd_[0] = 0; scsIpEdgeOrd_[1] = 1;
+  scsIpEdgeOrd_[2] = 2; scsIpEdgeOrd_[3] = 3;
+
   // define opposing node
   oppNode_.resize(8);
   // face 0; nodes 0,1
@@ -639,7 +656,7 @@ void Quad42DSCS::grad_op(
       coords, gradop, det_j, error, &lerr );
   
   if ( lerr )
-    std::cout << "sorry, negative Quad42DSCS volume.." << std::endl;  
+    NaluEnv::self().naluOutput() << "sorry, negative Quad42DSCS volume.." << std::endl;
 }
 
 //--------------------------------------------------------------------------
@@ -674,12 +691,39 @@ void Quad42DSCS::shifted_grad_op(
       coords, gradop, det_j, error, &lerr );
 
   if ( lerr )
-    std::cout << "sorry, negative Quad42DSCS volume.." << std::endl;
+    NaluEnv::self().naluOutput() << "sorry, negative Quad42DSCS volume.." << std::endl;
 }
 
 //--------------------------------------------------------------------------
 //-------- face_grad_op ----------------------------------------------------
 //--------------------------------------------------------------------------
+void Quad42DSCS::face_grad_op(
+  const int face_ordinal,
+  const bool shifted,
+  SharedMemView<DoubleType**>& coords,
+  SharedMemView<DoubleType***>& gradop)
+{
+  using traits = AlgTraitsEdge2DQuad42D;
+
+  const std::vector<double> &p = shifted ? intgExpFaceShift_: intgExpFace_;
+  constexpr int derivSize = traits::numFaceIp_ * traits::nodesPerElement_ * traits::nDim_;
+  DoubleType psi[derivSize];
+  SharedMemView<DoubleType***> deriv(psi, traits::numFaceIp_, traits::nodesPerElement_, traits::nDim_);
+  const int len = 2*traits::numFaceIp_;
+  const std::vector<double> exp_face(&p[len*face_ordinal], &p[len*(face_ordinal+1)]);
+  quad_derivative(exp_face, deriv);
+  generic_grad_op<traits>(deriv, coords, gradop);
+}
+
+void Quad42DSCS::face_grad_op(
+  int face_ordinal,
+  SharedMemView<DoubleType**>& coords,
+  SharedMemView<DoubleType***>& gradop)
+{
+  constexpr bool shifted = false;
+  face_grad_op(face_ordinal, shifted, coords, gradop);
+}
+
 void Quad42DSCS::face_grad_op(
   const int nelem,
   const int face_ordinal,
@@ -711,7 +755,7 @@ void Quad42DSCS::face_grad_op(
           &coords[8*n], &gradop[k*nelem*8+n*8], &det_j[npf*n+k], error, &lerr );
       
       if ( lerr )
-        std::cout << "sorry, issue with face_grad_op.." << std::endl;
+        NaluEnv::self().naluOutput() << "sorry, issue with face_grad_op.." << std::endl;
       
     }
   }
@@ -720,6 +764,15 @@ void Quad42DSCS::face_grad_op(
 //--------------------------------------------------------------------------
 //-------- shifted_face_grad_op --------------------------------------------
 //--------------------------------------------------------------------------
+void Quad42DSCS::shifted_face_grad_op(
+  int face_ordinal,
+  SharedMemView<DoubleType**>& coords,
+  SharedMemView<DoubleType***>& gradop)
+{
+  constexpr bool shifted = true;
+  face_grad_op(face_ordinal, shifted, coords, gradop);
+}
+
 void Quad42DSCS::shifted_face_grad_op(
   const int nelem,
   const int face_ordinal,
@@ -751,7 +804,7 @@ void Quad42DSCS::shifted_face_grad_op(
           &coords[8*n], &gradop[k*nelem*8+n*8], &det_j[npf*n+k], error, &lerr );
 
       if ( lerr )
-        std::cout << "sorry, issue with face_grad_op.." << std::endl;
+        NaluEnv::self().naluOutput() << "sorry, issue with face_grad_op.." << std::endl;
 
     }
   }
@@ -929,6 +982,15 @@ Quad42DSCS::adjacentNodes()
 {
   // define L/R mappings
   return &lrscv_[0];
+}
+
+//--------------------------------------------------------------------------
+//-------- scsIpEdgeOrd ----------------------------------------------------
+//--------------------------------------------------------------------------
+const int *
+Quad42DSCS::scsIpEdgeOrd()
+{
+  return &scsIpEdgeOrd_[0];
 }
 
 //--------------------------------------------------------------------------
@@ -1173,7 +1235,7 @@ Quad42DSCS::general_face_grad_op(
       &coords[0], &gradop[0], &det_j[0], error, &lerr );
   
   if ( lerr )
-    std::cout << "Quad42DSCS::general_face_grad_op: issue.." << std::endl;
+    NaluEnv::self().naluOutput() << "Quad42DSCS::general_face_grad_op: issue.." << std::endl;
   
 }
 

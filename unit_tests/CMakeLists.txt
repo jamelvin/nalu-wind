@@ -1,0 +1,57 @@
+add_sources(GlobalUnitSourceList
+   UnitTest1ElemCoordCheck.C
+   UnitTestABLWallFunction.C
+   UnitTestBasicKokkos.C
+   UnitTestCreateOnDevice.C
+   UnitTestElemDataRequests.C
+   UnitTestElemSuppAlg.C
+   UnitTestElementDescription.C
+   UnitTestFieldUtils.C
+   UnitTestGetDofStatus.C
+   UnitTestHOMasterElements.C
+   UnitTestHex27FaceNodeOrdering.C
+   UnitTestHexElementPromotion.C
+   UnitTestHexMasterElements.C
+   UnitTestHexSCVDeterminant.C
+   UnitTestIntegrationRule.C
+   UnitTestKokkosME.C
+   UnitTestKokkosMEBC.C
+   UnitTestKokkosViews.C
+   UnitTestLocalGraphArrays.C
+   UnitTestMasterElements.C
+   UnitTestMetricTensor.C
+   UnitTestMovingAverage.C
+   UnitTestNGPMasterElements.C
+   UnitTestNgpMesh1.C
+   UnitTestPecletFunction.C
+   UnitTestQuadElementPromotion.C
+   UnitTestRealm.C
+   UnitTestShmemAlignment.C
+   UnitTestSideIsInElement.C
+   UnitTestSideNodeOrdinals.C
+   UnitTestSidePCoords.C
+   UnitTestSimdBasic.C
+   UnitTestSimdContAdvElem.C
+   UnitTestSimdMomentum.C
+   UnitTestSingleHexPromotion.C
+   UnitTestSuppAlgDataSharing.C
+   UnitTestTpetra.C
+   UnitTestUtils.C
+)
+
+add_sources(GlobalUnitHeaderList
+   UnitTestFieldUtils.h
+   UnitTestHelperObjects.h
+   UnitTestKokkosME.h
+   UnitTestKokkosMEBC.h
+   UnitTestKokkosMEGold.h
+   UnitTestKokkosUtils.h
+   UnitTestLinearSystem.h
+   UnitTestRealm.h
+   UnitTestUtils.h
+   UnitTestViewUtils.h
+)
+
+add_subdirectory(algorithms)
+add_subdirectory(kernels)
+add_subdirectory(ho_kernels)

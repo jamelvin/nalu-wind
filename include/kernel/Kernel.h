@@ -12,11 +12,11 @@
 #include "SimdInterface.h"
 #include "ScratchViews.h"
 #include "AlgTraits.h"
-#include "BcAlgTraits.h"
 
 #include <stk_mesh/base/Entity.hpp>
 
 #include <array>
+#include "../ScratchViewsHO.h"
 
 namespace sierra {
 namespace nalu {
@@ -113,6 +113,12 @@ public:
     ScratchViews<DoubleType> &scratchViews)
   {}
 
+  virtual void execute(
+    SharedMemView<DoubleType**> &lhs,
+    SharedMemView<DoubleType*> &rhs,
+    ScratchViewsHO<DoubleType> &scratchViews)
+  {}
+
   /** Special execute for face-element kernels
    *
    */
@@ -120,9 +126,11 @@ public:
     SharedMemView<DoubleType**> &lhs,
     SharedMemView<DoubleType*> &rhs,
     ScratchViews<DoubleType> &faceScratchViews,
-    ScratchViews<DoubleType> &elemScratchViews)
+    ScratchViews<DoubleType> &elemScratchViews,
+    int elemFaceOrdinal)
   {}
 };
+
 
 }  // nalu
 }  // sierra

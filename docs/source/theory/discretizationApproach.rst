@@ -1,7 +1,9 @@
+.. _theory_discretization_approach:
+
 Discretization Approach
 -----------------------
 
-Nalu supports two discretizations: control volume finite element and
+Nalu-Wind supports two discretizations: control volume finite element and
 (CVFEM) edge-based vertex centered (EBVC). Each are finite volume
 forumations and each solve for the primitives are are each considered
 vertex-based schemes. Considerable testing has provided a set of general
@@ -12,7 +14,7 @@ for the CVFEM technique.
 
 For generalized unstructured meshes that have poor quality, CVFEM has
 been shown to excell in accuracy and robustness. This is mostly due to
-the inhearant accuracy limitation for the non-orthogonal correction
+the inherent accuracy limitation for the non-orthogonal correction
 terms that appear in the diffusion term and pressure stabilization for
 the EBVC scheme. For generalized unstructured meshes of decent quality,
 either scheme is ideal. Finally, for highly structured meshes with
@@ -24,6 +26,8 @@ can be up to four times faster. However, due to the lagged coupling
 between the projected nodal gradient equation and the dofs, on meshes
 with high non-orthogonality, nonlinear residual convergence can be
 delayed.
+
+.. _theory_cvfem_dual_mesh:
 
 CVFEM Dual Mesh
 +++++++++++++++
@@ -215,7 +219,7 @@ approach is strickly second order accurate. When running higher order
 CVFEM, a consistent mass matrix appraoch is required to maintain design
 order of the overall discretization. This is strickly due to the
 pressure stabilization whose accuracy can be affected by the form of the
-projected nodal gradient (see the Nalu theory manual or a variety of
+projected nodal gradient (see the Nalu-Wind theory manual or a variety of
 SNL-based publications).
 
 In the description that follows, :math:`\bar{G_j \phi}` represent the
@@ -362,7 +366,7 @@ Eq. :eq:`generalGrad`.
 Common approaches in the cell-centered community are to use
 the projected nodal gradients for the
 :math:`\frac{\partial u_j}{\partial x_i}` stress component. However, in
-Nalu, the above form of equation is used.
+Nalu-Wind, the above form of equation is used.
 
 Substituting the relations of the velocity gradients for the x and
 y-componnet of force above provides the following expression used for

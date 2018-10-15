@@ -16,7 +16,7 @@
 #include <Kokkos_Core.hpp>
 #include <AlgTraits.h>
 
-#include <stk_util/environment/ReportHandler.hpp>
+#include <stk_util/util/ReportHandler.hpp>
 
 #include <vector>
 #include <cstdlib>
@@ -54,6 +54,8 @@ public:
     }
     return interpWeights;
   }
+
+
 
   template <typename ViewType>
   ViewType copy_deriv_weights_to_view(const std::vector<double>& derivs)
@@ -103,6 +105,8 @@ public:
     }
     return referenceGradWeights;
   }
+
+
 
 
 protected:
@@ -188,8 +192,8 @@ private:
 // 3D Quad 27 subcontrol volume
 class Hex27SCV : public HexahedralP2Element
 {
-  using InterpWeightType = Kokkos::View<DoubleType[AlgTraits::numScvIp_][AlgTraits::nodesPerElement_]>;
-  using GradWeightType = Kokkos::View<DoubleType[AlgTraits::numScvIp_][AlgTraits::nodesPerElement_][AlgTraits::nDim_]>;
+  using InterpWeightType = AlignedViewType<DoubleType[AlgTraits::numScvIp_][AlgTraits::nodesPerElement_]>;
+  using GradWeightType = AlignedViewType<DoubleType[AlgTraits::numScvIp_][AlgTraits::nodesPerElement_][AlgTraits::nDim_]>;
 
 public:
   Hex27SCV();
@@ -205,6 +209,11 @@ public:
   void determinant(SharedMemView<DoubleType**>& coords, SharedMemView<DoubleType*>& volume) final;
 
   void grad_op(
+    SharedMemView<DoubleType**>&coords,
+    SharedMemView<DoubleType***>&gradop,
+    SharedMemView<DoubleType***>&deriv);
+
+  void shifted_grad_op(
     SharedMemView<DoubleType**>&coords,
     SharedMemView<DoubleType***>&gradop,
     SharedMemView<DoubleType***>&deriv);
@@ -260,8 +269,9 @@ private:
 // 3D Hex 27 subcontrol surface
 class Hex27SCS : public HexahedralP2Element
 {
-  using InterpWeightType = Kokkos::View<DoubleType[AlgTraits::numScsIp_][AlgTraits::nodesPerElement_]>;
-  using GradWeightType = Kokkos::View<DoubleType[AlgTraits::numScsIp_][AlgTraits::nodesPerElement_][AlgTraits::nDim_]>;
+  using InterpWeightType = AlignedViewType<DoubleType[AlgTraits::numScsIp_][AlgTraits::nodesPerElement_]>;
+  using GradWeightType = AlignedViewType<DoubleType[AlgTraits::numScsIp_][AlgTraits::nodesPerElement_][AlgTraits::nDim_]>;
+  using ExpGradWeightType = AlignedViewType<DoubleType[6*AlgTraitsQuad9Hex27::numFaceIp_][AlgTraits::nodesPerElement_][AlgTraits::nDim_]>;
 
 public:
   Hex27SCS();
@@ -290,6 +300,11 @@ public:
     SharedMemView<DoubleType***>& gupper,
     SharedMemView<DoubleType***>& glower,
     SharedMemView<DoubleType***>& deriv);
+
+  void face_grad_op(
+    int face_ordinal,
+    SharedMemView<DoubleType**>& coords,
+    SharedMemView<DoubleType***>& gradop) final;
 
   void Mij(
     SharedMemView<DoubleType**>& coords,
@@ -464,6 +479,8 @@ private:
 
   InterpWeightType shiftedInterpWeights_;
   GradWeightType shiftedReferenceGradWeights_;
+
+  ExpGradWeightType expReferenceGradWeights_;
 
   int ipsPerFace_;
 };

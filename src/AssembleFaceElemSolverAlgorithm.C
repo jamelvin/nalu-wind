@@ -55,7 +55,6 @@ AssembleFaceElemSolverAlgorithm::AssembleFaceElemSolverAlgorithm(
   unsigned nodesPerElem,
   bool interleaveMEViews)
   : SolverAlgorithm(realm, part, eqSystem),
-    part_(part),
     numDof_(eqSystem->linsys_->numDof()),
     nodesPerFace_(nodesPerFace),
     nodesPerElem_(nodesPerElem),
@@ -92,12 +91,12 @@ AssembleFaceElemSolverAlgorithm::execute()
         set_zero(smdata.simdlhs.data(), smdata.simdlhs.size());
 
         for (auto kernel : activeKernels_)
-          kernel->execute( smdata.simdlhs, smdata.simdrhs, smdata.simdFaceViews, smdata.simdElemViews );
+          kernel->execute( smdata.simdlhs, smdata.simdrhs, smdata.simdFaceViews, smdata.simdElemViews, smdata.elemFaceOrdinal );
 
         for(int simdIndex=0; simdIndex<smdata.numSimdFaces; ++simdIndex) {
           extract_vector_lane(smdata.simdrhs, simdIndex, smdata.rhs);
           extract_vector_lane(smdata.simdlhs, simdIndex, smdata.lhs);
-          apply_coeff(nodesPerFace_, smdata.connectedNodes[simdIndex],
+          apply_coeff(nodesPerElem_, smdata.connectedNodes[simdIndex],
                       smdata.scratchIds, smdata.sortPermutation, smdata.rhs, smdata.lhs, __FILE__);
         }
     }

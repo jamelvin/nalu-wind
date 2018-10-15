@@ -45,6 +45,11 @@ public:
     SharedMemView<DoubleType***>& gradop,
     SharedMemView<DoubleType***>& deriv) override ;
 
+  void shifted_grad_op(
+    SharedMemView<DoubleType** >& coords,
+    SharedMemView<DoubleType***>& gradop,
+    SharedMemView<DoubleType***>& deriv) override ;
+
   void Mij(
     SharedMemView<DoubleType** >& coords,
     SharedMemView<DoubleType***>& metric,
@@ -117,6 +122,12 @@ public:
     double *deriv,
     double *det_j,
     double * error ) override ;
+
+
+  void face_grad_op(
+    int face_ordinal,
+    SharedMemView<DoubleType**>& coords,
+    SharedMemView<DoubleType***>& gradop) final;
 
   void face_grad_op(
     const int nelem,

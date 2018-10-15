@@ -33,6 +33,7 @@ enum ELEM_DATA_NEEDED {
   SCV_MIJ,
   SCV_VOLUME,
   SCV_GRAD_OP,
+  SCV_SHIFTED_GRAD_OP,
   FEM_GRAD_OP,
   FEM_SHIFTED_GRAD_OP
 };
@@ -55,6 +56,7 @@ struct FieldInfo {
   FieldInfo(const stk::mesh::FieldBase* fld, unsigned tensorDim1, unsigned tensorDim2)
   : field(fld), scalarsDim1(tensorDim1), scalarsDim2(tensorDim2)
   {}
+
   const stk::mesh::FieldBase* field;
   unsigned scalarsDim1;
   unsigned scalarsDim2;
@@ -155,6 +157,7 @@ public:
   MasterElement *get_cvfem_volume_me() const {return meSCV_;}
   MasterElement *get_cvfem_surface_me() const {return meSCS_;}
   MasterElement *get_fem_volume_me() const {return meFEM_;}
+
 
 private:
   std::array<std::set<ELEM_DATA_NEEDED>, MAX_COORDS_TYPES> dataEnums;

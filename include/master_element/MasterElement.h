@@ -71,6 +71,18 @@ public:
     SharedMemView<DoubleType***>&deriv) {
     throw std::runtime_error("shifted_grad_op using SharedMemView is not implemented");}
 
+  virtual void face_grad_op(
+    int face_ordinal,
+    SharedMemView<DoubleType**>& coords,
+    SharedMemView<DoubleType***>& gradop) {
+    throw std::runtime_error("face_grad_op using SharedMemView is not implemented");}
+
+  virtual void shifted_face_grad_op(
+    int face_ordinal,
+    SharedMemView<DoubleType**>& coords,
+    SharedMemView<DoubleType***>& gradop) {
+    throw std::runtime_error("shifted_face_grad_op using SharedMemView is not implemented");}
+
   virtual void grad_op_fem(
     SharedMemView<DoubleType**>&coords,
     SharedMemView<DoubleType***>&gradop,
@@ -156,6 +168,7 @@ public:
     double * error ) {
     throw std::runtime_error("nodal_grad_op not implemented");}
 
+
   virtual void face_grad_op(
     const int nelem,
     const int face_ordinal,
@@ -164,6 +177,7 @@ public:
     double *det_j,
     double * error ) {
     throw std::runtime_error("face_grad_op not implemented; avoid this element type at open bcs, walls and symms");}
+
 
   virtual void shifted_face_grad_op(
      const int nelem,
@@ -175,7 +189,11 @@ public:
      throw std::runtime_error("shifted_face_grad_op not implemented");}
 
   virtual const int * adjacentNodes() {
-    throw std::runtime_error("adjacentNodes not implementedunknown bc");
+    throw std::runtime_error("adjacentNodes not implemented");
+    return NULL;}
+
+  virtual const int * scsIpEdgeOrd() {
+    throw std::runtime_error("scsIpEdgeOrd not implemented");
     return NULL;}
 
   virtual const int * ipNodeMap(int ordinal = 0) {
@@ -192,7 +210,7 @@ public:
 
   virtual int opposingNodes(
     const int ordinal, const int node) {
-    throw std::runtime_error("adjacentNodes not implemented"); }
+    throw std::runtime_error("opposingNodes not implemented"); }
 
   virtual int opposingFace(
     const int ordinal, const int node) {
@@ -265,6 +283,7 @@ public:
   std::vector<double> nodeLoc_;
   std::vector<int> sideNodeOrdinals_;
   std::vector<int> sideOffset_;
+  std::vector<int> scsIpEdgeOrd_;
 
   // FEM
   std::vector<double>weights_;

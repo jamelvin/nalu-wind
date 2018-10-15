@@ -7,6 +7,8 @@
 
 #include <ScratchViews.h>
 
+#include <NaluEnv.h>
+
 namespace sierra {
 namespace nalu {
 
@@ -58,9 +60,9 @@ void gather_elem_tensor_field(const stk::mesh::FieldBase& field,
 
 inline
 void gather_elem_node_field_3D(const stk::mesh::FieldBase& field,
-                            int numNodes,
-                            const stk::mesh::Entity* elemNodes,
-                            SharedMemView<double**>& shmemView)
+                               int numNodes,
+                               const stk::mesh::Entity* elemNodes,
+                               SharedMemView<double**>& shmemView)
 {
   for(int i=0; i<numNodes; ++i) {
     const double* dataPtr = static_cast<const double*>(stk::mesh::field_data(field, elemNodes[i]));
@@ -364,7 +366,7 @@ void fill_pre_req_data(
       }
       else {
         SharedMemView<double*>& shmemView = prereqData.get_scratch_view_1D(*fieldInfo.field);
-        unsigned len = shmemView.dimension(0);
+        unsigned len = shmemView.extent(0);
         double* fieldDataPtr = static_cast<double*>(stk::mesh::field_data(*fieldInfo.field, elem));
         for(unsigned i=0; i<len; ++i) {
           shmemView(i) = fieldDataPtr[i];
@@ -417,7 +419,7 @@ void fill_master_element_views(
   ElemDataRequests& dataNeeded,
   const stk::mesh::BulkData& bulkData,
   ScratchViews<DoubleType>& prereqData,
-  const int* faceOrdinals)
+  int faceOrdinal)
 {
     MasterElement *meFC  = dataNeeded.get_cvfem_face_me();
     MasterElement *meSCS = dataNeeded.get_cvfem_surface_me();
@@ -433,7 +435,7 @@ void fill_master_element_views(
       SharedMemView<DoubleType**>* coordsView = &prereqData.get_scratch_view_2D(*coordField);
       auto& meData = prereqData.get_me_views(cType);
   
-      meData.fill_master_element_views_new_me(dataEnums, coordsView, meFC, meSCS, meSCV, meFEM, faceOrdinals);
+      meData.fill_master_element_views_new_me(dataEnums, coordsView, meFC, meSCS, meSCV, meFEM, faceOrdinal);
     }
 }
 

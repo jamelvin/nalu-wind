@@ -20,8 +20,8 @@ namespace sierra {
 namespace nalu {
 
 class SolutionOptions;
-class MasterElement;
 class ElemDataRequests;
+class MasterElement;
 
 /** Symmetry kernel for momentum equation (velocity DOF)
  */
@@ -46,7 +46,8 @@ public:
     SharedMemView<DoubleType**> &lhs,
     SharedMemView<DoubleType*> &rhs,
     ScratchViews<DoubleType> &faceScratchViews,
-    ScratchViews<DoubleType> &elemScratchViews);
+    ScratchViews<DoubleType> &elemScratchViews,
+    int elemFaceOrdinal);
 
 private:
   MomentumSymmetryElemKernel() = delete;
@@ -59,11 +60,10 @@ private:
   const double includeDivU_;
   const bool shiftedGradOp_;
 
-  // Integration point to node mapping
-  const int* ipNodeMap_;
+  MasterElement *meSCS_{nullptr};
 
   /// Shape functions
-  Kokkos::View<DoubleType[BcAlgTraits::numFaceIp_][BcAlgTraits::nodesPerFace_]> v_face_shape_function_ {"view_face_shape_func"};
+  AlignedViewType<DoubleType[BcAlgTraits::numFaceIp_][BcAlgTraits::nodesPerFace_]> vf_shape_function_ {"view_face_shape_func"};
 };
 
 }  // nalu

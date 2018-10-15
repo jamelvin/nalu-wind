@@ -164,6 +164,7 @@ realms:
       name: myOptions
 
       use_consolidated_solver_algorithm: yes
+      use_consolidated_face_elem_bc_algorithm: yes
 
       mesh_motion:
 
@@ -191,14 +192,6 @@ realms:
 
       options:
 
-        - limiter:
-            pressure: no
-            velocity: no
-
-        - hybrid_factor:
-            mixture_fraction: 0.0
-            velocity: 0.0
-
         - element_source_terms:
             momentum: [lumped_momentum_time_derivative, advection_diffusion, NSO_2ND_KE]
             continuity: advection
@@ -208,6 +201,10 @@ realms:
             gauss_labatto_quadrature: no
             upwind_advection: yes
             current_normal: yes
+
+        - skew_symmetric_advection:
+            velocity: yes
+            mixture_fraction: yes
 
     output:
       output_data_base_name: dgNonConformalThreeBlade.e-s001

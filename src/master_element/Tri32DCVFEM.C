@@ -20,7 +20,7 @@
 #include <NaluEnv.h>
 #include <FORTRAN_Proto.h>
 
-#include <stk_util/environment/ReportHandler.hpp>
+#include <stk_util/util/ReportHandler.hpp>
 #include <stk_topology/topology.hpp>
 
 #include <iostream>
@@ -36,7 +36,7 @@ namespace nalu{
 
 //-------- tri_derivative -----------------------------------------------------
 void tri_derivative (SharedMemView<DoubleType***>& deriv) {
-  const int npts = deriv.dimension(0); 
+  const int npts = deriv.extent(0); 
   for (int j=0; j<npts; ++j) {
     deriv(j,0,0) = -1.0;
     deriv(j,1,0) =  1.0;
@@ -53,8 +53,8 @@ void tri_gradient_operator(
   SharedMemView<DoubleType***>& gradop,
   SharedMemView<DoubleType***>& deriv) {
       
-  const int nint = deriv.dimension(0);
-  const int npe  = deriv.dimension(1);
+  const int nint = deriv.extent(0);
+  const int npe  = deriv.extent(1);
  
   DoubleType dx_ds1, dx_ds2;
   DoubleType dy_ds1, dy_ds2;
@@ -301,6 +301,17 @@ void Tri32DSCV::grad_op(
   tri_gradient_operator(coords, gradop, deriv);
 }
 
+//--------------------------------------------------------------------------
+//-------- shifted_grad_op -------------------------------------------------
+//--------------------------------------------------------------------------
+void Tri32DSCV::shifted_grad_op(
+  SharedMemView<DoubleType**>& coords,
+  SharedMemView<DoubleType***>& gradop,
+  SharedMemView<DoubleType***>& deriv) {
+  tri_derivative(deriv);
+  tri_gradient_operator(coords, gradop, deriv);
+}
+
 void Tri32DSCV::determinant(
   const int nelem,
   const double *coords,
@@ -431,6 +442,10 @@ Tri32DSCS::Tri32DSCS()
   lrscv_[0]  = 0; lrscv_[1]  = 1;
   lrscv_[2]  = 1; lrscv_[3]  = 2;
   lrscv_[4]  = 0; lrscv_[5]  = 2;
+
+  // elem-edge mapping from ip
+  scsIpEdgeOrd_.resize(numIntPoints_);
+  scsIpEdgeOrd_[0] = 0; scsIpEdgeOrd_[1] = 1; scsIpEdgeOrd_[2] = 2; 
 
   // define opposing node
   oppNode_.resize(6);
@@ -649,7 +664,7 @@ void Tri32DSCS::grad_op(
       coords, gradop, det_j, error, &lerr );
   
   if ( lerr )
-    std::cout << "sorry, negative Tri32DSCS volume.." << std::endl;
+    NaluEnv::self().naluOutput() << "sorry, negative Tri32DSCS volume.." << std::endl;
 }
 
 //--------------------------------------------------------------------------
@@ -684,12 +699,27 @@ void Tri32DSCS::shifted_grad_op(
       coords, gradop, det_j, error, &lerr );
 
   if ( lerr )
-    std::cout << "sorry, negative Tri32DSCS volume.." << std::endl;
+    NaluEnv::self().naluOutput() << "sorry, negative Tri32DSCS volume.." << std::endl;
 }
 
 //--------------------------------------------------------------------------
 //-------- face_grad_op ----------------------------------------------------
 //--------------------------------------------------------------------------
+void Tri32DSCS::face_grad_op(
+  int /*face_ordinal*/,
+  SharedMemView<DoubleType**>& coords,
+  SharedMemView<DoubleType***>& gradop)
+{
+  using traits = AlgTraitsEdge2DTri32D;
+
+  constexpr int derivSize = traits::numFaceIp_ * traits::nodesPerElement_ * traits::nDim_;
+  DoubleType psi[derivSize];
+  SharedMemView<DoubleType***> deriv(psi, traits::numFaceIp_, traits::nodesPerElement_, traits::nDim_);
+  tri_derivative(deriv);
+  generic_grad_op<AlgTraitsEdge2DTri32D>(deriv, coords, gradop);
+}
+
+
 void Tri32DSCS::face_grad_op(
   const int nelem,
   const int /*face_ordinal*/,
@@ -721,7 +751,7 @@ void Tri32DSCS::face_grad_op(
           &coords[12*n], grad, &det_j[npf*n+k], error, &lerr );
       
       if ( lerr )
-        std::cout << "sorry, issue with face_grad_op.." << std::endl;
+        NaluEnv::self().naluOutput() << "sorry, issue with face_grad_op.." << std::endl;
       
       for ( int j=0; j<6; j++) {
         gradop[k*nelem*6+n*6+j] = grad[j];
@@ -733,6 +763,15 @@ void Tri32DSCS::face_grad_op(
 //--------------------------------------------------------------------------
 //-------- shifted_face_grad_op --------------------------------------------
 //--------------------------------------------------------------------------
+void Tri32DSCS::shifted_face_grad_op(
+  int face_ordinal,
+  SharedMemView<DoubleType**>& coords,
+  SharedMemView<DoubleType***>& gradop)
+{
+  // same as regular face_grad_op
+  face_grad_op(face_ordinal, coords, gradop);
+}
+
 void Tri32DSCS::shifted_face_grad_op(
   const int nelem,
   const int /*face_ordinal*/,
@@ -765,7 +804,7 @@ void Tri32DSCS::shifted_face_grad_op(
           &coords[12*n], &gradop[k*nelem*6+n*6], &det_j[npf*n+k], error, &lerr );
 
       if ( lerr )
-        std::cout << "sorry, issue with face_grad_op.." << std::endl;
+        NaluEnv::self().naluOutput() << "sorry, issue with face_grad_op.." << std::endl;
 
     }
   }
@@ -944,6 +983,15 @@ Tri32DSCS::adjacentNodes()
 {
   // define L/R mappings
   return &lrscv_[0];
+}
+
+//--------------------------------------------------------------------------
+//-------- scsIpEdgeOrd ----------------------------------------------------
+//--------------------------------------------------------------------------
+const int *
+Tri32DSCS::scsIpEdgeOrd()
+{
+  return &scsIpEdgeOrd_[0];
 }
 
 //--------------------------------------------------------------------------
@@ -1153,7 +1201,7 @@ Tri32DSCS::general_face_grad_op(
       &coords[0], &gradop[0], &det_j[0], error, &lerr );
       
   if ( lerr )
-    std::cout << "sorry, issue with face_grad_op.." << std::endl;
+    NaluEnv::self().naluOutput() << "sorry, issue with face_grad_op.." << std::endl;
   
 }
 

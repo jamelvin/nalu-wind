@@ -6,7 +6,7 @@
 #include <element_promotion/TensorProductQuadratureRule.h>
 #include <element_promotion/QuadratureRule.h>
 
-#include <stk_util/environment/ReportHandler.hpp>
+#include <stk_util/util/ReportHandler.hpp>
 
 #include <cmath>
 #include <stdexcept>
@@ -34,7 +34,7 @@ TensorProductQuadratureRule::TensorProductQuadratureRule(std::string type, int p
   else if (type == "SGL") {
     int numNodes = polyOrder+1;
     numQuad_ = 1; // only 1 quadrature point per scv
-    std::tie(abscissae_, weights_) = SGL_quadrature_rule(numNodes, scsEndLoc_);
+    std::tie(abscissae_, weights_) = SGL_quadrature_rule(numNodes, scsEndLoc_.data());
     useSGL_ = true;
   }
   else {
@@ -68,7 +68,7 @@ TensorProductQuadratureRule::TensorProductQuadratureRule(
   else if (type == "SGL") {
     int numNodes = scsLocs.size()+1;
     numQuad_ = 1; // only 1 quadrature point per scv
-    std::tie(abscissae_, weights_) = SGL_quadrature_rule(numNodes, scsEndLoc_);
+    std::tie(abscissae_, weights_) = SGL_quadrature_rule(numNodes, scsEndLoc_.data());
     useSGL_ = true;
   }
 }

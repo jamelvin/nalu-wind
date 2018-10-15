@@ -16,8 +16,6 @@
 #include <memory>
 #include <cassert>
 
-#ifndef KOKKOS_HAVE_CUDA
-
 class TestAlgorithm: public ::testing::Test
 {
 public:
@@ -117,10 +115,7 @@ struct NodeSuppHelper {
     realmDefaultNode(unit_test_utils::get_realm_default_node()),
     naluObj(std::unique_ptr<unit_test_utils::NaluTest>(new unit_test_utils::NaluTest(yamlNode))),
     realm(naluObj->create_realm(realmDefaultNode, "multi_physics"))
-  {
-    realm.metaData_ = new stk::mesh::MetaData(3u);
-    realm.bulkData_ = new stk::mesh::BulkData(*realm.metaData_, MPI_COMM_WORLD);
-  }
+  {}
 
   stk::mesh::Entity make_one_node_mesh() {
     realm.bulk_data().modification_begin();
@@ -137,7 +132,5 @@ struct NodeSuppHelper {
 
   stk::mesh::Entity node;
 };
-
-#endif /* KOKKOS_HAVE_CUDA */
 
 #endif /* UNITTESTALGORITHM_H */

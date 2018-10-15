@@ -57,6 +57,10 @@ public:
   TurbulenceAveragingPostProcessing(
     Realm &realm,
     const YAML::Node &node);
+
+  TurbulenceAveragingPostProcessing(
+    Realm&);
+
   ~TurbulenceAveragingPostProcessing();
   
   // load all of the options
@@ -148,6 +152,10 @@ public:
 	stk::mesh::Selector s_all_nodes);
 
   void compute_lambda_ci(
+	const std::string &averageBlockName,
+	stk::mesh::Selector s_all_nodes);
+
+  void compute_mean_resolved_ke(
 	const std::string &averageBlockName,
 	stk::mesh::Selector s_all_nodes);
 

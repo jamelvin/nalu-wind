@@ -1,0 +1,24 @@
+add_sources(GlobalHeaderList
+   Hex27CVFEM.h
+   Hex8CVFEM.h
+   Hex8FEM.h
+   Hex8GeometryFunctions.h
+   MasterElement.h
+   MasterElementFactory.h
+   MasterElementFunctions.h
+   MasterElementHO.h
+   MasterElementUtils.h
+   Pyr5CVFEM.h
+   Quad42DCVFEM.h
+   Quad43DCVFEM.h
+   Quad92DCVFEM.h
+   TensorOps.h
+   TensorProductCVFEMAdvectionMetric.h
+   TensorProductCVFEMDiffusionMetric.h
+   TensorProductCVFEMOperators.h
+   TensorProductCVFEMVolumeMetric.h
+   TensorProductOperatorsHexInternal.h
+   Tet4CVFEM.h
+   Tri32DCVFEM.h
+   Wed6CVFEM.h
+)

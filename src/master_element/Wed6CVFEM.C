@@ -9,15 +9,17 @@
 #include "master_element/MasterElementFunctions.h"
 #include "master_element/Hex8GeometryFunctions.h"
 #include "FORTRAN_Proto.h"
+#include "NaluEnv.h"
 
 namespace sierra {
 namespace nalu {
 
 //-------- wed_deriv -------------------------------------------------------
+template <typename DerivType>
 void wed_deriv(
   const int npts,
   const double* intgLoc,
-  SharedMemView<DoubleType***>& deriv)
+  DerivType& deriv)
 {
   for (int  j = 0; j < npts; ++j) {
     int k  = j*3;
@@ -225,7 +227,19 @@ void WedSCV::grad_op(
   SharedMemView<DoubleType***>& deriv)
 {
   wed_deriv(numIntPoints_, &intgLoc_[0], deriv);
-  generic_grad_op_3d<AlgTraitsWed6>(deriv, coords, gradop);
+  generic_grad_op<AlgTraitsWed6>(deriv, coords, gradop);
+}
+
+//--------------------------------------------------------------------------
+//-------- shifted_grad_op -------------------------------------------------
+//--------------------------------------------------------------------------
+void WedSCV::shifted_grad_op(
+  SharedMemView<DoubleType**>& coords,
+  SharedMemView<DoubleType***>& gradop,
+  SharedMemView<DoubleType***>& deriv)
+{
+  wed_deriv(numIntPoints_, &intgLocShift_[0], deriv);
+  generic_grad_op<AlgTraitsWed6>(deriv, coords, gradop);
 }
 
 //--------------------------------------------------------------------------
@@ -332,6 +346,12 @@ WedSCS::WedSCS()
   lrscv_[12] = 0; lrscv_[13] = 3;
   lrscv_[14] = 1; lrscv_[15] = 4;
   lrscv_[16] = 2; lrscv_[17] = 5;
+
+  // elem-edge mapping from ip
+  scsIpEdgeOrd_.resize(numIntPoints_);
+  scsIpEdgeOrd_[0] = 0; scsIpEdgeOrd_[1] = 1; scsIpEdgeOrd_[2] = 2; 
+  scsIpEdgeOrd_[3] = 3; scsIpEdgeOrd_[4] = 4; scsIpEdgeOrd_[5] = 5; 
+  scsIpEdgeOrd_[6] = 6; scsIpEdgeOrd_[7] = 7; scsIpEdgeOrd_[8] = 8; 
 
   // define opposing node
   oppNode_.resize(20);
@@ -617,7 +637,7 @@ void WedSCS::grad_op(
 {
   wed_deriv(numIntPoints_, &intgLoc_[0], deriv);
 
-  generic_grad_op_3d<AlgTraitsWed6>(deriv, coords, gradop);
+  generic_grad_op<AlgTraitsWed6>(deriv, coords, gradop);
 }
 
 void WedSCS::shifted_grad_op(
@@ -627,7 +647,7 @@ void WedSCS::shifted_grad_op(
 {
   wed_deriv(numIntPoints_, &intgLocShift_[0], deriv);
 
-  generic_grad_op_3d<AlgTraitsWed6>(deriv, coords, gradop);
+  generic_grad_op<AlgTraitsWed6>(deriv, coords, gradop);
   //wed_grad_op(deriv, coords, gradop);
 }
 
@@ -654,7 +674,7 @@ void WedSCS::grad_op(
       coords, gradop, det_j, error, &lerr );
 
   if ( lerr )
-    std::cout << "sorry, negative WedSCS volume.." << std::endl;
+    NaluEnv::self().naluOutput() << "sorry, negative WedSCS volume.." << std::endl;
 }
 
 //--------------------------------------------------------------------------
@@ -680,7 +700,7 @@ void WedSCS::shifted_grad_op(
       coords, gradop, det_j, error, &lerr );
 
   if ( lerr )
-    std::cout << "sorry, negative WedSCS volume.." << std::endl;
+    NaluEnv::self().naluOutput() << "sorry, negative WedSCS volume.." << std::endl;
 }
 
 //--------------------------------------------------------------------------
@@ -753,7 +773,7 @@ WedSCS::face_grad_op(
 
     for ( int k=0; k<npf; ++k ) {
 
-      const int row = 12*face_ordinal +k*ndim;
+      const int row = 12*face_ordinal + k*ndim;
       wedge_derivative(nface, &intgExpFace_[row], dpsi);
 
       SIERRA_FORTRAN(wed_gradient_operator) (
@@ -764,15 +784,55 @@ WedSCS::face_grad_op(
           &coords[18*n], &gradop[k*nelem*18+n*18], &det_j[npf*n+k], error, &lerr );
 
       if ( lerr )
-        std::cout << "problem with EwedSCS::face_grad" << std::endl;
+        NaluEnv::self().naluOutput() << "problem with EwedSCS::face_grad" << std::endl;
 
     }
   }
 }
 
 //--------------------------------------------------------------------------
+//-------- face_grad_op ----------------------------------------------------
+//--------------------------------------------------------------------------
+void WedSCS::face_grad_op(
+  int face_ordinal,
+  SharedMemView<DoubleType**>& coords,
+  SharedMemView<DoubleType***>& gradop)
+{
+  using tri_traits = AlgTraitsTri3Wed6;
+  using quad_traits = AlgTraitsQuad4Wed6;
+  constexpr int dim = 3;
+
+  constexpr int maxDerivSize = quad_traits::numFaceIp_ *  quad_traits::nodesPerElement_ * dim;
+  NALU_ALIGNED DoubleType psi[maxDerivSize];
+  const int numFaceIps = (face_ordinal < 3) ? quad_traits::numFaceIp_ : tri_traits::numFaceIp_;
+  SharedMemView<DoubleType***> deriv(psi, numFaceIps, AlgTraitsWed6::nodesPerElement_, dim);
+
+  const int offset = quad_traits::numFaceIp_ * face_ordinal;
+  wed_deriv(numFaceIps, &intgExpFace_[dim * offset], deriv);
+  generic_grad_op<AlgTraitsWed6>(deriv, coords, gradop);
+}
+//--------------------------------------------------------------------------
 //-------- shifted_face_grad_op --------------------------------------------
 //--------------------------------------------------------------------------
+void WedSCS::shifted_face_grad_op(
+  int face_ordinal,
+  SharedMemView<DoubleType**>& coords,
+  SharedMemView<DoubleType***>& gradop)
+{
+  using tri_traits = AlgTraitsTri3Wed6;
+  using quad_traits = AlgTraitsQuad4Wed6;
+  constexpr int dim = 3;
+
+  constexpr int maxDerivSize = quad_traits::numFaceIp_ *  quad_traits::nodesPerElement_ * dim;
+  NALU_ALIGNED DoubleType psi[maxDerivSize];
+  const int numFaceIps = (face_ordinal < 3) ? quad_traits::numFaceIp_ : tri_traits::numFaceIp_;
+  SharedMemView<DoubleType***> deriv(psi, numFaceIps, AlgTraitsWed6::nodesPerElement_, dim);
+
+  const int offset = sideOffset_[face_ordinal];
+  wed_deriv(numFaceIps, &intgExpFaceShift_[dim * offset], deriv);
+  generic_grad_op<AlgTraitsWed6>(deriv, coords, gradop);
+}
+
 void
 WedSCS::shifted_face_grad_op(
   const int nelem,
@@ -805,7 +865,7 @@ WedSCS::shifted_face_grad_op(
           &coords[18*n], &gradop[k*nelem*18+n*18], &det_j[npf*n+k], error, &lerr );
 
       if ( lerr )
-        std::cout << "problem with EwedSCS::face_grad" << std::endl;
+        NaluEnv::self().naluOutput() << "problem with EwedSCS::face_grad" << std::endl;
 
     }
   }
@@ -868,6 +928,15 @@ WedSCS::adjacentNodes()
 {
   // define L/R mappings
   return &lrscv_[0];
+}
+
+//--------------------------------------------------------------------------
+//-------- scsIpEdgeOrd ----------------------------------------------------
+//--------------------------------------------------------------------------
+const int *
+WedSCS::scsIpEdgeOrd()
+{
+  return &scsIpEdgeOrd_[0];
 }
 
 //--------------------------------------------------------------------------
@@ -1176,7 +1245,7 @@ WedSCS::general_face_grad_op(
       &coords[0], &gradop[0], &det_j[0], error, &lerr );
 
   if ( lerr )
-    std::cout << "problem with EwedSCS::general_face_grad" << std::endl;
+    NaluEnv::self().naluOutput() << "problem with EwedSCS::general_face_grad" << std::endl;
 
 }
 

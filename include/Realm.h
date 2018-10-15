@@ -74,6 +74,7 @@ class TurbulenceAveragingPostProcessing;
 class DataProbePostProcessing;
 class Actuator;
 class ABLForcingAlgorithm;
+class BdyLayerStatistics;
 
 class TensorProductQuadratureRule;
 class LagrangeBasis;
@@ -306,6 +307,8 @@ class Realm {
     const std::string dofname);
   bool get_shifted_grad_op(
     const std::string dofname);
+  bool get_skew_symmetric(
+    const std::string dofname);
   double get_divU();
 
   // tanh factor specifics
@@ -428,6 +431,7 @@ class Realm {
   DataProbePostProcessing *dataProbePostProcessing_;
   Actuator *actuator_;
   ABLForcingAlgorithm *ablForcingAlg_;
+  BdyLayerStatistics* bdyLayerStats_{nullptr};
 
   std::vector<Algorithm *> propertyAlg_;
   std::map<PropertyIdentifier, ScalarFieldType *> propertyMap_;
@@ -449,6 +453,7 @@ class Realm {
   double timerTransferExecute_;
   double timerSkinMesh_;
   double timerPromoteMesh_;
+  double timerSortExposedFace_;
 
   NonConformalManager *nonConformalManager_;
   OversetManager *oversetManager_;
@@ -474,8 +479,12 @@ class Realm {
   // part for new edges
   stk::mesh::Part *edgesPart_;
 
+  // cheack that all exposed surfaces have a bc applied
   bool checkForMissingBcs_;
 
+  // check if there are negative Jacobians
+  bool checkJacobians_;
+  
   // types of physics
   bool isothermalFlow_;
   bool uniformFlow_;
@@ -517,7 +526,14 @@ class Realm {
   // mesh parts for all interior domains
   stk::mesh::PartVector interiorPartVec_;
 
-  // mesh parts for all boundary conditions
+  /** Vector holding side sets that have been registered with the boundary
+   * conditions in the input file.
+   *
+   * The member is intended to for use in Realm::enforce_bc_on_exposed_faces to
+   * check for "exposed surfaces" that might have not been assigned BCs in the
+   * input file.
+   *
+   */
   stk::mesh::PartVector bcPartVec_;
 
   // empty part vector should it be required
@@ -583,12 +599,11 @@ class Realm {
   void setup_element_promotion(); // create super parts
   void promote_mesh(); // create new super element / sides on parts
   void create_promoted_output_mesh(); // method to create output of linear subelements
-  bool using_SGL_quadrature() const { return get_quad_type() == "SGL"; };
+  bool using_tensor_product_kernels() const;
   bool high_order_active() const { return doPromotion_; };
 
   std::string physics_part_name(std::string) const;
   std::vector<std::string> physics_part_names(std::vector<std::string>) const;
-  std::string get_quad_type() const;
 
   // check for mesh changing
   bool mesh_changed() const;

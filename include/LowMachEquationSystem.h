@@ -23,6 +23,7 @@ namespace nalu{
 class AlgorithmDriver;
 class Realm;
 class AssembleNodalGradAlgorithmDriver;
+class AssembleNodalGradPAlgorithmDriver;
 class AssembleNodalGradUAlgorithmDriver;
 class MomentumEquationSystem;
 class ContinuityEquationSystem;
@@ -64,7 +65,7 @@ public:
 
   virtual void register_open_bc(
     stk::mesh::Part *part,
-    const stk::topology &theTopo,
+    const stk::topology &partTopo,
     const OpenBoundaryConditionData &openBCData);
 
   virtual void register_surface_pp_algorithm(
@@ -98,7 +99,7 @@ public:
   SurfaceForceAndMomentAlgorithmDriver *surfaceForceAndMomentAlgDriver_;
 
   bool isInit_;
-     
+
 };
 
 /** Representation of the Momentum conservation equations in 2-D and 3-D
@@ -134,17 +135,17 @@ public:
 
   virtual void register_open_bc(
     stk::mesh::Part *part,
-    const stk::topology &theTopo,
+    const stk::topology &partTopo,
     const OpenBoundaryConditionData &openBCData);
 
   virtual void register_wall_bc(
     stk::mesh::Part *part,
-    const stk::topology &theTopo,
+    const stk::topology &partTopo,
     const WallBoundaryConditionData &wallBCData);
     
   virtual void register_symmetry_bc(
     stk::mesh::Part *part,
-    const stk::topology &theTopo,
+    const stk::topology &partTopo,
     const SymmetryBoundaryConditionData &symmetryBCData);
 
   virtual void register_non_conformal_bc(
@@ -214,12 +215,12 @@ public:
 
   virtual void register_inflow_bc(
     stk::mesh::Part *part,
-    const stk::topology &theTopo,
+    const stk::topology &partTopo,
     const InflowBoundaryConditionData &inflowBCData);
 
   virtual void register_open_bc(
     stk::mesh::Part *part,
-    const stk::topology &theTopo,
+    const stk::topology &partTopo,
     const OpenBoundaryConditionData &openBCData);
 
   virtual void register_wall_bc(
@@ -259,7 +260,7 @@ public:
 
   ScalarFieldType *pTmp_;
 
-  AssembleNodalGradAlgorithmDriver *assembleNodalGradAlgDriver_;
+  AssembleNodalGradPAlgorithmDriver *assembleNodalGradPAlgDriver_;
   ComputeMdotAlgorithmDriver *computeMdotAlgDriver_;
   ProjectedNodalGradientEquationSystem *projectedNodalGradEqs_;
 };

@@ -6,7 +6,6 @@
 /*------------------------------------------------------------------------*/
 
 #include "kernel/MomentumSymmetryElemKernel.h"
-#include "BcAlgTraits.h"
 #include "master_element/MasterElement.h"
 #include "SolutionOptions.h"
 
@@ -34,8 +33,7 @@ MomentumSymmetryElemKernel<BcAlgTraits>::MomentumSymmetryElemKernel(
     viscosity_(viscosity),
     includeDivU_(solnOpts.includeDivU_),
     shiftedGradOp_(solnOpts.get_shifted_grad_op(velocity->name())),
-    ipNodeMap_(sierra::nalu::MasterElementRepo::get_surface_master_element(BcAlgTraits::elemTopo_)->ipNodeMap())
-
+    meSCS_(sierra::nalu::MasterElementRepo::get_surface_master_element(BcAlgTraits::elemTopo_))
 {
   velocityNp1_ = &(velocity->field_of_state(stk::mesh::StateNP1));
   coordinates_ = metaData.get_field<VectorFieldType>(
@@ -44,11 +42,10 @@ MomentumSymmetryElemKernel<BcAlgTraits>::MomentumSymmetryElemKernel(
 
   // extract master elements
   MasterElement* meFC = sierra::nalu::MasterElementRepo::get_surface_master_element(BcAlgTraits::faceTopo_);
-  MasterElement *meSCS = sierra::nalu::MasterElementRepo::get_surface_master_element(BcAlgTraits::elemTopo_);
   
   // add master elements
   faceDataPreReqs.add_cvfem_face_me(meFC);
-  elemDataPreReqs.add_cvfem_surface_me(meSCS);
+  elemDataPreReqs.add_cvfem_surface_me(meSCS_);
 
   // fields and data; face and then element
   faceDataPreReqs.add_gathered_nodal_field(*viscosity_, 1);
@@ -62,7 +59,7 @@ MomentumSymmetryElemKernel<BcAlgTraits>::MomentumSymmetryElemKernel(
     elemDataPreReqs.add_master_element_call(SCS_FACE_GRAD_OP, CURRENT_COORDINATES);
 
   // never shift properties
-  get_face_shape_fn_data<BcAlgTraits>([&](double* ptr){meFC->shape_fcn(ptr);}, v_face_shape_function_);
+  get_face_shape_fn_data<BcAlgTraits>([&](double* ptr){meFC->shape_fcn(ptr);}, vf_shape_function_);
 }
 
 template<typename BcAlgTraits>
@@ -76,13 +73,14 @@ MomentumSymmetryElemKernel<BcAlgTraits>::execute(
   SharedMemView<DoubleType**> &lhs,
   SharedMemView<DoubleType *> &rhs,
   ScratchViews<DoubleType> &faceScratchViews,
-  ScratchViews<DoubleType> &elemScratchViews)
+  ScratchViews<DoubleType> &elemScratchViews,
+  int elemFaceOrdinal)
 {
   DoubleType w_nx[BcAlgTraits::nDim_];
 
   // face
-  SharedMemView<DoubleType*>& v_viscosity = faceScratchViews.get_scratch_view_1D(*viscosity_);
-  SharedMemView<DoubleType**>& v_exposedAreaVec = faceScratchViews.get_scratch_view_2D(*exposedAreaVec_);
+  SharedMemView<DoubleType*>& vf_viscosity = faceScratchViews.get_scratch_view_1D(*viscosity_);
+  SharedMemView<DoubleType**>& vf_exposedAreaVec = faceScratchViews.get_scratch_view_2D(*exposedAreaVec_);
  
   // element
   SharedMemView<DoubleType**>& v_uNp1 = elemScratchViews.get_scratch_view_2D(*velocityNp1_);
@@ -92,23 +90,23 @@ MomentumSymmetryElemKernel<BcAlgTraits>::execute(
 
   for (int ip=0; ip < BcAlgTraits::numFaceIp_; ++ip) {
     
-    const int nearestNode = ipNodeMap_[ip];
+    const int nearestNode = meSCS_->ipNodeMap(elemFaceOrdinal)[ip]; // "Right"
     
     // form unit normal
     DoubleType asq = 0.0;
     for ( int j = 0; j < BcAlgTraits::nDim_; ++j ) {
-      const DoubleType axj = v_exposedAreaVec(ip,j);
+      const DoubleType axj = vf_exposedAreaVec(ip,j);
       asq += axj*axj;
     }
     const DoubleType amag = stk::math::sqrt(asq);
     for ( int i = 0; i < BcAlgTraits::nDim_; ++i ) {
-      w_nx[i] = v_exposedAreaVec(ip,i)/amag;
+      w_nx[i] = vf_exposedAreaVec(ip,i)/amag;
     }
     
     DoubleType viscBip = 0.0;
     for ( int ic = 0; ic < BcAlgTraits::nodesPerFace_; ++ic ) {
-      const DoubleType r = v_face_shape_function_(ip,ic);
-      viscBip += r*v_viscosity(ic);
+      const DoubleType r = vf_shape_function_(ip,ic);
+      viscBip += r*vf_viscosity(ic);
     }
     
     for ( int ic = 0; ic < BcAlgTraits::nodesPerElement_; ++ic ) {
@@ -117,7 +115,7 @@ MomentumSymmetryElemKernel<BcAlgTraits>::execute(
 
       for ( int j = 0; j < BcAlgTraits::nDim_; ++j ) {
         
-        const DoubleType axj = v_exposedAreaVec(ip,j);
+        const DoubleType axj = vf_exposedAreaVec(ip,j);
         const DoubleType dndxj = v_dndx(ip,ic,j);
         const DoubleType uxj = v_uNp1(ic,j);
         
@@ -167,7 +165,7 @@ MomentumSymmetryElemKernel<BcAlgTraits>::execute(
   }
 }
 
-template class MomentumSymmetryElemKernel <BcAlgTraitsHex8Quad4>;
+INSTANTIATE_KERNEL_FACE_ELEMENT(MomentumSymmetryElemKernel);
 
 }  // nalu
 }  // sierra

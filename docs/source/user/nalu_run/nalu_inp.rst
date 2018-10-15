@@ -1,9 +1,9 @@
 .. _user_nalu_input_file:
 
-Nalu Input File
----------------
+Nalu-Wind Input File
+--------------------
 
-Nalu requires the user to provide an input file, in YAML format, during
+Nalu-Wind requires the user to provide an input file, in YAML format, during
 invocation at the command line using the :option:`naluX -i` flag. By default,
 :program:`naluX` will look for :file:`nalu.i` in the current working directory
 to determine the mesh file as well as the run setup for execution. A sample
@@ -11,10 +11,10 @@ to determine the mesh file as well as the run setup for execution. A sample
 
 .. literalinclude:: nalu.i
    :language: yaml
-   :caption: Sample Nalu input file for the Heat Conduction problem
+   :caption: Sample Nalu-Wind input file for the Heat Conduction problem
    :emphasize-lines: 6, 11, 21, 91
 
-Nalu input file contains the following top-level sections that describe the
+Nalu-Wind input file contains the following top-level sections that describe the
 simulation to be executed.
 
 **Realms**
@@ -41,14 +41,14 @@ simulation to be executed.
       other realms. In this context, it acts as an *output* realm.
 
   Inclusion of an input/output realm will require the user to provide the
-  additional :inpfile:`transfers` section in the Nalu input file that defines
+  additional :inpfile:`transfers` section in the Nalu-Wind input file that defines
   the solution fields that are transferred between the realms. See
   :ref:`nalu_inp_realm` for detailed documentation on all Realm options.
 
 **Linear Solvers**
 
   This section configures the solvers and preconditioners used to solve the
-  resulting linear system of equations within Nalu. The linear system
+  resulting linear system of equations within Nalu-Wind. The linear system
   convergence tolerance and other controls are set here and can be used with
   multiple systems across different realms. See :ref:`nalu_inp_linear_solvers`
   for more details.
@@ -60,7 +60,7 @@ simulation to be executed.
   Courant number constraints, etc. Each time integration section in this list
   can accept one or more :inpfile:`realms` that are integrated in time using
   that specific time integration scheme. See :ref:`nalu_inp_time_integrators`
-  for complete documentation of all time integration options available in Nalu.
+  for complete documentation of all time integration options available in Nalu-Wind.
 
 **Transfers**
 
@@ -69,7 +69,7 @@ simulation to be executed.
   transfer definition provides a mapping of the to and from realm, part, and the
   solution field that must be transferred at every timestep during the
   simulation. See :ref:`nalu_inp_transfers` section for complete documentation of
-  all transfer options available in Nalu.
+  all transfer options available in Nalu-Wind.
 
 **Simulations**
 
@@ -246,11 +246,11 @@ Time Integration Options
 
 .. inpfile:: time_int.termination_time
 
-   Nalu will stop the simulation once the ``termination_time`` has reached.
+   Nalu-Wind will stop the simulation once the ``termination_time`` has reached.
 
 .. inpfile:: time_int.termination_step_count
 
-   Nalu will stop the simulation once the specified ``termination_step_count``
+   Nalu-Wind will stop the simulation once the specified ``termination_step_count``
    timesteps have been completed. If both :inpfile:`time_int.termination_time`
    and this parameter are provided then this parameter will prevail.
 
@@ -634,7 +634,7 @@ specifies the component of the gravity vector, defined in
 :inpfile:`solution_options.gravity`, that should be used in the
 definition of the Monin-Obukhov length scale calculation.  The
 entry :inpfile:`reference_temperature` is the reference temperature
-used in calculation of the Monin-Obukhov length scale. 
+used in calculation of the Monin-Obukhov length scale.
 
 When there is mesh motion involved the wall boundary must specify a user
 function to determine relative velocity at the surface.
@@ -897,13 +897,13 @@ Output Options
 
 .. inpfile:: output.output_frequency
 
-   Nalu will write the output file every ``output_frequency`` timesteps. Note
+   Nalu-Wind will write the output file every ``output_frequency`` timesteps. Note
    that currently there is no option to output results at a specified simulation
    time. Default: ``1``.
 
 .. inpfile:: output.output_start
 
-   Nalu will start writing output past the ``output_start`` timestep. Default: ``0``.
+   Nalu-Wind will start writing output past the ``output_start`` timestep. Default: ``0``.
 
 .. inpfile:: output.output_forced_wall_time
 
@@ -941,7 +941,7 @@ Restart Options
    If this variable is present, it indicates that the current run will restart
    from a previous simulation. This requires that the :inpfile:`mesh` be a
    restart file with all the fields necessary for the equation sets defined in
-   the :inpfile:`equation_systems.systems`. Nalu will restart from the closest
+   the :inpfile:`equation_systems.systems`. Nalu-Wind will restart from the closest
    time available in the :inpfile:`mesh` to ``restart_time``. The timesteps
    available in a restart file can be examined by looking at the ``time_whole``
    variable using the ``ncdump`` utility.
@@ -959,7 +959,7 @@ Restart Options
 
 .. inpfile:: restart.restart_start
 
-   Nalu will write a restart file after ``restart_start`` timesteps have elapsed.
+   Nalu-Wind will write a restart file after ``restart_start`` timesteps have elapsed.
 
 .. inpfile:: restart.restart_forced_wall_time
 
@@ -998,6 +998,145 @@ Time-step Control Options
 .. inpfile:: dtctrl.time_step_change_factor
 
    Maximum allowable increase in ``dt`` over a given timestep.
+
+Actuator 
+````````
+
+.. inpfile:: actuator
+
+   ``actuator`` subsection defines the inputs for actuator line simulations. A
+   sample section is shown below for running actuator line simulations
+   coupled to OpenFAST with two turbines.
+
+.. code-block:: yaml   
+   
+     actuator:
+       type: ActLineFAST
+       search_method: boost_rtree
+       search_target_part: Unspecified-2-HEX
+       
+       n_turbines_glob: 2
+       dry_run:  False
+       debug:    False
+       t_start: 0.0
+       simStart: init # init/trueRestart/restartDriverInitFAST
+       t_max:    5.0
+       n_every_checkpoint: 100
+       
+       Turbine0:
+         procNo: 0
+         num_force_pts_blade: 50
+         num_force_pts_tower: 20
+         epsilon: [ 5.0, 5.0, 5.0 ]
+         turbine_base_pos: [ 0.0, 0.0, -90.0 ]
+         turbine_hub_pos: [ 0.0, 0.0, 0.0 ]
+         restart_filename: ""
+         FAST_input_filename: "Test01.fst"
+         turb_id:  1
+         turbine_name: machine_zero
+    
+       Turbine1:
+         procNo: 0
+         num_force_pts_blade: 50
+         num_force_pts_tower: 20
+         epsilon: [ 5.0, 5.0, 5.0 ]
+         turbine_base_pos: [ 250.0, 0.0, -90.0 ]
+         turbine_hub_pos: [ 250.0, 0.0, 0.0 ]
+         restart_filename: ""
+         FAST_input_filename: "Test02.fst"
+         turb_id:  2
+         turbine_name: machine_one
+
+
+.. inpfile:: actuator.type
+
+   Type of actuator source. Options are ``ActLineFAST`` and ``ActLinePointDrag``. Only ``ActLineFAST`` is documented here.
+
+.. inpfile:: actuator.search_method
+
+   String specifying the type of search method used to identify the nodes within the search radius of the actuator points. Options are ``boost_rtree`` and ``stk_kdtree``. The default is ``stk_kdtree`` when the ``search_type`` is not specified.
+
+.. inpfile:: search_target_part
+
+   String or an array of strings specifying the parts of the mesh to be searched to identify the nodes near the actuator points.
+
+.. inpfile:: actuator.n_turbines_glob
+
+   Total number of turbines in the simulation. The input file must contain a number of turbine specific sections (`Turbine0`, `Turbine1`, ..., `Turbine(n-1)`) that is consistent with `nTurbinesGlob`.
+
+.. inpfile:: actuator.debug
+   
+   Enable debug outputs if set to true
+
+.. inpfile:: actuator.dry_run
+
+   The simulation will not run if dryRun is set to true. However, the simulation will read the input files, allocate turbines to processors and prepare to run the individual turbine instances. This flag is useful to test the setup of the simulation before running it.
+   
+.. inpfile:: actuator.simStart
+
+   Flag indicating whether the simulation starts from scratch or restart. ``simStart`` takes on one of three values:
+
+   * ``init`` - Use this option when starting a simulation from `t=0s`.
+   * ``trueRestart`` - While OpenFAST allows for restart of a turbine simulation, external components like the Bladed style controller may not. Use this option when all components of the simulation are known to restart.
+   * ``restartDriverInitFAST`` - When the ``restartDriverInitFAST`` option is selected, the individual turbine models start from `t=0s` and run up to the specified restart time using the inflow data stored at the actuator nodes from a hdf5 file. The C++ API stores the inflow data at the actuator nodes in a hdf5 file at every OpenFAST time step and then reads it back when using this restart option. This restart option is especially useful when the glue code is a CFD solver.
+   
+.. inpfile:: actuator.t_start
+   
+   Start time of the simulation
+
+.. inpfile:: actuator.t_end
+
+   End time of the simulation. ``t_end`` <= ``t_max``
+
+.. inpfile:: actuator.t_max
+
+   Max time of the simulation
+
+
+.. note::
+
+   ``t_max`` can only be set when OpenFAST is running from `t=0s` and ``simStart`` is ``init``. ``t_max`` can not be changed on a restart. OpenFAST will not be able to run beyond ``t_max``. Choose ``t_max`` to be large enough to accomodate any possible future extensions of runs. One can change ``t_start`` and ``t_end`` to start and stop the simulation any number of times as long as ``t_end`` <= ``t_max``.
+
+.. inpfile:: actuator.dt_fast
+
+   Time step for OpenFAST. All turbines should have the same time step.
+
+.. inpfile:: actuator.n_every_checkpoint
+
+   Restart files will be written every so many time steps   
+
+**Turbine specific input options**
+
+.. inpfile:: actuator.turbine_base_pos
+
+   The position of the turbine base for actuator-line simulations
+
+.. inpfile:: actuator.num_force_pts_blade
+   
+   The number of actuator points along each blade for actuator-line simulations   
+   
+.. inpfile:: actuator.num_force_pts_tower
+
+   The number of actuator points along the tower for actuator-line simulations.
+  
+.. inpfile:: actuator.epsilon
+
+   The spreading width :math:`\epsilon` in the Gaussian spreading function in the `[chordwise, spanwise, chord normal]` coordinate system to spread the forces from the actuator point to the nodes. Nalu-Wind currently only supports an isotropic Gaussian spreading function and uses only the value in the first component along the `chordwise` direction.
+   
+.. inpfile:: actuator.restart_filename
+
+   The checkpoint file for this turbine when restarting a simulation
+   
+.. inpfile:: actuator.FAST_input_filename
+
+   The FAST input file for this turbine
+  
+.. inpfile:: actuator.turb_id
+
+   A unique turbine id for each turbine
+
+.. include:: ./turbine_modeling.rst
+       
 
 Turbulence averaging
 ````````````````````
@@ -1063,7 +1202,7 @@ Turbulence averaging
      "Moving window" average where the window size is set to to the time
      filter width. The contribution of any quantity before the moving window
      towards the average value reduces exponentially with every time step.
-   
+
 .. inpfile:: turbulence_averaging.time_filter_interval
 
    Number indicating the time filter size over which to calculate the
@@ -1102,12 +1241,12 @@ Turbulence averaging
 
 .. inpfile:: turbulence_averaging.specifications.compute_resolved_stress
 
-   A boolean flag indicating whether the average resolved stress is 
+   A boolean flag indicating whether the average resolved stress is
    computed as :math:`< \bar\rho \widetilde{u_i} \widetilde{u_j} >`.
    The default value is ``no``. When this option is turned on, the Favre
    average of the resolved velocity, :math:`< \bar{\rho} \widetilde{u_j} >`, is
    computed as well.
-   
+
 .. inpfile:: turbulence_averaging.specifications.compute_temperature_resolved_flux
 
    A boolean flag indicating whether the average resolved temperature flux is
@@ -1124,8 +1263,8 @@ Turbulence averaging
    by the turbulence model is used. The sub-filter scale kinetic energy is used
    to determine the isotropic component of the sub-filter stress. As described
    in the section :ref:`supp_eqn_set_mom_cons`, the Yoshizawa model is used to
-   compute the sub-filter kinetic energy when it is not transported. 
-   
+   compute the sub-filter kinetic energy when it is not transported.
+
 .. inpfile:: turbulence_averaging.specifications.compute_temperature_sfs_flux
 
    A boolean flag indicating whether the average sub-filter scale flux of
@@ -1133,7 +1272,7 @@ Turbulence averaging
    stress model is assumed to be of an eddy diffusivity type and the turbulent
    diffusivity computed by the turbulence model is used along with a constant
    turbulent Prandtl number obtained from the Realm.
-   
+
 .. inpfile:: turbulence_averaging.specifications.compute_favre_stress
 
    A boolean flag indicating whether the Favre stress is computed. The
@@ -1344,4 +1483,4 @@ Simulations
 
 .. inpfile:: simulations
 
-   This is the top-level section that orchestrates the entire execution of Nalu.
+   This is the top-level section that orchestrates the entire execution of Nalu-Wind.

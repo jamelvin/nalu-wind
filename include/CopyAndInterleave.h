@@ -42,7 +42,7 @@ void interleave_2D(SharedMemView<DTYPE**>& dview, const SharedMemView<double**>&
 template<typename DTYPE>
 void interleave_1D(SharedMemView<DTYPE*>& dview, const SharedMemView<double*>& sview, int simdIndex)
 {
-  int dim = dview.dimension(0);
+  int dim = dview.extent(0);
 
   DTYPE* data = dview.data();
   double* src = sview.data();
@@ -54,7 +54,7 @@ void interleave_1D(SharedMemView<DTYPE*>& dview, const SharedMemView<double*>& s
 template<typename DTYPE>
 void interleave_1D(SharedMemView<DTYPE*>& dview, const double* sviews[], int simdElems)
 {
-    int dim = dview.dimension(0);
+    int dim = dview.extent(0);
     DoubleType* dptr = dview.data();
     for(int i=0; i<dim; ++i) {
         DoubleType& d = dptr[i];
@@ -67,7 +67,7 @@ void interleave_1D(SharedMemView<DTYPE*>& dview, const double* sviews[], int sim
 template<typename DTYPE>
 void interleave_2D(SharedMemView<DTYPE**>& dview, const double* sviews[], int simdElems)
 {
-    int len = dview.dimension(0)*dview.dimension(1);
+    int len = dview.extent(0)*dview.extent(1);
     DoubleType* d = dview.data();
     for(int idx=0; idx<len; ++idx) {
         DoubleType& dv = d[idx];
@@ -80,7 +80,7 @@ void interleave_2D(SharedMemView<DTYPE**>& dview, const double* sviews[], int si
 template<typename DTYPE>
 void interleave_3D(SharedMemView<DTYPE***>& dview, const double* sviews[], int simdElems)
 {
-    int len = dview.dimension(0)*dview.dimension(1)*dview.dimension(2);
+    int len = dview.extent(0)*dview.extent(1)*dview.extent(2);
     DoubleType* d = dview.data();
     for(int idx=0; idx<len; ++idx) {
         DoubleType& dv = d[idx];
@@ -93,7 +93,7 @@ void interleave_3D(SharedMemView<DTYPE***>& dview, const double* sviews[], int s
 inline
 void interleave_1D(ViewHolder* dest, const ViewHolder* sviews[], int simdElems)
 {
-    const double* smemviews[stk::simd::ndoubles];
+    const double* smemviews[stk::simd::ndoubles] = {nullptr};
     SharedMemView<DoubleType*>& dmemview = static_cast<ViewT<SharedMemView<DoubleType*>>*>(dest)->view_;
     for(int i=0; i<simdElems; ++i) {
         smemviews[i] = static_cast<const ViewT<SharedMemView<double*>>*>(sviews[i])->view_.data();
@@ -105,7 +105,7 @@ void interleave_1D(ViewHolder* dest, const ViewHolder* sviews[], int simdElems)
 inline
 void interleave_2D(ViewHolder* dest, const ViewHolder* sviews[], int simdElems)
 {
-    const double* smemviews[stk::simd::ndoubles];
+    const double* smemviews[stk::simd::ndoubles] = {nullptr};
     SharedMemView<DoubleType**>& dmemview = static_cast<ViewT<SharedMemView<DoubleType**>>*>(dest)->view_;
     for(int i=0; i<simdElems; ++i) {
         smemviews[i] = static_cast<const ViewT<SharedMemView<double**>>*>(sviews[i])->view_.data();
@@ -117,7 +117,7 @@ void interleave_2D(ViewHolder* dest, const ViewHolder* sviews[], int simdElems)
 inline
 void interleave_3D(ViewHolder* dest, const ViewHolder* sviews[], int simdElems)
 {
-    const double* smemviews[stk::simd::ndoubles];
+    const double* smemviews[stk::simd::ndoubles] = {nullptr};
     SharedMemView<DoubleType***>& dmemview = static_cast<ViewT<SharedMemView<DoubleType***>>*>(dest)->view_;
     for(int i=0; i<simdElems; ++i) {
         smemviews[i] = static_cast<const ViewT<SharedMemView<double***>>*>(sviews[i])->view_.data();
@@ -133,6 +133,7 @@ void interleave_me_views(MasterElementViews<DoubleType>& dest,
 {
   interleave_2D(dest.scs_areav, src.scs_areav, simdIndex);
   interleave_3D(dest.dndx, src.dndx, simdIndex);
+  interleave_3D(dest.dndx_scv, src.dndx_scv, simdIndex);
   interleave_3D(dest.dndx_shifted, src.dndx_shifted, simdIndex);
   interleave_3D(dest.dndx_fem, src.dndx_fem, simdIndex);
   interleave_3D(dest.deriv, src.deriv, simdIndex);
@@ -188,7 +189,7 @@ void copy_and_interleave(std::unique_ptr<ScratchViews<double>>* data,
 inline
 void extract_vector_lane(const SharedMemView<DoubleType*>& simdrhs, int simdIndex, SharedMemView<double*>& rhs)
 {
-  int dim = simdrhs.dimension(0);
+  int dim = simdrhs.extent(0);
   const DoubleType* sr = simdrhs.data();
   double* r = rhs.data();
   for(int i=0; i<dim; ++i) {
@@ -199,7 +200,7 @@ void extract_vector_lane(const SharedMemView<DoubleType*>& simdrhs, int simdInde
 inline
 void extract_vector_lane(const SharedMemView<DoubleType**>& simdlhs, int simdIndex, SharedMemView<double**>& lhs)
 {
-  int len = simdlhs.dimension(0)*simdlhs.dimension(1);
+  int len = simdlhs.extent(0)*simdlhs.extent(1);
   const DoubleType* sl = simdlhs.data();
   double* l = lhs.data();
   for(int i=0; i<len; ++i) {

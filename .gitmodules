@@ -1,4 +1,7 @@
 [submodule "reg_tests/mesh"]
 	path = reg_tests/mesh
-	url = https://github.com/NaluCFD/NaluMesh.git
+	url = https://github.com/Exawind/meshes.git
         ignore = dirty
+[submodule "wind-utils"]
+	path = wind-utils
+	url = https://github.com/Exawind/wind-utils.git

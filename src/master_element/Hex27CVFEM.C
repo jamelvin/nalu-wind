@@ -763,13 +763,31 @@ void Hex27SCV::grad_op(
   SharedMemView<DoubleType***>&gradop,
   SharedMemView<DoubleType***>&deriv)
 {
-  generic_grad_op_3d<AlgTraits>(referenceGradWeights_, coords, gradop);
+  generic_grad_op<AlgTraits>(referenceGradWeights_, coords, gradop);
 
   // copy derivs as well.  These aren't used, but are part of the interface
   for (int ip = 0; ip < AlgTraits::numScsIp_; ++ip) {
     for (int n = 0; n < AlgTraits::nodesPerElement_; ++n) {
       for (int d = 0; d < AlgTraits::nDim_; ++d) {
         deriv(ip,n,d) = referenceGradWeights_(ip,n,d);
+      }
+    }
+  }
+}
+
+//--------------------------------------------------------------------------
+void Hex27SCV::shifted_grad_op(
+  SharedMemView<DoubleType**>&coords,
+  SharedMemView<DoubleType***>&gradop,
+  SharedMemView<DoubleType***>&deriv)
+{
+  generic_grad_op<AlgTraits>(shiftedReferenceGradWeights_, coords, gradop);
+
+  // copy derivs as well.  These aren't used, but are part of the interface
+  for (int ip = 0; ip < AlgTraits::numScsIp_; ++ip) {
+    for (int n = 0; n < AlgTraits::nodesPerElement_; ++n) {
+      for (int d = 0; d < AlgTraits::nDim_; ++d) {
+        deriv(ip,n,d) = shiftedReferenceGradWeights_(ip,n,d);
       }
     }
   }
@@ -878,6 +896,7 @@ Hex27SCS::Hex27SCS()
   shiftedReferenceGradWeights_ = copy_deriv_weights_to_view<GradWeightType>(shapeDerivsShift_);
 
   eval_shape_derivs_at_face_ips();
+  expReferenceGradWeights_ = copy_deriv_weights_to_view<ExpGradWeightType>(expFaceShapeDerivs_);
 }
 
 //--------------------------------------------------------------------------
@@ -1479,7 +1498,7 @@ void Hex27SCS::grad_op(
   SharedMemView<DoubleType***>&gradop,
   SharedMemView<DoubleType***>&deriv)
 {
-  generic_grad_op_3d<AlgTraits>(referenceGradWeights_, coords, gradop);
+  generic_grad_op<AlgTraits>(referenceGradWeights_, coords, gradop);
 
   // copy derivs as well.  These aren't used, but are part of the interface
   for (int ip = 0; ip < AlgTraits::numScsIp_; ++ip) {
@@ -1528,7 +1547,7 @@ void Hex27SCS::shifted_grad_op(
   SharedMemView<DoubleType***>&gradop,
   SharedMemView<DoubleType***>&deriv)
 {
-  generic_grad_op_3d<AlgTraits>(shiftedReferenceGradWeights_, coords, gradop);
+  generic_grad_op<AlgTraits>(shiftedReferenceGradWeights_, coords, gradop);
 
   // copy derivs as well.  These aren't used, but are part of the interface
   for (int ip = 0; ip < AlgTraits::numScsIp_; ++ip) {
@@ -1565,6 +1584,19 @@ void Hex27SCS::face_grad_op(
     }
   }
 }
+
+void Hex27SCS::face_grad_op(
+  int face_ordinal,
+  SharedMemView<DoubleType**>& coords,
+  SharedMemView<DoubleType***>& gradop)
+{
+  using traits = AlgTraitsQuad9Hex27;
+  const int offset = traits::numFaceIp_ * face_ordinal;
+  auto range = std::make_pair(offset, offset + traits::numFaceIp_);
+  auto face_weights = Kokkos::subview(expReferenceGradWeights_, range, Kokkos::ALL(), Kokkos::ALL());
+  generic_grad_op<AlgTraitsHex27>(face_weights, coords, gradop);
+}
+
 
 //--------------------------------------------------------------------------
 //-------- gradient --------------------------------------------------------

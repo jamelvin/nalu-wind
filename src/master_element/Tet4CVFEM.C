@@ -17,7 +17,7 @@
 #include <NaluEnv.h>
 #include <FORTRAN_Proto.h>
 
-#include <stk_util/environment/ReportHandler.hpp>
+#include <stk_util/util/ReportHandler.hpp>
 #include <stk_topology/topology.hpp>
 
 #include <iostream>
@@ -32,9 +32,10 @@ namespace sierra{
 namespace nalu{
 
 //-------- tet_deriv -------------------------------------------------------
-void tet_deriv(SharedMemView<DoubleType***>& deriv)
+template <typename DerivType>
+void tet_deriv(DerivType& deriv)
 {
-  for(size_t j=0; j<deriv.dimension(0); ++j) {
+  for(size_t j=0; j<deriv.extent(0); ++j) {
     deriv(j,0,0) = -1.0;
     deriv(j,0,1) = -1.0;
     deriv(j,0,2) = -1.0;
@@ -217,7 +218,19 @@ void TetSCV::grad_op(
     SharedMemView<DoubleType***>&deriv)
 {
   tet_deriv(deriv);
-  generic_grad_op_3d<AlgTraitsTet4>(deriv, coords, gradop);
+  generic_grad_op<AlgTraitsTet4>(deriv, coords, gradop);
+}
+
+//--------------------------------------------------------------------------
+//-------- shifted_grad_op -------------------------------------------------
+//--------------------------------------------------------------------------
+void TetSCV::shifted_grad_op(
+    SharedMemView<DoubleType**>&coords,
+    SharedMemView<DoubleType***>&gradop,
+    SharedMemView<DoubleType***>&deriv)
+{
+  tet_deriv(deriv);
+  generic_grad_op<AlgTraitsTet4>(deriv, coords, gradop);
 }
 
 void TetSCV::determinant(
@@ -315,6 +328,11 @@ TetSCS::TetSCS()
   lrscv_[8]  = 1; lrscv_[9]  = 3;
   lrscv_[10] = 2; lrscv_[11] = 3;
 
+  // elem-edge mapping from ip
+  scsIpEdgeOrd_.resize(numIntPoints_);
+  scsIpEdgeOrd_[0] = 0; scsIpEdgeOrd_[1] = 1; scsIpEdgeOrd_[2] = 2; 
+  scsIpEdgeOrd_[3] = 3; scsIpEdgeOrd_[4] = 4; scsIpEdgeOrd_[5] = 5;
+ 
   // define opposing node
   oppNode_.resize(12);
   // face 0
@@ -576,7 +594,7 @@ void TetSCS::grad_op(
 {
   tet_deriv(deriv);
 
-  generic_grad_op_3d<AlgTraitsTet4>(deriv, coords, gradop);
+  generic_grad_op<AlgTraitsTet4>(deriv, coords, gradop);
 }
 
 void TetSCS::grad_op(
@@ -600,7 +618,7 @@ void TetSCS::grad_op(
       coords, gradop, det_j, error, &lerr );
 
   if ( lerr )
-    std::cout << "sorry, negative TetSCS volume.." << std::endl;  
+    NaluEnv::self().naluOutput() << "sorry, negative TetSCS volume.." << std::endl;
 }
 
 //--------------------------------------------------------------------------
@@ -613,7 +631,7 @@ void TetSCS::shifted_grad_op(
 {
   tet_deriv(deriv);
 
-  generic_grad_op_3d<AlgTraitsTet4>(deriv, coords, gradop);
+  generic_grad_op<AlgTraitsTet4>(deriv, coords, gradop);
 }
 
 void TetSCS::shifted_grad_op(
@@ -637,7 +655,7 @@ void TetSCS::shifted_grad_op(
       coords, gradop, det_j, error, &lerr );
 
   if ( lerr )
-    std::cout << "sorry, negative TetSCS volume.." << std::endl;
+    NaluEnv::self().naluOutput() << "sorry, negative TetSCS volume.." << std::endl;
 }
 
 //--------------------------------------------------------------------------
@@ -673,15 +691,41 @@ void TetSCS::face_grad_op(
           &coords[12*n], &gradop[k*nelem*12+n*12], &det_j[npf*n+k], error, &lerr );
 
       if ( lerr )
-        std::cout << "sorry, issue with face_grad_op.." << std::endl;
+        NaluEnv::self().naluOutput() << "sorry, issue with face_grad_op.." << std::endl;
 
     }
   }
 }
 
+void TetSCS::face_grad_op(
+  int /*face_ordinal*/,
+  SharedMemView<DoubleType**>& coords,
+  SharedMemView<DoubleType***>& gradop)
+{
+  using traits = AlgTraitsTri3Tet4;
+
+  // one ip at a time
+  constexpr int derivSize = traits::numFaceIp_ *  traits::nodesPerElement_ * traits::nDim_;
+
+  DoubleType wderiv[derivSize];
+  SharedMemView<DoubleType***> deriv(wderiv,traits::numFaceIp_, traits::nodesPerElement_,  traits::nDim_);
+  tet_deriv(deriv);
+
+  generic_grad_op<AlgTraitsTet4>(deriv, coords, gradop);
+}
+
 //--------------------------------------------------------------------------
 //-------- shifted_face_grad_op --------------------------------------------
 //--------------------------------------------------------------------------
+void TetSCS::shifted_face_grad_op(
+  int face_ordinal,
+  SharedMemView<DoubleType**>& coords,
+  SharedMemView<DoubleType***>& gradop)
+{
+  // no difference for regular face_grad_op
+  face_grad_op(face_ordinal, coords, gradop);
+}
+
 void TetSCS::shifted_face_grad_op(
   const int nelem,
   const int /*face_ordinal*/,
@@ -714,7 +758,7 @@ void TetSCS::shifted_face_grad_op(
           &coords[12*n], &gradop[k*nelem*12+n*12], &det_j[npf*n+k], error, &lerr );
 
       if ( lerr )
-        std::cout << "sorry, issue with face_grad_op.." << std::endl;
+        NaluEnv::self().naluOutput() << "sorry, issue with shifted_face_grad_op.." << std::endl;
     }
   }
 }
@@ -775,6 +819,15 @@ TetSCS::adjacentNodes()
 {
   // define L/R mappings
   return &lrscv_[0];
+}
+
+//--------------------------------------------------------------------------
+//-------- scsIpEdgeOrd ----------------------------------------------------
+//--------------------------------------------------------------------------
+const int *
+TetSCS::scsIpEdgeOrd()
+{
+  return &scsIpEdgeOrd_[0];
 }
 
 //--------------------------------------------------------------------------

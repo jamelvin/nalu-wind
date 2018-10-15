@@ -12,6 +12,8 @@
 #include <KokkosInterface.h>
 #include <Tpetra_CrsGraph.hpp>
 #include <Tpetra_CrsMatrix.hpp>
+#include <Tpetra_Vector.hpp>
+#include <Tpetra_MultiVector.hpp>
 
 // Forward declare templates
 namespace Teuchos {
@@ -23,25 +25,6 @@ template <typename T>
 class MpiComm;
 
 class ParameterList;
-
-}
-
-namespace Tpetra {
-
-template <typename LocalOrdinal, typename GlobalOrdinal, typename Node>
-class Map;
-
-template <typename LocalOrdinal, typename GlobalOrdinal, typename Node >
-class Export;
-
-template <typename Scalar, typename LocalOrdinal, typename GlobalOrdinal, typename Node, bool classic>
-class MultiVector;
-
-template <typename Scalar, typename LocalOrdinal, typename GlobalOrdinal, typename Node, bool classic>
-class Vector;
-
-template <typename Scalar, typename LocalOrdinal, typename GlobalOrdinal, typename Node>
-class Operator;
 
 }
 
@@ -60,7 +43,7 @@ template <typename Scalar, typename MultiVector, typename Operator>
 class SolverManager;
 
 template <typename Scalar, typename MultiVector, typename Operator>
-class SolverFactory;
+class TpetraSolverFactory;
 }
 
 namespace Ifpack2 {
@@ -82,12 +65,12 @@ typedef int    LocalOrdinal;  // MUST be signed
 typedef double Scalar;
 
 typedef Kokkos::DualView<size_t*, DeviceSpace>                             RowLengths;
-typedef Kokkos::StaticCrsGraph<LocalOrdinal, Kokkos::LayoutLeft, DeviceSpace> LocalGraph;
 typedef Tpetra::Map<LocalOrdinal, GlobalOrdinal>::node_type                Node;
+typedef Tpetra::CrsGraph< LocalOrdinal, GlobalOrdinal, Node>               Graph;
+typedef typename Graph::local_graph_type                                   LocalGraph;
 typedef Teuchos::MpiComm<int>                                              Comm;
 typedef Tpetra::Export< LocalOrdinal, GlobalOrdinal, Node >                Export;
 typedef Tpetra::Import< LocalOrdinal, GlobalOrdinal, Node >                Import;
-typedef Tpetra::CrsGraph< LocalOrdinal, GlobalOrdinal, Node>               Graph;
 typedef Tpetra::Map<LocalOrdinal,GlobalOrdinal,Node>                       Map;
 typedef Tpetra::MultiVector<Scalar,LocalOrdinal,GlobalOrdinal,Node>        MultiVector;
 typedef Teuchos::ArrayRCP<Scalar >                                         OneDVector;
@@ -99,7 +82,7 @@ typedef Belos::MultiVecTraits<Scalar, MultiVector>                         Multi
 typedef Belos::OperatorTraits<Scalar,MultiVector, Operator>                OperatorTraits;
 typedef Belos::LinearProblem<Scalar, MultiVector, Operator>                LinearProblem;
 typedef Belos::SolverManager<Scalar, MultiVector, Operator>                SolverManager;
-typedef Belos::SolverFactory<Scalar, MultiVector, Operator>                SolverFactory;
+typedef Belos::TpetraSolverFactory<Scalar, MultiVector, Operator>          SolverFactory;
 typedef Ifpack2::Preconditioner<Scalar, LocalOrdinal, GlobalOrdinal, Node> Preconditioner;
 };
 

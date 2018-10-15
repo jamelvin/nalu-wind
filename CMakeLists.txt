@@ -1,11 +1,14 @@
 ############################ BASE ######################################
 cmake_minimum_required (VERSION 3.1)
+project(Nalu CXX C Fortran)
+
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
 ########################## OPTIONS #####################################
 option(ENABLE_TESTS "Enable regression testing." OFF)
 option(ENABLE_DOCUMENTATION "Build documentation." OFF)
 option(ENABLE_SPHINX_API_DOCS "Link Doxygen API docs to Sphinx" OFF)
+option(ENABLE_WIND_UTILS "Build wind utils along with Nalu-Wind" OFF)
 option(ENABLE_OPENFAST
        "Use OPENFAST tpl to get actuator line positions and forces" OFF)
 option(ENABLE_PARAVIEW_CATALYST
@@ -16,55 +19,55 @@ option(ENABLE_HYPRE "Use HYPRE Solver library" OFF)
 option(ENABLE_WARNINGS "Add -Wall to show compiler warnings" ON)
 option(ENABLE_EXTRA_WARNINGS "Add -Wextra to show even more compiler warnings" OFF)
 
+set(CMAKE_CXX_STANDARD 11)       # Set nalu-wind C++11 standard
+set(CMAKE_CXX_EXTENSIONS OFF)    # Do not enable GNU extensions
+set(CMAKE_CXX_STANDARD_REQUIRED) # Force error if C++11 standard is not supported
+
+find_package(MPI REQUIRED)
+include_directories(SYSTEM ${MPI_C_INCLUDE_PATH})
+include_directories(SYSTEM ${MPI_CXX_INCLUDE_PATH})
+include_directories(SYSTEM ${MPI_Fortran_INCLUDE_PATH})
+
+find_package(OpenMP)
+
 ########################## TRILINOS ####################################
-message("   Trilinos_DIR = ${Trilinos_DIR}")
 set(CMAKE_PREFIX_PATH ${Trilinos_DIR} ${CMAKE_PREFIX_PATH})
 set(CMAKE_PREFIX_PATH ${Trilinos_PATH} ${CMAKE_PREFIX_PATH})
 find_package(Trilinos REQUIRED)
+if(Trilinos_FOUND)
+  message("-- Found Trilinos = ${Trilinos_DIR}")
+endif()
 include_directories(SYSTEM ${Trilinos_INCLUDE_DIRS})
 include_directories(SYSTEM ${Trilinos_TPL_INCLUDE_DIRS})
-
-message("\nFound Trilinos!  Here are the details: ")
-message("   Trilinos_DIR = ${Trilinos_DIR}")
-message("   Trilinos_VERSION = ${Trilinos_VERSION}")
-message("   Trilinos_PACKAGE_LIST = ${Trilinos_PACKAGE_LIST}")
-message("   Trilinos_LIBRARIES = ${Trilinos_LIBRARIES}")
-message("   Trilinos_BIN_DIRS = ${Trilinos_BIN_DIRS}")
-message("   Trilinos_INCLUDE_DIRS = ${Trilinos_INCLUDE_DIRS}")
-message("   Trilinos_LIBRARY_DIRS = ${Trilinos_LIBRARY_DIRS}")
-message("   Trilinos_TPL_LIST = ${Trilinos_TPL_LIST}")
-message("   Trilinos_TPL_INCLUDE_DIRS = ${Trilinos_TPL_INCLUDE_DIRS}")
-message("   Trilinos_TPL_LIBRARIES = ${Trilinos_TPL_LIBRARIES}")
-message("   Trilinos_TPL_LIBRARY_DIRS = ${Trilinos_TPL_LIBRARY_DIRS}")
-message("   Trilinos_BUILD_SHARED_LIBS = ${Trilinos_BUILD_SHARED_LIBS}")
-message("   Trilinos_CXX_COMPILER_FLAGS = ${Trilinos_CXX_COMPILER_FLAGS}")
-message("End of Trilinos details\n")
-
-message("Setting and checking of compilers:")
-set(CMAKE_CXX_COMPILER ${Trilinos_CXX_COMPILER} )
-set(CMAKE_C_COMPILER ${Trilinos_C_COMPILER} )
-set(CMAKE_Fortran_COMPILER ${Trilinos_Fortran_COMPILER} )
 
 # Build Nalu as shared libraries if that is how Trilinos was built
 if(Trilinos_BUILD_SHARED_LIBS)
   set(Nalu_LIBRARY_TYPE SHARED)
   set(BUILD_SHARED_LIBS ON)
-  message("-- Building Nalu with shared libraries")
 else(Trilinos_BUILD_SHARED_LIBS)
   set(Nalu_LIBRARY_TYPE STATIC)
 endif(Trilinos_BUILD_SHARED_LIBS)
 
-# Set Nalu's compilers, CMAKE_FIND_LIBRARY_PREFIXES
-# and CMAKE_FIND_LIBRARY_SUFFIXES, etc, after inheriting settings from Trilinos
-project(Nalu CXX Fortran)
-
 ############################ YAML ######################################
 set(CMAKE_PREFIX_PATH ${YAML_DIR} ${CMAKE_PREFIX_PATH})
-find_package(YAML-CPP REQUIRED)
+find_package(YAML-CPP QUIET)
+if(YAML-CPP_FOUND)
+  # YAML master branch is used
+  include_directories(SYSTEM ${YAML_CPP_INCLUDE_DIR})
+else()
+  # YAML 0.5.3 is used
+  find_library(YAML_CPP_LIBRARIES NAMES yaml-cpp PATHS ${YAML_DIR}/lib)
+  find_path(YAML_CPP_INCLUDE_DIR yaml.h PATHS ${YAML_DIR}/include/yaml-cpp)
+  if((DEFINED YAML_CPP_LIBRARIES) AND (DEFINED YAML_CPP_INCLUDE_DIR))
+    include_directories(SYSTEM ${YAML_CPP_INCLUDE_DIR}/..)
+    set(YAML-CPP_FOUND TRUE)
+  endif()
+endif()
 if(YAML-CPP_FOUND)
   message("-- Found YAML-CPP = ${YAML_DIR}")
+else()
+  message(FATAL_ERROR "YAML-CPP NOT FOUND")
 endif()
-include_directories(SYSTEM ${YAML_CPP_INCLUDE_DIR})
 
 ############################ HYPRE #####################################
 if(ENABLE_HYPRE)
@@ -101,7 +104,6 @@ if(ENABLE_TIOGA)
 endif()
 
 ########################### NALU #####################################
-
 # Add any extra flags based on compiler and/or OS
 message("-- CMAKE_SYSTEM_NAME = ${CMAKE_SYSTEM_NAME}")
 message("-- CMAKE_CXX_COMPILER_ID = ${CMAKE_CXX_COMPILER_ID}")
@@ -128,8 +130,13 @@ if(ENABLE_EXTRA_WARNINGS)
   set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -Wextra -pedantic")
 endif()
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${Trilinos_CXX_COMPILER_FLAGS} ${EXTRA_CXX_FLAGS}")
-set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${Trilinos_Fortran_COMPILER_FLAGS} ${EXTRA_Fortran_FLAGS}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${EXTRA_CXX_FLAGS}")
+set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${EXTRA_Fortran_FLAGS}")
+
+if (OPENMP_FOUND)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+  set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${OpenMP_Fortran_FLAGS}")
+endif()
 
 message("-- CMAKE_CXX_FLAGS = ${CMAKE_CXX_FLAGS}")
 message("-- CMAKE_Fortran_FLAGS = ${CMAKE_Fortran_FLAGS}")
@@ -137,25 +144,82 @@ message("-- CMAKE_Fortran_FLAGS = ${CMAKE_Fortran_FLAGS}")
 if(ENABLE_HYPRE)
   include(CheckSymbolExists)
   set(CMAKE_REQUIRED_INCLUDES "${HYPRE_INCLUDE_DIRS}")
+  set(CMAKE_REQUIRED_LIBRARIES "${HYPRE_LIBRARIES}")
   check_symbol_exists(
     HYPRE_BIGINT "${HYPRE_INCLUDE_DIRS}/HYPRE_config.h" NALU_HYPRE_BIGINT)
+  check_symbol_exists(
+    hypre_KRYLOV_COGMRES_HEADER "${HYPRE_INCLUDE_DIRS}/krylov.h" NALU_HYPRE_COGMRES)
   if(NOT NALU_HYPRE_BIGINT)
     message(WARNING
       "HYPRE does not enable 64-bit integer support; will fail on large problems!")
   endif()
+  if (NALU_HYPRE_COGMRES)
+    add_definitions(-DHYPRE_COGMRES)
+  else()
+    message("-- Disabling HYPRE CO-GMRES interface")
+  endif()
 endif()
 
-file(GLOB SOURCE src/*.C src/*/*.C src/*/*.F)
-file(GLOB HEADER include/*.h include/*/*.h)
+########################### TAG VERSIONS #####################################
+include(GetGitRevisionDescription)
+get_git_head_revision(NALU_GITREFSPEC NALU_GIT_COMMIT_SHA)
+if (NALU_GIT_COMMIT_SHA)
+  git_describe(NALU_VERSION_TAG "--tags")
+  git_local_changes(NALU_REPO_DIRTY)
+  option(NALU_HAVE_GIT_INFO "Git version tagging for Nalu" ON)
+  if (${NALU_VERSION_TAG} MATCHES ".*-NOTFOUND")
+    set(NALU_VERSION_TAG "v1.2.0")
+  endif()
+endif()
+
+find_file(TRILINOS_HAVE_GIT_INFO
+  "TrilinosRepoVersion.txt"
+  PATHS "${Trilinos_DIR}/../../../"
+  DOC "Check if Trilinos Git version info exists"
+  NO_DEFAULT_PATH)
+if (NOT ${TRILINOS_HAVE_GIT_INFO} MATCHES ".*-NOTFOUND")
+  file(STRINGS "${Trilinos_DIR}/../../../TrilinosRepoVersion.txt"
+    TRILINOS_REPO_VERSION_TXT LIMIT_INPUT 1024)
+  list(GET TRILINOS_REPO_VERSION_TXT 1 TRILINOS_REPO_COMMIT_STR)
+  string(REGEX MATCH "^[a-z0-9]+" TRILINOS_GIT_COMMIT_SHA ${TRILINOS_REPO_COMMIT_STR})
+  set(TRILINOS_VERSION_TAG "${Trilinos_VERSION}-g${TRILINOS_GIT_COMMIT_SHA}")
+else()
+  set(TRILINOS_VERSION_TAG "${Trilinos_VERSION}")
+endif()
+string(TIMESTAMP NALU_VERSION_TIMESTAMP "%Y-%m-%d %H:%M:%S (UTC)" UTC)
+configure_file("${CMAKE_SOURCE_DIR}/cmake/NaluVersionInfo.h.in"
+  "${CMAKE_BINARY_DIR}/include/NaluVersionInfo.h" @ONLY)
+#### END TAG VERSIONS
+
+# Add all source files from source subdirectories
+function(add_sources target_list)
+   foreach(_source IN ITEMS ${ARGN})
+       if (IS_ABSOLUTE "${_source}")
+           set(_source_abs "${_source}")
+       else()
+           get_filename_component(_source_abs "${_source}" ABSOLUTE)
+       endif()
+       set_property(GLOBAL APPEND PROPERTY "${target_list}" "${_source_abs}")
+   endforeach()
+endfunction(add_sources)
+add_subdirectory(src)
+add_subdirectory(include)
+add_subdirectory(unit_tests)
+get_property(NALU_SOURCES GLOBAL PROPERTY GlobalSourceList)
+get_property(NALU_HEADERS GLOBAL PROPERTY GlobalHeaderList)
+get_property(NALU_UNIT_SOURCES GLOBAL PROPERTY GlobalUnitSourceList)
+get_property(NALU_UNIT_HEADERS GLOBAL PROPERTY GlobalUnitHeaderList)
 
 include_directories(${CMAKE_SOURCE_DIR}/include)
-add_library(nalu ${SOURCE} ${HEADER})
+include_directories(${CMAKE_BINARY_DIR}/include)
+add_library(nalu ${NALU_SOURCES})
 target_link_libraries(nalu ${Trilinos_LIBRARIES})
 target_link_libraries(nalu ${YAML_CPP_LIBRARIES})
+target_link_libraries(nalu ${MPI_CXX_LIBRARIES} ${MPI_Fortran_LIBRARIES} ${MPI_C_LIBRARIES})
 
 if(ENABLE_OPENFAST)
   target_link_libraries(nalu ${OpenFAST_LIBRARIES} ${OpenFAST_CPP_LIBRARIES})
-endif (ENABLE_OPENFAST)
+endif()
 
 if(ENABLE_TIOGA)
   target_link_libraries(nalu ${TIOGA_LIBRARIES})
@@ -165,26 +229,32 @@ if(ENABLE_HYPRE)
   target_link_libraries(nalu ${HYPRE_LIBRARIES})
 endif()
 
-file(GLOB UNIT_TESTS_SOURCES unit_tests/*.C unit_tests/*/*.C)
+message("-- CMAKE_BUILD_TYPE = ${CMAKE_BUILD_TYPE}")
 
 set(nalu_ex_name "naluX")
-message("-- CMAKE_BUILD_TYPE = ${CMAKE_BUILD_TYPE}")
-if(CMAKE_BUILD_TYPE STREQUAL "DEBUG")
-   set(nalu_ex_name "naluXd")
-   message("Debug Build")
-endif()
-
 add_executable(${nalu_ex_name} nalu.C)
 target_link_libraries(${nalu_ex_name} nalu)
+if(MPI_COMPILE_FLAGS)
+  set_target_properties(${nalu_ex_name} PROPERTIES
+    COMPILE_FLAGS "${MPI_COMPILE_FLAGS}")
+endif(MPI_COMPILE_FLAGS)
+if(MPI_LINK_FLAGS)
+  set_target_properties(${nalu_ex_name} PROPERTIES
+    LINK_FLAGS "${MPI_LINK_FLAGS}")
+endif(MPI_LINK_FLAGS)
 
 set(utest_ex_name "unittestX")
-if(CMAKE_BUILD_TYPE STREQUAL "DEBUG")
-   set(utest_ex_name "unittestXd")
-endif()
-
-add_executable(${utest_ex_name} unit_tests.C ${UNIT_TESTS_SOURCES})
+add_executable(${utest_ex_name} unit_tests.C ${NALU_UNIT_SOURCES})
 target_link_libraries(${utest_ex_name} nalu)
 target_include_directories(${utest_ex_name} PUBLIC "${CMAKE_SOURCE_DIR}/unit_tests")
+if(MPI_COMPILE_FLAGS)
+  set_target_properties(${utest_ex_name} PROPERTIES
+    COMPILE_FLAGS "${MPI_COMPILE_FLAGS}")
+endif(MPI_COMPILE_FLAGS)
+if(MPI_LINK_FLAGS)
+  set_target_properties(${utest_ex_name} PROPERTIES
+    LINK_FLAGS "${MPI_LINK_FLAGS}")
+endif(MPI_LINK_FLAGS)
 
 set(nalu_ex_catalyst_name "naluXCatalyst")
 if(ENABLE_PARAVIEW_CATALYST)
@@ -217,4 +287,18 @@ if(ENABLE_TESTS)
    add_subdirectory(reg_tests)
 endif()
 
-message("\nAnd CMake says...:")
+if (ENABLE_WIND_UTILS)
+  if (EXISTS ${CMAKE_SOURCE_DIR}/wind-utils/CMakeLists.txt)
+    add_subdirectory(wind-utils)
+  else()
+    message(WARNING
+      "ENABLE_WIND_UTILS is ON, but wind-utils submodule has not been initialized.\
+       You should execute 'git submodule init && git submodule update' \
+       or use '-DENABLE_WIND_UTILS=OFF' to turn off this warning. \
+       DISABLING wind-utils compilation.
+      ")
+  endif()
+endif()
+
+# Note if you are interested in using Xcode for development,
+# refer to instructions in https://github.com/Exawind/nalu-wind/pull/22

@@ -56,6 +56,15 @@
 // kernels
 #include <kernel/ScalarDiffElemKernel.h>
 #include <kernel/ScalarDiffFemKernel.h>
+#include <kernel/ScalarDiffHOElemKernel.h>
+#include <kernel/ScalarMassHOElemKernel.h>
+
+#include <element_promotion/ElementDescription.h>
+
+#include <user_functions/SteadyThermalContactSrcHOElemKernel.h>
+
+// bc kernels
+#include <kernel/ScalarFluxPenaltyElemKernel.h>
 
 // user functions
 #include <user_functions/SteadyThermalContactAuxFunction.h>
@@ -67,6 +76,9 @@
 #include <user_functions/SteadyThermal3dContactSrcElemKernel.h>
 
 #include <overset/UpdateOversetFringeAlgorithmDriver.h>
+
+// Nalu utils
+#include <utils/StkHelpers.h>
 
 // stk_util
 #include <stk_util/parallel/Parallel.hpp>
@@ -175,31 +187,31 @@ HeatCondEquationSystem::register_nodal_fields(
 
   // register dof; set it as a restart variable
   temperature_ = &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "temperature", numStates));
-  stk::mesh::put_field(*temperature_, *part);
+  stk::mesh::put_field_on_mesh(*temperature_, *part, nullptr);
   realm_.augment_restart_variable_list("temperature");
 
   dtdx_ =  &(meta_data.declare_field<VectorFieldType>(stk::topology::NODE_RANK, "dtdx"));
-  stk::mesh::put_field(*dtdx_, *part, nDim);
+  stk::mesh::put_field_on_mesh(*dtdx_, *part, nDim, nullptr);
 
   // delta solution for linear solver
   tTmp_ =  &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "tTmp"));
-  stk::mesh::put_field(*tTmp_, *part);
+  stk::mesh::put_field_on_mesh(*tTmp_, *part, nullptr);
 
   dualNodalVolume_ = &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "dual_nodal_volume"));
-  stk::mesh::put_field(*dualNodalVolume_, *part);
+  stk::mesh::put_field_on_mesh(*dualNodalVolume_, *part, nullptr);
 
   coordinates_ =  &(meta_data.declare_field<VectorFieldType>(stk::topology::NODE_RANK, "coordinates"));
-  stk::mesh::put_field(*coordinates_, *part, nDim);
+  stk::mesh::put_field_on_mesh(*coordinates_, *part, nDim, nullptr);
 
   // props
   density_ = &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "density"));
-  stk::mesh::put_field(*density_, *part);
+  stk::mesh::put_field_on_mesh(*density_, *part, nullptr);
 
   specHeat_ = &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "specific_heat"));
-  stk::mesh::put_field(*specHeat_, *part);
+  stk::mesh::put_field_on_mesh(*specHeat_, *part, nullptr);
 
   thermalCond_ = &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "thermal_conductivity"));
-  stk::mesh::put_field(*thermalCond_, *part);
+  stk::mesh::put_field_on_mesh(*thermalCond_, *part, nullptr);
 
   // push to property list
   realm_.augment_property_map(DENSITY_ID, density_);
@@ -237,7 +249,7 @@ HeatCondEquationSystem::register_edge_fields(
   if ( realm_.realmUsesEdges_ ) {
     const int nDim = meta_data.spatial_dimension();
     edgeAreaVec_ = &(meta_data.declare_field<VectorFieldType>(stk::topology::EDGE_RANK, "edge_area_vector"));
-    stk::mesh::put_field(*edgeAreaVec_, *part, nDim);
+    stk::mesh::put_field_on_mesh(*edgeAreaVec_, *part, nDim, nullptr);
   }
 
 }
@@ -256,7 +268,7 @@ HeatCondEquationSystem::register_element_fields(
   if ( realm_.solutionOptions_->activateAdaptivity_) {
     const int numIp = 1;
     GenericFieldType *pstabEI= &(meta_data.declare_field<GenericFieldType>(stk::topology::ELEMENT_RANK, "error_indicator"));
-    stk::mesh::put_field(*pstabEI, *part, numIp);
+    stk::mesh::put_field_on_mesh(*pstabEI, *part, numIp, nullptr);
   }
   
   // register the intersected elemental field
@@ -264,7 +276,7 @@ HeatCondEquationSystem::register_element_fields(
     const int sizeOfElemField = 1;
     GenericFieldType *intersectedElement
       = &(meta_data.declare_field<GenericFieldType>(stk::topology::ELEMENT_RANK, "intersected_element"));
-    stk::mesh::put_field(*intersectedElement, *part, sizeOfElemField);
+    stk::mesh::put_field_on_mesh(*intersectedElement, *part, sizeOfElemField, nullptr);
   }
 }
 //--------------------------------------------------------------------------
@@ -280,6 +292,7 @@ HeatCondEquationSystem::register_interior_algorithm(
 
   ScalarFieldType &tempNp1 = temperature_->field_of_state(stk::mesh::StateNP1);
   VectorFieldType &dtdxNone = dtdx_->field_of_state(stk::mesh::StateNone);
+
 
   // non-solver; contribution to projected nodal gradient; allow for element-based shifted
   if ( !managePNG_ ) {
@@ -350,47 +363,34 @@ HeatCondEquationSystem::register_interior_algorithm(
     } 
   }
   else {
-    //========================================================================================
-    // WIP... supplemental algs plug into one homogeneous kernel, AssembleElemSolverAlgorithm
-    // currently valid for P=1 3D hex tet pyr wedge and P=2 3D hex
-    //========================================================================================
     if ( realm_.realmUsesEdges_ )
       throw std::runtime_error("HeatCondElem::Error can not use supplemental design for an edge-based scheme");
 
-    // extract topo from part
-    stk::topology partTopo = part->topology();
-    NaluEnv::self().naluOutputP0() << "The name of this part is " << partTopo.name() << std::endl;
+    KernelBuilder kb(*this, *part, solverAlgDriver_->solverAlgorithmMap_, realm_.using_tensor_product_kernels());
 
-    auto& solverAlgMap = solverAlgDriver_->solverAlgorithmMap_;
+    kb.build_topo_kernel_if_requested<SteadyThermal3dContactSrcElemKernel>("steady_3d_thermal",
+      realm_.bulk_data(), *realm_.solutionOptions_, kb.data_prereqs()
+    );
 
-    AssembleElemSolverAlgorithm* solverAlg =  nullptr;
-    bool solverAlgWasBuilt =  false;
-    std::tie(solverAlg, solverAlgWasBuilt) = build_or_add_part_to_solver_alg(*this, *part, solverAlgMap);
+    kb.build_topo_kernel_if_requested<ScalarDiffElemKernel>("CVFEM_DIFF",
+      realm_.bulk_data(), *realm_.solutionOptions_, temperature_, thermalCond_, kb.data_prereqs()
+    );
 
-    ElemDataRequests& dataPreReqs = solverAlg->dataNeededByKernels_;
-    auto& activeKernels = solverAlg->activeKernels_;
+    kb.build_fem_kernel_if_requested<ScalarDiffFemKernel>("FEM_DIFF",
+      realm_.bulk_data(), *realm_.solutionOptions_, temperature_, thermalCond_, kb.data_prereqs()
+    );
 
-    if (solverAlgWasBuilt) {
-      build_topo_kernel_if_requested<SteadyThermal3dContactSrcElemKernel>(
-        partTopo, *this, activeKernels, "steady_3d_thermal",
-        realm_.bulk_data(), *realm_.solutionOptions_, dataPreReqs
-      );
+    kb.build_sgl_kernel_if_requested<ScalarDiffHOElemKernel>("experimental_ho_cvfem_diffusion",
+      realm_.bulk_data(),  *realm_.solutionOptions_, temperature_, thermalCond_, kb.data_prereqs_HO()
+    );
 
-      build_topo_kernel_if_requested<ScalarDiffElemKernel>(
-        partTopo, *this, activeKernels, "CVFEM_DIFF",
-        realm_.bulk_data(), *realm_.solutionOptions_,
-        temperature_, thermalCond_, dataPreReqs
-      );
+    kb.build_sgl_kernel_if_requested<SteadyThermalContactSrcHOElemKernel>("experimental_ho_cvfem_mms_source",
+      realm_.bulk_data(),  *realm_.solutionOptions_, kb.data_prereqs_HO()
+    );
 
-      build_fem_kernel_if_requested<ScalarDiffFemKernel>(
-        partTopo, *this, activeKernels, "FEM_DIFF",
-        realm_.bulk_data(), *realm_.solutionOptions_, temperature_, thermalCond_, dataPreReqs
-      );
-
-      report_invalid_supp_alg_names();
-      report_built_supp_alg_names();
-    }
+    kb.report();
   }
+
 
   // time term; nodally lumped
   const AlgorithmType algMass = MASS;
@@ -477,7 +477,7 @@ HeatCondEquationSystem::register_interior_algorithm(
 void
 HeatCondEquationSystem::register_wall_bc(
   stk::mesh::Part *part,
-  const stk::topology &/*theTopo*/,
+  const stk::topology &partTopo,
   const WallBoundaryConditionData &wallBCData)
 {
 
@@ -512,7 +512,7 @@ HeatCondEquationSystem::register_wall_bc(
  
     // register boundary data; temperature_bc
     ScalarFieldType *theBcField = &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "temperature_bc"));
-    stk::mesh::put_field(*theBcField, *part);
+    stk::mesh::put_field_on_mesh(*theBcField, *part, nullptr);
 
     AuxFunction *theAuxFunc = NULL;
     if ( CONSTANT_UD == theDataType ) {
@@ -553,16 +553,41 @@ HeatCondEquationSystem::register_wall_bc(
                                stk::topology::NODE_RANK);
     bcDataMapAlg_.push_back(theCopyAlg);
 
-    // Dirichlet bc
-    std::map<AlgorithmType, SolverAlgorithm *>::iterator itd =
-      solverAlgDriver_->solverDirichAlgMap_.find(algType);
-    if ( itd == solverAlgDriver_->solverDirichAlgMap_.end() ) {
-      DirichletBC *theAlg
-        = new DirichletBC(realm_, this, part, &tempNp1, theBcField, 0, 1);
-      solverAlgDriver_->solverDirichAlgMap_[algType] = theAlg;
+    // wall specified temperature solver algorithm
+    if ( realm_.solutionOptions_->useConsolidatedBcSolverAlg_ ) {
+      // solver for weak wall
+      auto& solverAlgMap = solverAlgDriver_->solverAlgorithmMap_;
+
+      stk::topology elemTopo = get_elem_topo(realm_, *part);
+      
+      AssembleFaceElemSolverAlgorithm* faceElemSolverAlg = nullptr;
+      bool solverAlgWasBuilt = false;
+
+      std::tie(faceElemSolverAlg, solverAlgWasBuilt) 
+        = build_or_add_part_to_face_elem_solver_alg(algType, *this, *part, elemTopo, solverAlgMap, "wall");
+      
+      auto& activeKernels = faceElemSolverAlg->activeKernels_;
+      
+      if (solverAlgWasBuilt) {
+        build_face_elem_topo_kernel_automatic<ScalarFluxPenaltyElemKernel>
+          (partTopo, elemTopo, *this, activeKernels, "heat_cond_weak_wall",
+           realm_.meta_data(), *realm_.solutionOptions_,
+           temperature_, theBcField, thermalCond_,
+           faceElemSolverAlg->faceDataNeeded_, faceElemSolverAlg->elemDataNeeded_);
+      }
     }
     else {
-      itd->second->partVec_.push_back(part);
+      // Dirichlet bc
+      std::map<AlgorithmType, SolverAlgorithm *>::iterator itd =
+        solverAlgDriver_->solverDirichAlgMap_.find(algType);
+      if ( itd == solverAlgDriver_->solverDirichAlgMap_.end() ) {
+        DirichletBC *theAlg
+          = new DirichletBC(realm_, this, part, &tempNp1, theBcField, 0, 1);
+        solverAlgDriver_->solverDirichAlgMap_[algType] = theAlg;
+      }
+      else {
+        itd->second->partVec_.push_back(part);
+      }
     }
   }
   else if( userData.heatFluxSpec_ && !userData.robinParameterSpec_ ) {
@@ -570,7 +595,7 @@ HeatCondEquationSystem::register_wall_bc(
     const AlgorithmType algTypeHF = WALL_HF;
 
     ScalarFieldType *theBcField = &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "heat_flux_bc"));
-    stk::mesh::put_field(*theBcField, *part);
+    stk::mesh::put_field_on_mesh(*theBcField, *part, nullptr);
 
     NormalHeatFlux heatFlux = userData.q_;
     std::vector<double> userSpec(1);
@@ -610,9 +635,9 @@ HeatCondEquationSystem::register_wall_bc(
 
     // register boundary data;
     ScalarFieldType *irradField = &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "irradiation"));
-    stk::mesh::put_field(*irradField, *part);
+    stk::mesh::put_field_on_mesh(*irradField, *part, nullptr);
     ScalarFieldType *emissField = &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "emissivity"));
-    stk::mesh::put_field(*emissField, *part);
+    stk::mesh::put_field_on_mesh(*emissField, *part, nullptr);
 
     // aux algs; irradiation
     Irradiation irrad = userData.irradiation_;
@@ -688,9 +713,9 @@ HeatCondEquationSystem::register_wall_bc(
 
     // register boundary data
     ScalarFieldType *normalHeatFluxField = &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "normal_heat_flux"));
-    stk::mesh::put_field(*normalHeatFluxField, *part);
+    stk::mesh::put_field_on_mesh(*normalHeatFluxField, *part, nullptr);
     ScalarFieldType *tRefField = &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "reference_temperature"));
-    stk::mesh::put_field(*tRefField, *part);
+    stk::mesh::put_field_on_mesh(*tRefField, *part, nullptr);
 
     ScalarFieldType *alphaField = NULL;
     if (isConvectionCHT)
@@ -701,7 +726,7 @@ HeatCondEquationSystem::register_wall_bc(
     {
       alphaField = &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "robin_coupling_parameter"));
     }
-    stk::mesh::put_field(*alphaField, *part);
+    stk::mesh::put_field_on_mesh(*alphaField, *part, nullptr);
   
     // aux algs
     AuxFunctionAlgorithm *alphaAuxAlg;

@@ -55,6 +55,12 @@
 #include <kernel/ScalarAdvDiffElemKernel.h>
 #include <kernel/ScalarUpwAdvDiffElemKernel.h>
 
+#include <kernel/ScalarMassHOElemKernel.h>
+#include <kernel/ScalarAdvDiffHOElemKernel.h>
+
+// bc kernels
+#include <kernel/ScalarOpenAdvElemKernel.h>
+
 // deprecated
 #include <ScalarMassElemSuppAlgDep.h>
 #include <nso/ScalarNSOElemSuppAlgDep.h>
@@ -69,6 +75,7 @@
 #include <user_functions/VariableDensityMixFracSrcNodeSuppAlg.h>
 #include <user_functions/VariableDensityMixFracAuxFunction.h>
 #include <user_functions/RayleighTaylorMixFracAuxFunction.h>
+#include <user_functions/PerturbedShearLayerAuxFunctions.h>
 
 #include <overset/UpdateOversetFringeAlgorithmDriver.h>
 
@@ -92,6 +99,9 @@
 
 // stk_util
 #include <stk_util/parallel/ParallelReduce.hpp>
+
+// nalu utility
+#include <utils/StkHelpers.h>
 
 namespace sierra{
 namespace nalu{
@@ -180,39 +190,39 @@ MixtureFractionEquationSystem::register_nodal_fields(
 
   // register dof; set it as a restart variable
   mixFrac_ =  &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "mixture_fraction", numStates));
-  stk::mesh::put_field(*mixFrac_, *part);
+  stk::mesh::put_field_on_mesh(*mixFrac_, *part, nullptr);
   realm_.augment_restart_variable_list("mixture_fraction");
 
   // for a sanity check, keep around the un-filterd/clipped field
   mixFracUF_ =  &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "uf_mixture_fraction", numStates));
-  stk::mesh::put_field(*mixFracUF_, *part);
+  stk::mesh::put_field_on_mesh(*mixFracUF_, *part, nullptr);
  
   dzdx_ =  &(meta_data.declare_field<VectorFieldType>(stk::topology::NODE_RANK, "dzdx"));
-  stk::mesh::put_field(*dzdx_, *part, nDim);
+  stk::mesh::put_field_on_mesh(*dzdx_, *part, nDim, nullptr);
 
   // delta solution for linear solver; share delta since this is a split system
   zTmp_ =  &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "pTmp"));
-  stk::mesh::put_field(*zTmp_, *part);
+  stk::mesh::put_field_on_mesh(*zTmp_, *part, nullptr);
 
   visc_ = &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "viscosity"));
-  stk::mesh::put_field(*visc_, *part);
+  stk::mesh::put_field_on_mesh(*visc_, *part, nullptr);
 
   if ( realm_.is_turbulent() ) {
     tvisc_ = &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "turbulent_viscosity"));
-    stk::mesh::put_field(*tvisc_, *part);
+    stk::mesh::put_field_on_mesh(*tvisc_, *part, nullptr);
   }
 
   evisc_ = &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "effective_viscosity_z"));
-  stk::mesh::put_field(*evisc_, *part);
+  stk::mesh::put_field_on_mesh(*evisc_, *part, nullptr);
 
   scalarVar_ = &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "scalar_variance"));
-  stk::mesh::put_field(*scalarVar_, *part);
+  stk::mesh::put_field_on_mesh(*scalarVar_, *part, nullptr);
 
   scaledScalarVar_ = &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "scaled_scalar_variance"));
-  stk::mesh::put_field(*scaledScalarVar_, *part);
+  stk::mesh::put_field_on_mesh(*scaledScalarVar_, *part, nullptr);
 
   scalarDiss_ = &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "scalar_dissipation"));
-  stk::mesh::put_field(*scalarDiss_, *part);
+  stk::mesh::put_field_on_mesh(*scalarDiss_, *part, nullptr);
 
   // make sure all states are properly populated (restart can handle this)
   if ( numStates > 2 && (!realm_.restarted_simulation() || realm_.support_inconsistent_restart()) ) {
@@ -388,61 +398,59 @@ MixtureFractionEquationSystem::register_interior_algorithm(
     if ( realm_.realmUsesEdges_ )
       throw std::runtime_error("MixtureFraction::Error can not use element source terms for an edge-based scheme");
     
-    stk::topology partTopo = part->topology();
-    auto& solverAlgMap = solverAlgDriver_->solverAlgorithmMap_;
-    
-    AssembleElemSolverAlgorithm* solverAlg = nullptr;
-    bool solverAlgWasBuilt = false;
-    
-    std::tie(solverAlg, solverAlgWasBuilt) = build_or_add_part_to_solver_alg(*this, *part, solverAlgMap);
-    
-    ElemDataRequests& dataPreReqs = solverAlg->dataNeededByKernels_;
-    auto& activeKernels = solverAlg->activeKernels_;
+    KernelBuilder kb(*this, *part, solverAlgDriver_->solverAlgorithmMap_, realm_.using_tensor_product_kernels());
+    auto& dataPreReqs = kb.data_prereqs();
+    auto& dataPreReqsHO = kb.data_prereqs_HO();
 
-    if (solverAlgWasBuilt) {
-      build_topo_kernel_if_requested<ScalarMassElemKernel>
-        (partTopo, *this, activeKernels, "mixture_fraction_time_derivative",
+    kb.build_topo_kernel_if_requested<ScalarMassElemKernel>
+        ( "mixture_fraction_time_derivative",
          realm_.bulk_data(), *realm_.solutionOptions_, mixFrac_, dataPreReqs, false);
       
-      build_topo_kernel_if_requested<ScalarMassElemKernel>
-        (partTopo, *this, activeKernels, "lumped_mixture_fraction_time_derivative",
+    kb.build_topo_kernel_if_requested<ScalarMassElemKernel>
+        ("lumped_mixture_fraction_time_derivative",
          realm_.bulk_data(), *realm_.solutionOptions_, mixFrac_, dataPreReqs, true);
       
-      build_topo_kernel_if_requested<ScalarAdvDiffElemKernel>
-        (partTopo, *this, activeKernels, "advection_diffusion",
+    kb.build_topo_kernel_if_requested<ScalarAdvDiffElemKernel>
+        ("advection_diffusion",
          realm_.bulk_data(), *realm_.solutionOptions_, mixFrac_, evisc_, dataPreReqs);
       
-      build_topo_kernel_if_requested<ScalarUpwAdvDiffElemKernel>
-        (partTopo, *this, activeKernels, "upw_advection_diffusion",
+    kb.build_topo_kernel_if_requested<ScalarUpwAdvDiffElemKernel>
+        ("upw_advection_diffusion",
          realm_.bulk_data(), *realm_.solutionOptions_, this, mixFrac_, dzdx_, evisc_, dataPreReqs);
 
-      build_topo_kernel_if_requested<ScalarNSOElemKernel>
-        (partTopo, *this, activeKernels, "NSO_2ND",
+    kb.build_topo_kernel_if_requested<ScalarNSOElemKernel>
+        ("NSO_2ND",
          realm_.bulk_data(), *realm_.solutionOptions_, mixFrac_, dzdx_, evisc_, 0.0, 0.0, dataPreReqs);
       
-      build_topo_kernel_if_requested<ScalarNSOElemKernel>
-        (partTopo, *this, activeKernels, "NSO_2ND_ALT",
+    kb.build_topo_kernel_if_requested<ScalarNSOElemKernel>
+        ("NSO_2ND_ALT",
          realm_.bulk_data(), *realm_.solutionOptions_, mixFrac_, dzdx_, evisc_, 0.0, 1.0, dataPreReqs);
       
-      build_topo_kernel_if_requested<ScalarNSOElemKernel>
-        (partTopo, *this, activeKernels, "NSO_4TH",
+    kb.build_topo_kernel_if_requested<ScalarNSOElemKernel>
+        ("NSO_4TH",
          realm_.bulk_data(), *realm_.solutionOptions_, mixFrac_, dzdx_, evisc_, 1.0, 0.0, dataPreReqs);
       
-      build_topo_kernel_if_requested<ScalarNSOElemKernel>
-        (partTopo, *this, activeKernels, "NSO_4TH_ALT",
+    kb.build_topo_kernel_if_requested<ScalarNSOElemKernel>
+        ("NSO_4TH_ALT",
          realm_.bulk_data(), *realm_.solutionOptions_, mixFrac_, dzdx_, evisc_, 1.0, 1.0, dataPreReqs);
 
-      build_topo_kernel_if_requested<ScalarNSOKeElemKernel>
-         (partTopo, *this, activeKernels, "NSO_2ND_KE",
-          realm_.bulk_data(), *realm_.solutionOptions_, mixFrac_, dzdx_, realm_.get_turb_schmidt(mixFrac_->name()), 0.0, dataPreReqs);
+    kb.build_topo_kernel_if_requested<ScalarNSOKeElemKernel>
+        ("NSO_2ND_KE",
+         realm_.bulk_data(), *realm_.solutionOptions_, mixFrac_, dzdx_, realm_.get_turb_schmidt(mixFrac_->name()), 0.0, dataPreReqs);
+      
+    kb.build_topo_kernel_if_requested<ScalarNSOKeElemKernel>
+        ("NSO_4TH_KE",
+         realm_.bulk_data(), *realm_.solutionOptions_, mixFrac_, dzdx_, realm_.get_turb_schmidt(mixFrac_->name()), 1.0, dataPreReqs);
 
-       build_topo_kernel_if_requested<ScalarNSOKeElemKernel>
-         (partTopo, *this, activeKernels, "NSO_4TH_KE",
-          realm_.bulk_data(), *realm_.solutionOptions_, mixFrac_, dzdx_, realm_.get_turb_schmidt(mixFrac_->name()), 1.0, dataPreReqs);
+    kb.build_sgl_kernel_if_requested<ScalarMassHOElemKernel>
+        ("experimental_ho_mass",
+         realm_.bulk_data(), *realm_.solutionOptions_, mixFrac_, dataPreReqsHO);
 
-      report_invalid_supp_alg_names();
-      report_built_supp_alg_names();
-   }
+    kb.build_sgl_kernel_if_requested<ScalarAdvDiffHOElemKernel>
+        ("experimental_ho_advection_diffusion",
+         realm_.bulk_data(), *realm_.solutionOptions_, mixFrac_, evisc_, dataPreReqsHO);
+
+    kb.report();
   }
 
   // effective viscosity alg
@@ -481,7 +489,7 @@ MixtureFractionEquationSystem::register_inflow_bc(
 
   // register boundary data; mixFrac_bc
   ScalarFieldType *theBcField = &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "mixFrac_bc"));
-  stk::mesh::put_field(*theBcField, *part);
+  stk::mesh::put_field_on_mesh(*theBcField, *part, nullptr);
 
   // extract the value for user specified mixFrac and save off the AuxFunction
   InflowUserData userData = inflowBCData.userData_;
@@ -568,7 +576,7 @@ MixtureFractionEquationSystem::register_inflow_bc(
 void
 MixtureFractionEquationSystem::register_open_bc(
   stk::mesh::Part *part,
-  const stk::topology &/*theTopo*/,
+  const stk::topology &partTopo,
   const OpenBoundaryConditionData &openBCData)
 {
 
@@ -582,7 +590,7 @@ MixtureFractionEquationSystem::register_open_bc(
 
   // register boundary data; mixFrac_bc
   ScalarFieldType *theBcField = &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "open_mixFrac_bc"));
-  stk::mesh::put_field(*theBcField, *part);
+  stk::mesh::put_field_on_mesh(*theBcField, *part, nullptr);
 
   // extract the value for user specified mixFrac and save off the AuxFunction
   OpenUserData userData = openBCData.userData_;
@@ -615,22 +623,47 @@ MixtureFractionEquationSystem::register_open_bc(
   }
 
   // now solver contributions; open; lhs
-  std::map<AlgorithmType, SolverAlgorithm *>::iterator itsi
-    = solverAlgDriver_->solverAlgMap_.find(algType);
-  if ( itsi == solverAlgDriver_->solverAlgMap_.end() ) {
-    SolverAlgorithm *theAlg = NULL;
-    if ( realm_.realmUsesEdges_ ) {
-      theAlg = new AssembleScalarEdgeOpenSolverAlgorithm(realm_, part, this, mixFrac_, theBcField, &dzdxNone, evisc_);
+  if ( realm_.solutionOptions_->useConsolidatedBcSolverAlg_ ) {
+            
+    auto& solverAlgMap = solverAlgDriver_->solverAlgorithmMap_;
+    
+    stk::topology elemTopo = get_elem_topo(realm_, *part);
+    
+    AssembleFaceElemSolverAlgorithm* faceElemSolverAlg = nullptr;
+    bool solverAlgWasBuilt = false;
+    
+    std::tie(faceElemSolverAlg, solverAlgWasBuilt) 
+      = build_or_add_part_to_face_elem_solver_alg(algType, *this, *part, elemTopo, solverAlgMap, "open");
+    
+    auto& activeKernels = faceElemSolverAlg->activeKernels_;
+    
+    if (solverAlgWasBuilt) {
+  
+      build_face_elem_topo_kernel_automatic<ScalarOpenAdvElemKernel>
+        (partTopo, elemTopo, *this, activeKernels, "mixture_fraction_open",
+         realm_.meta_data(), *realm_.solutionOptions_,
+         this, mixFrac_, theBcField, dzdx_, evisc_, 
+         faceElemSolverAlg->faceDataNeeded_, faceElemSolverAlg->elemDataNeeded_);
+      
     }
-    else {
-      theAlg = new AssembleScalarElemOpenSolverAlgorithm(realm_, part, this, mixFrac_, theBcField, &dzdxNone, evisc_);
-    }
-    solverAlgDriver_->solverAlgMap_[algType] = theAlg;
   }
   else {
-    itsi->second->partVec_.push_back(part);
+    std::map<AlgorithmType, SolverAlgorithm *>::iterator itsi
+      = solverAlgDriver_->solverAlgMap_.find(algType);
+    if ( itsi == solverAlgDriver_->solverAlgMap_.end() ) {
+      SolverAlgorithm *theAlg = NULL;
+      if ( realm_.realmUsesEdges_ ) {
+        theAlg = new AssembleScalarEdgeOpenSolverAlgorithm(realm_, part, this, mixFrac_, theBcField, &dzdxNone, evisc_);
+      }
+      else {
+        theAlg = new AssembleScalarElemOpenSolverAlgorithm(realm_, part, this, mixFrac_, theBcField, &dzdxNone, evisc_);
+      }
+      solverAlgDriver_->solverAlgMap_[algType] = theAlg;
+    }
+    else {
+      itsi->second->partVec_.push_back(part);
+    }
   }
-
 }
 
 //--------------------------------------------------------------------------
@@ -661,7 +694,7 @@ MixtureFractionEquationSystem::register_wall_bc(
 
     // register boundary data; mixFrac_bc
     ScalarFieldType *theBcField = &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "mixFrac_bc"));
-    stk::mesh::put_field(*theBcField, *part);
+    stk::mesh::put_field_on_mesh(*theBcField, *part, nullptr);
 
     // extract data
     std::vector<double> userSpec(1);
@@ -882,6 +915,10 @@ MixtureFractionEquationSystem::register_initial_condition_fcn(
     else if ( fcnName == "RayleighTaylor" ) {
       // create the function
       theAuxFunc = new RayleighTaylorMixFracAuxFunction();      
+    }
+    else if ( fcnName == "PerturbedShearLayer" ) {
+      // create the function
+      theAuxFunc = new PerturbedShearLayerMixFracAuxFunction();
     }
     else {
       throw std::runtime_error("MixtureFractionEquationSystem::register_initial_condition_fcn: VariableDensity only supported");

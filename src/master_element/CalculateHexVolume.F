@@ -6,7 +6,7 @@ c     October 30, 1997.
 c
 c     coordinates of vertices of hexahedron
 c     =====================================
-c     double    volcoords  (n_v3d,8)
+c     double    volcoords  (3,8)
 c
 c     volume output
 c     =============

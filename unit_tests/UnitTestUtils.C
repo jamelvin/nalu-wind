@@ -11,6 +11,7 @@
 #include <stk_mesh/base/MetaData.hpp>
 #include <stk_mesh/base/Selector.hpp>
 #include <stk_mesh/base/SkinBoundary.hpp>
+#include <stk_mesh/base/GetEntities.hpp>
 #include <stk_topology/topology.hpp>
 
 #include <master_element/TensorOps.h>
@@ -124,16 +125,15 @@ void fill_and_promote_hex_mesh(const std::string& meshSpec, stk::mesh::BulkData&
     sierra::nalu::promotion::promote_elements(bulk, *elemDesc, *coords, baseParts, edgePart, facePart);
 }
 
-void dump_mesh(stk::mesh::BulkData& bulk, std::vector<stk::mesh::FieldBase*> fields)
+void dump_mesh(stk::mesh::BulkData& bulk, std::vector<stk::mesh::FieldBase*> fields, std::string name)
 {
   stk::io::StkMeshIoBroker io(bulk.parallel());
   io.set_bulk_data(bulk);
-  auto fileId = io.create_output_mesh("out.e", stk::io::WRITE_RESULTS);
+  auto fileId = io.create_output_mesh(name, stk::io::WRITE_RESULTS);
 
   for (auto* field : fields) {
     io.add_field(fileId, *field);
   }
-
   io.process_output_request(fileId, 0.0);
 }
 
@@ -159,7 +159,7 @@ void dump_promoted_mesh_file(stk::mesh::BulkData& bulk, int polyOrder)
 
 std::ostream& nalu_out()
 {
-  return sierra::nalu::NaluEnv::self().naluOutputP0();
+  return sierra::nalu::NaluEnv::self().naluOutput();
 }
 
 stk::mesh::Entity create_one_element(
@@ -168,18 +168,28 @@ stk::mesh::Entity create_one_element(
   std::vector<std::vector<double>>& nodeLocations)
 {
   // create just one element
+  std::cout << "ONE ELEMENT CREATED" << std::endl;
+  std::cout << "ONE ELEMENT CREATED" << std::endl;
+  std::cout << "ONE ELEMENT CREATED" << std::endl;
+  std::cout << "ONE ELEMENT CREATED" << std::endl;
 
    auto& meta = bulk.mesh_meta_data();
    stk::mesh::Part& block_1 = meta.declare_part_with_topology("block_1", topo);
    stk::io::put_io_part_attribute(block_1);
+
    stk::mesh::PartVector allSurfaces = { &meta.declare_part("all_surfaces", meta.side_rank()) };
    stk::io::put_io_part_attribute(*allSurfaces.front());
+
+   stk::mesh::PartVector individualSurfaces(topo.num_sides());
+   for (unsigned k = 0u; k < topo.num_sides(); ++k) {
+     individualSurfaces[k] = &meta.declare_part_with_topology("surface_" + std::to_string(k), topo.side_topology(k));
+   }
 
    // set a coordinate field
    using vector_field_type = stk::mesh::Field<double, stk::mesh::Cartesian3d>;
    auto& coordField = meta.declare_field<vector_field_type>(stk::topology::NODE_RANK, "coordinates");
-   stk::mesh::put_field(coordField, block_1);
-   stk::mesh::put_field(coordField, stk::mesh::selectUnion(allSurfaces));
+   stk::mesh::put_field_on_mesh(coordField, block_1, nullptr);
+   stk::mesh::put_field_on_mesh(coordField, stk::mesh::selectUnion(allSurfaces), nullptr);
    meta.set_coordinate_field(&coordField);
    meta.commit();
 
@@ -190,11 +200,23 @@ stk::mesh::Entity create_one_element(
    bulk.modification_begin();
 
    for (auto id : nodeIds) {
-     bulk.declare_entity(stk::topology::NODE_RANK, id, {});
+     bulk.declare_entity(stk::topology::NODE_RANK, id, stk::mesh::PartVector{});
    }
    auto elem = stk::mesh::declare_element(bulk, block_1, bulk.parallel_rank()+1, nodeIds);
    stk::mesh::create_all_sides(bulk, block_1, allSurfaces, false);
 
+   bulk.modification_end();
+
+   auto surfaceSelector = stk::mesh::selectUnion(allSurfaces);
+   stk::mesh::EntityVector all_faces;
+   stk::mesh::get_selected_entities(surfaceSelector, bulk.get_buckets(meta.side_rank(), surfaceSelector), all_faces);
+   ThrowRequire(all_faces.size() == topo.num_sides());
+
+   bulk.modification_begin();
+   for (unsigned k = 0u; k < all_faces.size(); ++k) {
+     const int ordinal = bulk.begin_element_ordinals(all_faces[k])[0];
+     bulk.change_entity_parts(all_faces[k], {individualSurfaces[ordinal]}, stk::mesh::PartVector{});
+   }
    bulk.modification_end();
 
    const auto* nodes = bulk.begin_nodes(elem);
@@ -494,8 +516,6 @@ double global_norm(const double & norm, const size_t & N, const stk::ParallelMac
   return g_norm;
 }
 
-#ifndef KOKKOS_HAVE_CUDA
-
 double initialize_linear_scalar_field(
   const stk::mesh::BulkData& bulk,
   const VectorFieldType& coordField,
@@ -518,15 +538,17 @@ double initialize_linear_scalar_field(
 
   const stk::mesh::Selector selector = meta.locally_owned_part() | meta.globally_shared_part();
   const auto& buckets = bulk.get_buckets(stk::topology::NODE_RANK, selector);
-  kokkos_thread_team_bucket_loop(buckets, [&](stk::mesh::Entity node)
+  for(const stk::mesh::Bucket* bptr : buckets)
   {
-    const double* coords = stk::mesh::field_data(coordField, node);
-    *stk::mesh::field_data(qField, node) = linear(a, b, coords);
-  });
+    for(stk::mesh::Entity node : *bptr)
+    {
+      const double* coords = stk::mesh::field_data(coordField, node);
+      *stk::mesh::field_data(qField, node) = linear(a, b, coords);
+    }
+  }
 
   return std::sqrt(b[0] * b[0] + b[1]* b[1] + b[2] * b[2]);
 }
-
 
 double initialize_quadratic_scalar_field(
   const stk::mesh::BulkData& bulk,
@@ -558,11 +580,14 @@ double initialize_quadratic_scalar_field(
 
   const stk::mesh::Selector selector = meta.locally_owned_part() | meta.globally_shared_part();
   const auto& buckets = bulk.get_buckets(stk::topology::NODE_RANK, selector);
-  kokkos_thread_team_bucket_loop(buckets, [&](stk::mesh::Entity node)
+  for(const stk::mesh::Bucket* bptr : buckets)
   {
-    const double* coords = stk::mesh::field_data(coordField, node);
-    *stk::mesh::field_data(qField, node) = quadratic(a,b,H, coords);
-  });
+    for(stk::mesh::Entity node : *bptr)
+    {
+      const double* coords = stk::mesh::field_data(coordField, node);
+      *stk::mesh::field_data(qField, node) = quadratic(a,b,H, coords);
+    }
+  }
 
   double traceOfHessian = H[0] + H[4] + H[8];
 
@@ -653,6 +678,8 @@ std::array<double,9> random_linear_transformation(int dim, double scale, std::mt
 
 
 }//namespace unit_test_utils
+
+#ifndef KOKKOS_HAVE_CUDA
 
 void Hex8Mesh::check_discrete_laplacian(double exactLaplacian)
 {

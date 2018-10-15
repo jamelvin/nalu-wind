@@ -11,11 +11,14 @@
 #include <AlgTraits.h>
 
 #include <master_element/TensorOps.h>
+#include <CVFEMTypeDefs.h>
 
 #include <SimdInterface.h>
 #include <Kokkos_Core.hpp>
 
-#include <stk_util/environment/ReportHandler.hpp>
+#include <stk_util/util/ReportHandler.hpp>
+
+#include <master_element/DirectionMacros.h>
 
 #include <vector>
 #include <cstdlib>
@@ -162,6 +165,104 @@ namespace nalu {
     return volume;
   }
 
+  template <typename RealType>
+  RealType bhex_volume_grandy(RealType scvcoords[8][3])
+  {
+    /**
+     * The Grandy algorithm for computing the volume of a multilinear box
+     *
+     * "Efficient computation of volume ofl
+     * Hexahedral Cells", Jeffrey Grandy, LLNL, UCRL-ID-128886,
+     *  October 30, 1997.
+     * modified for non-planar bent top face which we have broken into two triangles
+     */
+    constexpr int nTri = 24;
+    constexpr int dim = 3;
+
+    constexpr int nNodes = 8;
+    constexpr int nFaces = 6;
+    constexpr int npv = nNodes + nFaces;
+
+    RealType coordv[npv][dim];
+
+    // copy coordinates
+    for (int n = 0; n < nNodes; ++n) {
+      coordv[n][0] = scvcoords[n][0];
+      coordv[n][1] = scvcoords[n][1];
+      coordv[n][2] = scvcoords[n][2];
+    }
+
+    // now we add the face midpoints
+    for (int k = 0; k < 3; ++k ) {
+      coordv[8][k] = 0.25*( scvcoords[0][k] + scvcoords[1][k]
+                            + scvcoords[2][k] + scvcoords[3][k] );
+    }
+    
+    for (int k = 0; k < 3; ++k ) {
+      coordv[9][k] = 0.5*( scvcoords[5][k] + scvcoords[7][k] );
+    }
+
+    for (int k = 0; k < 3; ++k ) {
+      coordv[10][k] = 0.25*( scvcoords[0][k] + scvcoords[1][k]
+                             + scvcoords[5][k] + scvcoords[4][k] );
+    }   
+    
+    for (int k = 0; k < 3; ++k ) {
+      coordv[11][k] = 0.25*( scvcoords[3][k] + scvcoords[2][k]
+                             + scvcoords[6][k] + scvcoords[7][k] );
+    }
+    
+    for (int k = 0; k < 3; ++k ) {
+      coordv[12][k] = 0.25*( scvcoords[1][k] + scvcoords[2][k]
+                             + scvcoords[6][k] + scvcoords[5][k] );
+    }
+    
+    for (int k = 0; k < 3; ++k ) {
+      coordv[13][k] = 0.25*( scvcoords[0][k] + scvcoords[3][k]
+                             + scvcoords[7][k] + scvcoords[4][k] );
+    }
+    
+    constexpr int triangular_facets[nTri][3] = {
+      { 0,  8,  1}, { 8,  2,  1}, { 3,  2,  8},
+      { 3,  8,  0}, { 6,  9,  5}, { 7,  9,  6},
+      { 4,  9,  7}, { 4,  5,  9}, {10,  0,  1},
+      { 5, 10,  1}, { 4, 10,  5}, { 4,  0, 10},
+      { 7,  6, 11}, { 6,  2, 11}, { 2,  3, 11},
+      { 3,  7, 11}, { 6, 12,  2}, { 5, 12,  6},
+      { 5,  1, 12}, { 1,  2, 12}, { 0,  4, 13},
+      { 4,  7, 13}, { 7,  3, 13}, { 3,  0, 13}
+    };
+
+    RealType volume = 0.0;
+    for (int k = 0; k < nTri; ++k) {
+      const int p = triangular_facets[k][0];
+      const int q = triangular_facets[k][1];
+      const int r = triangular_facets[k][2];
+
+      const RealType triFaceMid[3] = {
+          coordv[p][0] + coordv[q][0] + coordv[r][0],
+          coordv[p][1] + coordv[q][1] + coordv[r][1],
+          coordv[p][2] + coordv[q][2] + coordv[r][2]
+      };
+
+      enum {XC = 0, YC = 1, ZC = 2};
+      RealType dxv[3];
+
+      dxv[0] = ( coordv[q][YC] - coordv[p][YC] ) * ( coordv[r][ZC] - coordv[p][ZC] )
+             - ( coordv[r][YC] - coordv[p][YC] ) * ( coordv[q][ZC] - coordv[p][ZC] );
+
+      dxv[1] = ( coordv[r][XC] - coordv[p][XC] ) * ( coordv[q][ZC] - coordv[p][ZC] )
+             - ( coordv[q][XC] - coordv[p][XC] ) * ( coordv[r][ZC] - coordv[p][ZC] );
+
+      dxv[2] = ( coordv[q][XC] - coordv[p][XC] ) * ( coordv[r][YC] - coordv[p][YC] )
+             - ( coordv[r][XC] - coordv[p][XC] ) * ( coordv[q][YC] - coordv[p][YC] );
+
+      volume += triFaceMid[0] * dxv[0] + triFaceMid[1] * dxv[1] + triFaceMid[2] * dxv[2];
+    }
+    volume /= RealType(18.0);
+    return volume;
+  }
+
   template <typename CoordViewType>
   void subdivide_hex_8(CoordViewType coords, typename CoordViewType::value_type coordv[27][3])
   {
@@ -221,6 +322,233 @@ namespace nalu {
       coordv[26][d] *= 0.125;
     }
   }
+
+  template<typename Scalar>
+KOKKOS_FORCEINLINE_FUNCTION
+Scalar jacobian_component_xh(int d, const Scalar base_box[3][8], const Scalar interpj[2], const Scalar interpk[2])
+{
+  return( -interpj[0] * interpk[0] * base_box[d][0]
+        +  interpj[0] * interpk[0] * base_box[d][1]
+        +  interpj[1] * interpk[0] * base_box[d][2]
+        -  interpj[1] * interpk[0] * base_box[d][3]
+        -  interpj[0] * interpk[1] * base_box[d][4]
+        +  interpj[0] * interpk[1] * base_box[d][5]
+        +  interpj[1] * interpk[1] * base_box[d][6]
+        -  interpj[1] * interpk[1] * base_box[d][7]
+  ) * 0.5;
+}
+
+template<typename Scalar>
+KOKKOS_FORCEINLINE_FUNCTION
+Scalar jacobian_component_yh(int d, const Scalar base_box[3][8],  const Scalar interpi[2], const Scalar interpk[2])
+{
+  return ( -interpi[0] * interpk[0] * base_box[d][0]
+         -  interpi[1] * interpk[0] * base_box[d][1]
+         +  interpi[1] * interpk[0] * base_box[d][2]
+         +  interpi[0] * interpk[0] * base_box[d][3]
+         -  interpi[0] * interpk[1] * base_box[d][4]
+         -  interpi[1] * interpk[1] * base_box[d][5]
+         +  interpi[1] * interpk[1] * base_box[d][6]
+         +  interpi[0] * interpk[1] * base_box[d][7]
+  ) * 0.5;
+}
+
+template<typename Scalar>
+KOKKOS_FORCEINLINE_FUNCTION
+Scalar jacobian_component_zh(int d, const Scalar base_box[3][8], const Scalar interpi[2], const Scalar interpj[2])
+{
+  return ( -interpi[0] * interpj[0] * base_box[d][0]
+         -  interpi[1] * interpj[0] * base_box[d][1]
+         -  interpi[1] * interpj[1] * base_box[d][2]
+         -  interpi[0] * interpj[1] * base_box[d][3]
+         +  interpi[0] * interpj[0] * base_box[d][4]
+         +  interpi[1] * interpj[0] * base_box[d][5]
+         +  interpi[1] * interpj[1] * base_box[d][6]
+         +  interpi[0] * interpj[1] * base_box[d][7]
+  ) * 0.5;
+}
+
+template <int di, int dj, typename Scalar>
+Scalar hex_jacobian_component(
+  const Scalar base_box[3][8],
+  const Scalar interpi[2],
+  const Scalar interpj[2],
+  const Scalar interpk[2])
+{
+
+  return (dj == XH) ?
+  ( -interpi[0] * interpk[0] * base_box[di][0]
+  -  interpi[1] * interpk[0] * base_box[di][1]
+  +  interpi[1] * interpk[0] * base_box[di][2]
+  +  interpi[0] * interpk[0] * base_box[di][3]
+  -  interpi[0] * interpk[1] * base_box[di][4]
+  -  interpi[1] * interpk[1] * base_box[di][5]
+  +  interpi[1] * interpk[1] * base_box[di][6]
+  +  interpi[0] * interpk[1] * base_box[di][7]
+  ) * 0.5
+  : (dj == YH) ?
+  ( -interpi[0] * interpk[0] * base_box[di][0]
+  -  interpi[1] * interpk[0] * base_box[di][1]
+  +  interpi[1] * interpk[0] * base_box[di][2]
+  +  interpi[0] * interpk[0] * base_box[di][3]
+  -  interpi[0] * interpk[1] * base_box[di][4]
+  -  interpi[1] * interpk[1] * base_box[di][5]
+  +  interpi[1] * interpk[1] * base_box[di][6]
+  +  interpi[0] * interpk[1] * base_box[di][7]
+  ) * 0.5
+  :
+  ( -interpi[0] * interpj[0] * base_box[di][0]
+  -  interpi[1] * interpj[0] * base_box[di][1]
+  -  interpi[1] * interpj[1] * base_box[di][2]
+  -  interpi[0] * interpj[1] * base_box[di][3]
+  +  interpi[0] * interpj[0] * base_box[di][4]
+  +  interpi[1] * interpj[0] * base_box[di][5]
+  +  interpi[1] * interpj[1] * base_box[di][6]
+  +  interpi[0] * interpj[1] * base_box[di][7]
+  ) * 0.5;
+}
+
+template<typename Scalar>
+KOKKOS_FORCEINLINE_FUNCTION
+void hex_jacobian(
+  const Scalar base_box[3][8],
+  const Scalar interpi[2],
+  const Scalar interpj[2],
+  const Scalar interpk[2],
+  Scalar jac[3][3])
+{
+  for (int d = 0; d < 3; ++d) {
+    jac[0][d] = jacobian_component_xh(d, base_box, interpj, interpk);
+  }
+
+  for (int d = 0; d < 3; ++d) {
+    jac[1][d] = jacobian_component_yh(d, base_box, interpi, interpk);
+  }
+
+  for (int d = 0; d < 3; ++d) {
+    jac[2][d] = jacobian_component_zh(d, base_box, interpi, interpj);
+  }
+}
+
+
+template <typename Scalar>
+KOKKOS_FORCEINLINE_FUNCTION
+void hex_jacobian_t(
+  const Scalar base_box[3][8],
+  const Scalar interpi[2],
+  const Scalar interpj[2],
+  const Scalar interpk[2],
+  Scalar jac[3][3])
+{
+  for (int d = 0; d < 3; ++d) {
+    jac[d][0] = jacobian_component_xh(d, base_box, interpj, interpk);
+    jac[d][1] = jacobian_component_yh(d, base_box, interpi, interpk);
+    jac[d][2] = jacobian_component_zh(d, base_box, interpi, interpj);
+  }
+}
+
+template<int dir, typename Scalar>
+KOKKOS_FORCEINLINE_FUNCTION
+void areav_from_jacobian_t(
+  const Scalar jact[3][3],
+  Scalar area[3])
+{
+  constexpr int orth_comp_1 = (dir == XH) ? ZH : (dir == YH) ? XH : YH;
+  constexpr int orth_comp_2 = (dir == XH) ? YH : (dir == YH) ? ZH : XH;
+  area[XH] = jact[YH][orth_comp_1] * jact[ZH][orth_comp_2] - jact[ZH][orth_comp_1] * jact[YH][orth_comp_2];
+  area[YH] = jact[ZH][orth_comp_1] * jact[XH][orth_comp_2] - jact[XH][orth_comp_1] * jact[ZH][orth_comp_2];
+  area[ZH] = jact[XH][orth_comp_1] * jact[YH][orth_comp_2] - jact[YH][orth_comp_1] * jact[XH][orth_comp_2];
+}
+
+template<typename Scalar>
+KOKKOS_FORCEINLINE_FUNCTION
+void hex_areav_x(
+  const Scalar base_box[3][8],
+  const Scalar interpi[2],
+  const Scalar interpj[2],
+  const Scalar interpk[2],
+  Scalar area[3])
+{
+  const auto dx_ds1 = jacobian_component_zh(0, base_box, interpi, interpj);
+  const auto dx_ds2 = jacobian_component_yh(0, base_box, interpi, interpk);
+
+  const auto dy_ds1 = jacobian_component_zh(1, base_box, interpi, interpj);
+  const auto dy_ds2 = jacobian_component_yh(1, base_box, interpi, interpk);
+
+  const auto dz_ds1 = jacobian_component_zh(2, base_box, interpi, interpj);
+  const auto dz_ds2 = jacobian_component_yh(2, base_box, interpi, interpk);
+
+  area[0] = dy_ds1 * dz_ds2 - dz_ds1 * dy_ds2;
+  area[1] = dz_ds1 * dx_ds2 - dx_ds1 * dz_ds2;
+  area[2] = dx_ds1 * dy_ds2 - dy_ds1 * dx_ds2;
+}
+
+
+template<typename Scalar>
+KOKKOS_FORCEINLINE_FUNCTION
+void hex_areav_y(
+  const Scalar base_box[3][8],
+  const Scalar interpi[2],
+  const Scalar interpj[2],
+  const Scalar interpk[2],
+  Scalar area[3])
+{
+  const auto dx_ds1 = jacobian_component_xh(0, base_box, interpj, interpk);
+  const auto dx_ds2 = jacobian_component_zh(0, base_box, interpi, interpj);
+
+  const auto dy_ds1 = jacobian_component_xh(1, base_box, interpj, interpk);
+  const auto dy_ds2 = jacobian_component_zh(1, base_box, interpi, interpj);
+
+  const auto dz_ds1 = jacobian_component_xh(2, base_box, interpj, interpk);
+  const auto dz_ds2 = jacobian_component_zh(2, base_box, interpi, interpj);
+
+  area[0] = dy_ds1 * dz_ds2 - dz_ds1 * dy_ds2;
+  area[1] = dz_ds1 * dx_ds2 - dx_ds1 * dz_ds2;
+  area[2] = dx_ds1 * dy_ds2 - dy_ds1 * dx_ds2;
+}
+
+template<typename Scalar>
+KOKKOS_FORCEINLINE_FUNCTION
+void hex_areav_z(
+  const Scalar base_box[3][8],
+  const Scalar interpi[2],
+  const Scalar interpj[2],
+  const Scalar interpk[2],
+  Scalar area[3])
+{
+  const auto dx_ds1 = jacobian_component_yh(0, base_box, interpi, interpk);
+  const auto dx_ds2 = jacobian_component_xh(0, base_box, interpj, interpk);
+
+  const auto dy_ds1 = jacobian_component_yh(1, base_box, interpi, interpk);
+  const auto dy_ds2 = jacobian_component_xh(1, base_box, interpj, interpk);
+
+  const auto dz_ds1 = jacobian_component_yh(2, base_box, interpi, interpk);
+  const auto dz_ds2 = jacobian_component_xh(2, base_box, interpj, interpk);
+
+  area[0] = dy_ds1 * dz_ds2 - dz_ds1 * dy_ds2;
+  area[1] = dz_ds1 * dx_ds2 - dx_ds1 * dz_ds2;
+  area[2] = dx_ds1 * dy_ds2 - dy_ds1 * dx_ds2;
+}
+
+template<int p, typename Scalar>
+KOKKOS_FORCEINLINE_FUNCTION
+void hex_vertex_coordinates(
+  const nodal_vector_view<p, Scalar>& xc,
+  Scalar base_box[3][8])
+{
+  for (int d = 0; d < 3; ++d) {
+    base_box[d][0] = xc(0, 0, 0, d);
+    base_box[d][1] = xc(0, 0, p, d);
+    base_box[d][2] = xc(0, p, p, d);
+    base_box[d][3] = xc(0, p, 0, d);
+
+    base_box[d][4] = xc(p, 0, 0, d);
+    base_box[d][5] = xc(p, 0, p, d);
+    base_box[d][6] = xc(p, p, p, d);
+    base_box[d][7] = xc(p, p, 0, d);
+  }
+}
+
 
 } // namespace nalu
 } // namespace Sierra

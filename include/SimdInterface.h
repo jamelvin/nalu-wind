@@ -16,6 +16,7 @@
  */
 
 #include "stk_simd/Simd.hpp"
+#include "Kokkos_Macros.hpp"
 
 #include <vector>
 
@@ -27,7 +28,7 @@ typedef stk::simd::Double SimdDouble;
 typedef SimdDouble DoubleType;
 
 template<typename T>
-using AlignedVector = std::vector<T, non_std::AlignedAllocator<T, 64>>;
+using AlignedVector = std::vector<T, non_std::AlignedAllocator<T, KOKKOS_MEMORY_ALIGNMENT>>;
 
 using ScalarAlignedVector = AlignedVector<DoubleType>;
 
@@ -52,7 +53,6 @@ int get_length_of_next_simd_group(int index, int length)
     nextLength = length - index*simdLen;
   }
   if (nextLength < 0 || nextLength > simdLen) {
-    std::cout<<"ERROR, nextLength="<<nextLength<<" shouldn't happen!!"<<std::endl;
     nextLength = 0;
   }
   return nextLength;

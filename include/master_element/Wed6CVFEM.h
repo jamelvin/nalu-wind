@@ -31,6 +31,11 @@ public:
     SharedMemView<DoubleType***>& gradop,
     SharedMemView<DoubleType***>& deriv);
 
+  void shifted_grad_op(
+    SharedMemView<DoubleType**>& coords,
+    SharedMemView<DoubleType***>& gradop,
+    SharedMemView<DoubleType***>& deriv);
+
   void Mij(
     SharedMemView<DoubleType**>& coords,
     SharedMemView<DoubleType***>& metric,
@@ -117,6 +122,11 @@ public:
     double *det_j,
     double * error );
 
+  void face_grad_op(
+    int face_ordinal,
+    SharedMemView<DoubleType**>& coords,
+    SharedMemView<DoubleType***>& gradop) final;
+
   void shifted_face_grad_op(
     const int nelem,
     const int face_ordinal,
@@ -124,6 +134,11 @@ public:
     double *gradop,
     double *det_j,
     double * error );
+
+  void shifted_face_grad_op(
+    int face_ordinal,
+    SharedMemView<DoubleType**>& coords,
+    SharedMemView<DoubleType***>& gradop) final;
 
   void gij(
     SharedMemView<DoubleType**>& coords,
@@ -148,6 +163,8 @@ public:
     double *deriv);
 
   const int * adjacentNodes();
+  
+  const int * scsIpEdgeOrd();
 
   int opposingNodes(
     const int ordinal, const int node);
@@ -177,6 +194,12 @@ public:
     const double *par_coord,
     double* shape_fcn);
 
+  void
+  general_shape_fcn(const int numIp, const double* isoParCoord, double* shpfc)
+  {
+    wedge_shape_fcn(numIp, isoParCoord, shpfc);
+  }
+
   void general_face_grad_op(
     const int face_ordinal,
     const double *isoParCoord,
@@ -196,7 +219,6 @@ public:
   double parametric_distance( const std::vector<double> &x);
 
   const int* side_node_ordinals(int sideOrdinal) final;
-
 };
 
 

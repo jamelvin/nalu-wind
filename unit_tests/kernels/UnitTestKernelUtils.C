@@ -333,12 +333,16 @@ void init_trigonometric_field(
     meta.locally_owned_part() | meta.globally_shared_part();
   const auto& buckets = bulk.get_buckets(stk::topology::NODE_RANK, selector);
 
-  kokkos_thread_team_bucket_loop(buckets, [&](stk::mesh::Entity node) {
+  for(const stk::mesh::Bucket* bptr : buckets)
+  {
+    for(stk::mesh::Entity node : *bptr)
+    {
       const double* coords = stk::mesh::field_data(coordinates, node);
       double* qNode = stk::mesh::field_data(qField, node);
 
       ((stv).*(funcPtr))(coords, qNode);
-    });
+    }
+  }
 }
 
 template<typename LOOP_BODY>
@@ -353,10 +357,13 @@ void init_trigonometric_field(
         meta.locally_owned_part() | meta.globally_shared_part();
     const auto& buckets = bulk.get_buckets(stk::topology::NODE_RANK, selector);
 
-    kokkos_thread_team_bucket_loop(
-        buckets, [&](stk::mesh::Entity node) {
-            inner_loop_body(node);
-        });
+    for(const stk::mesh::Bucket* bptr : buckets)
+    {
+      for(stk::mesh::Entity node : *bptr)
+      {
+        inner_loop_body(node);
+      }
+    }
 }
 
 } // anonymous namespace
@@ -544,6 +551,8 @@ void dhdx_test_function(
   init_trigonometric_field(bulk, coordinates, dhdx);
 }
 
+#ifndef KOKKOS_HAVE_CUDA
+
 void calc_mass_flow_rate_scs(
   const stk::mesh::BulkData& bulk,
   const stk::topology& topo,
@@ -577,7 +586,7 @@ void calc_mass_flow_rate_scs(
   const int bytes_per_thread = sierra::nalu::get_num_bytes_pre_req_data(
     dataNeeded, meta.spatial_dimension()) ;
 
-  auto team_exec = sierra::nalu::get_team_policy(
+  auto team_exec = sierra::nalu::get_host_team_policy(
     buckets.size(), bytes_per_team, bytes_per_thread);
 
   Kokkos::parallel_for(team_exec, [&](const sierra::nalu::TeamHandleType& team) {
@@ -658,7 +667,7 @@ void calc_projected_nodal_gradient_interior(
 
   auto v_shape_function = Kokkos::View<double**>("shape_function", meSCS->numIntPoints_, meSCS->nodesPerElement_);
 
-  auto team_exec = sierra::nalu::get_team_policy(buckets.size(), bytes_per_team, bytes_per_thread);
+  auto team_exec = sierra::nalu::get_host_team_policy(buckets.size(), bytes_per_team, bytes_per_thread);
 
   Kokkos::parallel_for(team_exec, [&](const sierra::nalu::TeamHandleType& team) {
     auto& b = *buckets[team.league_rank()];
@@ -735,7 +744,7 @@ void calc_projected_nodal_gradient_interior(
 
   auto v_shape_function = Kokkos::View<double**>("shape_function", meSCS->numIntPoints_, meSCS->nodesPerElement_);
 
-  auto team_exec = sierra::nalu::get_team_policy(buckets.size(), bytes_per_team, bytes_per_thread);
+  auto team_exec = sierra::nalu::get_host_team_policy(buckets.size(), bytes_per_team, bytes_per_thread);
 
   Kokkos::parallel_for(team_exec, [&](const sierra::nalu::TeamHandleType& team) {
     auto& b = *buckets[team.league_rank()];
@@ -815,7 +824,7 @@ void calc_projected_nodal_gradient_boundary(
 
   auto v_shape_function = Kokkos::View<double**>("shape_function", meBC->numIntPoints_, meBC->nodesPerElement_);
 
-  auto team_exec = sierra::nalu::get_team_policy(buckets.size(), bytes_per_team, bytes_per_thread);
+  auto team_exec = sierra::nalu::get_host_team_policy(buckets.size(), bytes_per_team, bytes_per_thread);
 
   Kokkos::parallel_for(team_exec, [&](const sierra::nalu::TeamHandleType& team) {
     auto& b = *buckets[team.league_rank()];
@@ -887,7 +896,7 @@ void calc_projected_nodal_gradient_boundary(
 
   auto v_shape_function = Kokkos::View<double**>("shape_function", meBC->numIntPoints_, meBC->nodesPerElement_);
 
-  auto team_exec = sierra::nalu::get_team_policy(buckets.size(), bytes_per_team, bytes_per_thread);
+  auto team_exec = sierra::nalu::get_host_team_policy(buckets.size(), bytes_per_team, bytes_per_thread);
 
   Kokkos::parallel_for(team_exec, [&](const sierra::nalu::TeamHandleType& team) {
     auto& b = *buckets[team.league_rank()];
@@ -956,7 +965,7 @@ void calc_dual_nodal_volume(
 
   auto v_shape_function = Kokkos::View<double**>("shape_function", meSCV->numIntPoints_, meSCV->nodesPerElement_);
 
-  auto team_exec = sierra::nalu::get_team_policy(buckets.size(), bytes_per_team, bytes_per_thread);
+  auto team_exec = sierra::nalu::get_host_team_policy(buckets.size(), bytes_per_team, bytes_per_thread);
 
   Kokkos::parallel_for(team_exec, [&](const sierra::nalu::TeamHandleType& team) {
     auto& b = *buckets[team.league_rank()];
@@ -1035,12 +1044,14 @@ void calc_projected_nodal_gradient(
   }
 }
 
+#endif // KOKKOS_HAVE_CUDA
+
 void expect_all_near(
   const Kokkos::View<double*>& calcValue,
   const double* exactValue,
   const double tol)
 {
-  const int length = calcValue.dimension(0);
+  const int length = calcValue.extent(0);
 
   for (int i=0; i < length; ++i) {
     EXPECT_NEAR(calcValue[i], exactValue[i], tol);
@@ -1052,7 +1063,7 @@ void expect_all_near(
   const double exactValue,
   const double tol)
 {
-  const int length = calcValue.dimension(0);
+  const int length = calcValue.extent(0);
 
   for (int i=0; i < length; ++i) {
     EXPECT_NEAR(calcValue[i], exactValue, tol);
@@ -1064,8 +1075,8 @@ void expect_all_near(
   const double* exactValue,
   const double tol)
 {
-  const int dim1 = calcValue.dimension(0);
-  const int dim2 = calcValue.dimension(1);
+  const int dim1 = calcValue.extent(0);
+  const int dim2 = calcValue.extent(1);
 
   for (int i=0; i < dim1; i++)
     for (int j=0; j < dim2; j++)

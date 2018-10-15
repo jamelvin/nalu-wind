@@ -29,7 +29,7 @@ else(NOT ${TEST_TOLERANCE} STREQUAL "")
     endif()
   elseif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-      set(TOLERANCE 0.0000001)
+      set(TOLERANCE 0.000001)
     elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
       set(TOLERANCE 0.000000000000001)
     elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
@@ -40,6 +40,8 @@ else(NOT ${TEST_TOLERANCE} STREQUAL "")
   endif()
 endif()
 message("-- Using test tolerance of ${TOLERANCE}")
+
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/CTestCustom.cmake ${CMAKE_BINARY_DIR}/CTestCustom.cmake)
 
 # Create symlinks to mesh and xml directories
 execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink

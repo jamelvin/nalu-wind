@@ -38,6 +38,7 @@ SolutionOptions::SolutionOptions()
     turbPrDefault_(1.0),
     nocDefault_(true),
     shiftedGradOpDefault_(false),
+    skewSymmetricDefault_(false),
     tanhFormDefault_("classic"),
     tanhTransDefault_(2.0),
     tanhWidthDefault_(4.0),
@@ -81,6 +82,7 @@ SolutionOptions::SolutionOptions()
     inputVariablesPeriodicTime_(0.0),
     consistentMMPngDefault_(false),
     useConsolidatedSolverAlg_(false),
+    useConsolidatedBcSolverAlg_(false),
     eigenvaluePerturb_(false),
     eigenvaluePerturbDelta_(0.0),
     eigenvaluePerturbBiasTowards_(3),
@@ -95,7 +97,9 @@ SolutionOptions::SolutionOptions()
     mdotAlgOpenCorrection_(0.0),
     mdotAlgOpenIpCount_(0),
     mdotAlgOpenPost_(0.0),
-    quadType_("GaussLegendre")
+    explicitlyZeroOpenPressureGradient_(false),
+    useConsoldiatedPngSolverAlg_(false),
+    newHO_(false)
 {
   // nothing to do
 }
@@ -152,6 +156,12 @@ SolutionOptions::load(const YAML::Node & y_node)
     // check for consolidated solver alg (AssembleSolver)
     get_if_present(y_solution_options, "use_consolidated_solver_algorithm", useConsolidatedSolverAlg_, useConsolidatedSolverAlg_);
 
+    // check for consolidated face-elem bc alg
+    get_if_present(y_solution_options, "use_consolidated_face_elem_bc_algorithm", useConsolidatedBcSolverAlg_, useConsolidatedBcSolverAlg_);
+
+    // use a consolidated alg for the consistent mass PNG
+    get_if_present(y_solution_options, "use_consolidated_png", useConsoldiatedPngSolverAlg_);
+
     // eigenvalue purturbation; over all dofs...
     get_if_present(y_solution_options, "eigenvalue_perturbation", eigenvaluePerturb_);
     get_if_present(y_solution_options, "eigenvalue_perturbation_delta", eigenvaluePerturbDelta_);
@@ -159,7 +169,7 @@ SolutionOptions::load(const YAML::Node & y_node)
     get_if_present(y_solution_options, "eigenvalue_perturbation_turbulent_ke", eigenvaluePerturbTurbKe_);
     
     // quadrature type for high order
-    get_if_present(y_solution_options, "high_order_quadrature_type", quadType_);
+    get_if_present(y_solution_options, "tensor_product_cvfem", newHO_);
 
     // extract turbulence model; would be nice if we could parse an enum..
     std::string specifiedTurbModel;
@@ -207,6 +217,9 @@ SolutionOptions::load(const YAML::Node & y_node)
     // check for global correction algorithm
     get_if_present(y_solution_options, "activate_open_mdot_correction",
       activateOpenMdotCorrection_, activateOpenMdotCorrection_);
+
+    get_if_present(y_solution_options, "explicitly_zero_open_pressure_gradient",
+      explicitlyZeroOpenPressureGradient_, explicitlyZeroOpenPressureGradient_);
 
     // first set of options; hybrid, source, etc.
     const YAML::Node y_options = expect_sequence(y_solution_options, "options", required);
@@ -264,6 +277,9 @@ SolutionOptions::load(const YAML::Node & y_node)
         }
         else if (expect_map( y_option, "shifted_gradient_operator", optional)) {
           y_option["shifted_gradient_operator"] >> shiftedGradOpMap_ ;
+        }
+        else if (expect_map( y_option, "skew_symmetric_advection", optional)) {
+          y_option["skew_symmetric_advection"] >> skewSymmetricMap_;
         }
         else if (expect_map( y_option, "input_variables_from_file", optional)) {
           y_option["input_variables_from_file"] >> inputVarFromFileMap_ ;
@@ -670,6 +686,8 @@ SolutionOptions::initialize_turbulence_constants()
   turbModelConstantMap_[TM_SDRWallFactor] = 1.0;
   turbModelConstantMap_[TM_zCV] = 0.5;
   turbModelConstantMap_[TM_ci] = 0.9;
+  turbModelConstantMap_[TM_elog] = 9.8;
+  turbModelConstantMap_[TM_yplus_crit] = 11.63;
   turbModelConstantMap_[TM_cT] = 6.0;
   turbModelConstantMap_[TM_cNu] = 140.0;
   turbModelConstantMap_[TM_Ch] = 1.0;
@@ -736,6 +754,18 @@ SolutionOptions::get_shifted_grad_op(const std::string& dofName) const
   return factor;
 }
 
+bool
+SolutionOptions::get_skew_symmetric(const std::string& dofName) const
+{
+  bool factor = skewSymmetricDefault_;
+  auto iter = skewSymmetricMap_.find(dofName);
+
+  if (iter != skewSymmetricMap_.end())
+    factor = iter->second;
+
+  return factor;
+}
+
 std::vector<double>
 SolutionOptions::get_gravity_vector(const unsigned nDim) const
 {
@@ -760,6 +790,19 @@ SolutionOptions::get_turb_model_constant(
   else {
     throw std::runtime_error("unknown (not found) turbulence model constant");
   }
+}
+
+bool
+SolutionOptions::get_noc_usage(
+  const std::string &dofName ) const
+{
+  bool factor = nocDefault_;
+  std::map<std::string, bool>::const_iterator iter
+    = nocMap_.find(dofName);
+  if (iter != nocMap_.end()) {
+    factor = (*iter).second;
+  }
+  return factor;
 }
 
 bool SolutionOptions::has_set_boussinesq_time_scale()

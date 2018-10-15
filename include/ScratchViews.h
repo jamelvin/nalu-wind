@@ -69,7 +69,7 @@ public:
     MasterElement* meSCS,
     MasterElement* meSCV,
     MasterElement* meFEM,
-    const int* faceOrdinals = nullptr);
+    int faceOrdinal = 0);
 
   void fill_master_element_views_new_me(
     const std::set<ELEM_DATA_NEEDED>& dataEnums,
@@ -78,7 +78,7 @@ public:
     MasterElement* meSCS,
     MasterElement* meSCV,
     MasterElement* meFEM,
-    const int* faceOrdinals = nullptr);
+    int faceOrdinal = 0);
 
   SharedMemView<T**> fc_areav;
   SharedMemView<T**> scs_areav;
@@ -87,6 +87,7 @@ public:
   SharedMemView<T***> dndx;
   SharedMemView<T***> dndx_shifted;
   SharedMemView<T***> dndx_scv;
+  SharedMemView<T***> dndx_scv_shifted;
   SharedMemView<T***> dndx_fem;
   SharedMemView<T***> deriv_fc_scs;
   SharedMemView<T***> deriv;
@@ -225,6 +226,13 @@ int MasterElementViews<T>::create_master_element_views(
           needDerivFC = true;
           needDetjFC = true;
           break;
+      case SCS_SHIFTED_FACE_GRAD_OP:
+          ThrowRequireMsg(numFaceIp > 0, "ERROR, meSCS must be non-null if SCS_SHIFTED_FACE_GRAD_OP is requested.");
+          dndx_shifted_fc_scs = get_shmem_view_3D<T>(team, numFaceIp, nodesPerElem, nDim);
+          numScalars += nodesPerElem * numFaceIp * nDim;
+          needDerivFC = true;
+          needDetjFC = true;
+          break;
       case SCS_AREAV:
          ThrowRequireMsg(numScsIp > 0, "ERROR, meSCS must be non-null if SCS_AREAV is requested.");
          scs_areav = get_shmem_view_2D<T>(team, numScsIp, nDim);
@@ -271,6 +279,14 @@ int MasterElementViews<T>::create_master_element_views(
       case SCV_GRAD_OP:
          ThrowRequireMsg(numScvIp > 0, "ERROR, meSCV must be non-null if SCV_GRAD_OP is requested.");
          dndx_scv = get_shmem_view_3D<T>(team, numScvIp, nodesPerElem, nDim);
+         numScalars += nodesPerElem * numScvIp * nDim;
+         needDerivScv = true;
+         needDetjScv = true;
+         break;
+
+      case SCV_SHIFTED_GRAD_OP:
+         ThrowRequireMsg(numScvIp > 0, "ERROR, meSCV must be non-null if SCV_SHIFTED_GRAD_OP is requested.");
+         dndx_scv_shifted = get_shmem_view_3D<T>(team, numScvIp, nodesPerElem, nDim);
          numScalars += nodesPerElem * numScvIp * nDim;
          needDerivScv = true;
          needDetjScv = true;
@@ -353,7 +369,7 @@ void MasterElementViews<T>::fill_master_element_views(
   MasterElement* meSCS,
   MasterElement* meSCV,
   MasterElement* meFEM,
-  const int* faceOrdinals)
+  int faceOrdinal)
 {
   // Guard against calling MasterElement methods on SIMD data structures
   static_assert(std::is_same<T, double>::value,
@@ -372,7 +388,7 @@ void MasterElementViews<T>::fill_master_element_views(
         meSCS->determinant(1, &((*coordsView)(0, 0)), &scs_areav(0, 0), &error);
         break;
       case SCS_FACE_GRAD_OP:
-        ThrowRequireMsg(false, "ERROR, non-interleaving SHIFTED_FACE_GRAD_OP is not supported.");
+        ThrowRequireMsg(false, "ERROR, non-interleaving FACE_GRAD_OP is not supported.");
         break;
       case SCS_SHIFTED_FACE_GRAD_OP:
         ThrowRequireMsg(false, "ERROR, non-interleaving SCS_SHIFTED_FACE_GRAD_OP is not supported.");
@@ -437,7 +453,7 @@ void MasterElementViews<T>::fill_master_element_views_new_me(
   MasterElement* meSCS,
   MasterElement* meSCV,
   MasterElement* meFEM,
-  const int* faceOrdinals)
+  int faceOrdinal)
 {
   for(ELEM_DATA_NEEDED data : dataEnums) {
     switch(data)
@@ -453,10 +469,12 @@ void MasterElementViews<T>::fill_master_element_views_new_me(
       case SCS_FACE_GRAD_OP:
          ThrowRequireMsg(meSCS != nullptr, "ERROR, meSCS needs to be non-null if SCS_FACE_GRAD_OP is requested.");
          ThrowRequireMsg(coordsView != nullptr, "ERROR, coords null but SCS_FACE_GRAD_OP requested.");
+         meSCS->face_grad_op(faceOrdinal, *coordsView, dndx_fc_scs);
        break;
       case SCS_SHIFTED_FACE_GRAD_OP:
          ThrowRequireMsg(meSCS != nullptr, "ERROR, meSCS needs to be non-null if SCS_SHIFTED_FACE_GRAD_OP is requested.");
          ThrowRequireMsg(coordsView != nullptr, "ERROR, coords null but SCS_SHIFTED_FACE_GRAD_OP requested.");
+         meSCS->shifted_face_grad_op(faceOrdinal, *coordsView, dndx_shifted_fc_scs);
        break;
       case SCS_GRAD_OP:
          ThrowRequireMsg(meSCS != nullptr, "ERROR, meSCS needs to be non-null if SCS_GRAD_OP is requested.");
@@ -490,8 +508,13 @@ void MasterElementViews<T>::fill_master_element_views_new_me(
          break;
       case SCV_GRAD_OP:
         ThrowRequireMsg(meSCV != nullptr, "ERROR, meSCV needs to be non-null if SCV_GRAD_OP is requested.");
-        ThrowRequireMsg(coordsView != nullptr, "ERROR, coords null but SCS_GRAD_OP requested.");
+        ThrowRequireMsg(coordsView != nullptr, "ERROR, coords null but SCV_GRAD_OP requested.");
         meSCV->grad_op(*coordsView, dndx_scv, deriv_scv);
+        break;
+      case SCV_SHIFTED_GRAD_OP:
+        ThrowRequireMsg(meSCV != nullptr, "ERROR, meSCV needs to be non-null if SCV_SHIFTED_GRAD_OP is requested.");
+        ThrowRequireMsg(coordsView != nullptr, "ERROR, coords null but SCV_SHIFTED_GRAD_OP requested.");
+        meSCV->shifted_grad_op(*coordsView, dndx_scv_shifted, deriv_scv);
         break;
       case FEM_GRAD_OP:
          ThrowRequireMsg(meFEM != nullptr, "ERROR, meFEM needs to be non-null if FEM_GRAD_OP is requested.");
@@ -633,7 +656,7 @@ void fill_pre_req_data(ElemDataRequests& dataNeeded,
 void fill_master_element_views(ElemDataRequests& dataNeeded,
                                const stk::mesh::BulkData& bulkData,
                                ScratchViews<DoubleType>& prereqData,
-                               const int* faceOrdinals = nullptr);
+                               int faceOrdinal = 0);
 
 template<typename T = double>
 int get_num_bytes_pre_req_data(ElemDataRequests& dataNeededBySuppAlgs, int nDim)

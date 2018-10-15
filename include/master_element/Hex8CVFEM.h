@@ -18,6 +18,7 @@ namespace nalu{
 class HexSCV : public MasterElement
 {
 public:
+  using AlgTraits = AlgTraitsHex8;
 
   HexSCV();
   virtual ~HexSCV();
@@ -30,6 +31,11 @@ public:
     SharedMemView<DoubleType*>& volume);
 
   void grad_op(
+    SharedMemView<DoubleType**>&coords,
+    SharedMemView<DoubleType***>&gradop,
+    SharedMemView<DoubleType***>&deriv);
+
+  void shifted_grad_op(
     SharedMemView<DoubleType**>&coords,
     SharedMemView<DoubleType***>&gradop,
     SharedMemView<DoubleType***>&deriv);
@@ -72,6 +78,9 @@ public:
 class HexSCS : public MasterElement
 {
 public:
+  using AlgTraits = AlgTraitsHex8;
+  using AlgTraitsFace = AlgTraitsQuad4;
+
 
   HexSCS();
   virtual ~HexSCS();
@@ -104,6 +113,16 @@ public:
     SharedMemView<DoubleType**>&coords,
     SharedMemView<DoubleType***>&gradop,
     SharedMemView<DoubleType***>&deriv);
+
+  void face_grad_op(
+    int face_ordinal,
+    SharedMemView<DoubleType**>& coords,
+    SharedMemView<DoubleType***>& gradop) final;
+
+  void shifted_face_grad_op(
+    int face_ordinal,
+    SharedMemView<DoubleType**>& coords,
+    SharedMemView<DoubleType***>& gradop) final;
 
   void shifted_grad_op(
     SharedMemView<DoubleType**>&coords,
@@ -177,6 +196,8 @@ public:
 
   const int * adjacentNodes();
 
+  const int * scsIpEdgeOrd();
+
   void shape_fcn(
     double *shpfc);
 
@@ -222,6 +243,14 @@ public:
   const int* side_node_ordinals(int sideOrdinal) final;
 
   double parametric_distance(const std::vector<double> &x);
+
+private :
+
+  void face_grad_op(
+    const int face_ordinal,
+    const bool shifted,
+    SharedMemView<DoubleType**>& coords,
+    SharedMemView<DoubleType***>& gradop);
 };
     
 } // namespace nalu

@@ -26,6 +26,7 @@
 #include <ComputeGeometryInteriorAlgorithm.h>
 #include <ConstantAuxFunction.h>
 #include <Enums.h>
+#include <EntityExposedFaceSorter.h>
 #include <EquationSystem.h>
 #include <EquationSystems.h>
 #include <ErrorIndicatorAlgorithmDriver.h>
@@ -66,6 +67,7 @@
 #include <SolutionNormPostProcessing.h>
 #include <TurbulenceAveragingPostProcessing.h>
 #include <DataProbePostProcessing.h>
+#include <wind_energy/BdyLayerStatistics.h>
 
 // actuator line
 #include <Actuator.h>
@@ -74,7 +76,7 @@
 #include <ActuatorLineFAST.h>
 #endif
 
-#include <ABLForcingAlgorithm.h>
+#include <wind_energy/ABLForcingAlgorithm.h>
 
 // props; algs, evaluators and data
 #include <property_evaluator/GenericPropAlgorithm.h>
@@ -216,6 +218,7 @@ namespace nalu{
     timerTransferExecute_(0.0),
     timerSkinMesh_(0.0),
     timerPromoteMesh_(0.0),
+    timerSortExposedFace_(0.0),
     nonConformalManager_(NULL),
     oversetManager_(NULL),
     hasNonConformal_(false),
@@ -231,6 +234,7 @@ namespace nalu{
     exposedBoundaryPart_(0),
     edgesPart_(0),
     checkForMissingBcs_(false),
+    checkJacobians_(false),
     isothermalFlow_(true),
     uniformFlow_(true),
     provideEntityCount_(false),
@@ -295,6 +299,9 @@ Realm::~Realm()
   if ( NULL != turbulenceAveragingPostProcessing_ )
     delete turbulenceAveragingPostProcessing_;
 
+  if ( NULL != dataProbePostProcessing_ )
+    delete dataProbePostProcessing_;
+
   if ( NULL != actuator_ )
     delete actuator_;
 
@@ -312,6 +319,10 @@ Realm::~Realm()
 
   // Delete abl forcing pointer
   if (NULL != ablForcingAlg_) delete ablForcingAlg_;
+
+  if (nullptr != bdyLayerStats_) delete bdyLayerStats_;
+
+  if (nullptr != oversetManager_) delete oversetManager_;
 
   MasterElementRepo::clear();
 }
@@ -428,7 +439,7 @@ Realm::initialize()
 
   // create boundary conditions
   setup_bc();
-
+  
   // post processing algorithm creation
   setup_post_processing_algorithms();
 
@@ -489,6 +500,13 @@ Realm::initialize()
   create_output_mesh();
   create_restart_mesh();
 
+  // sort exposed faces only when using consolidated bc NGP approach
+  if ( solutionOptions_->useConsolidatedBcSolverAlg_ ) {
+    const double timeSort = NaluEnv::self().nalu_time();
+    bulkData_->sort_entities(EntityExposedFaceSorter());
+    timerSortExposedFace_ += (NaluEnv::self().nalu_time() - timeSort);
+  }
+  
   // variables that may come from the initial mesh
   input_variables_from_mesh();
 
@@ -596,10 +614,16 @@ Realm::look_ahead_and_creation(const YAML::Node & node)
     
   }
 
+  // Boundary Layer Statistics post-processing
+  if (node["boundary_layer_statistics"]) {
+    const YAML::Node blStatNode = node["boundary_layer_statistics"];
+    bdyLayerStats_ = new BdyLayerStatistics(*this, blStatNode);
+  }
+
   // ABL Forcing parameters
   if (node["abl_forcing"]) {
-    const YAML::Node ablNode = node["abl_forcing"];
-    ablForcingAlg_ = new ABLForcingAlgorithm(*this, ablNode);
+      const YAML::Node ablNode = node["abl_forcing"];
+      ablForcingAlg_ = new ABLForcingAlgorithm(*this, ablNode);
   }
 }
   
@@ -628,6 +652,9 @@ Realm::load(const YAML::Node & node)
 
   // exposed bc check
   get_if_present(node, "check_for_missing_bcs", checkForMissingBcs_, checkForMissingBcs_);
+
+  // check for bad Jacobians in the mesh
+  get_if_present(node, "check_jacobians", checkJacobians_, checkJacobians_);
 
   // entity count
   get_if_present(node, "provide_entity_count", provideEntityCount_, provideEntityCount_);
@@ -789,11 +816,11 @@ Realm::setup_adaptivity()
   if (solutionOptions_->useMarker_)
     {
       percept::RefineFieldType *refineField= &(metaData_->declare_field<percept::RefineFieldType>(stk::topology::ELEMENT_RANK, "refine_field"));
-      stk::mesh::put_field(*refineField, metaData_->universal_part());
+      stk::mesh::put_field_on_mesh(*refineField, metaData_->universal_part(), nullptr);
       percept::RefineFieldType *refineFieldOrig= &(metaData_->declare_field<percept::RefineFieldType>(stk::topology::ELEMENT_RANK, "refine_field_orig"));
-      stk::mesh::put_field(*refineFieldOrig, metaData_->universal_part());
+      stk::mesh::put_field_on_mesh(*refineFieldOrig, metaData_->universal_part(), nullptr);
       percept::RefineLevelType& refine_level = metaData_->declare_field<percept::RefineLevelType>(stk::topology::ELEMENT_RANK, "refine_level");
-      stk::mesh::put_field( refine_level , metaData_->universal_part());
+      stk::mesh::put_field_on_mesh( refine_level , metaData_->universal_part(), nullptr);
     }
 #endif
 }
@@ -812,10 +839,10 @@ Realm::setup_nodal_fields()
   const stk::mesh::PartVector parts = metaData_->get_parts();
   for ( size_t ipart = 0; ipart < parts.size(); ++ipart ) {
     naluGlobalId_ = &(metaData_->declare_field<GlobalIdFieldType>(stk::topology::NODE_RANK, "nalu_global_id"));
-    stk::mesh::put_field(*naluGlobalId_, *parts[ipart]);
+    stk::mesh::put_field_on_mesh(*naluGlobalId_, *parts[ipart], nullptr);
 
 #ifdef NALU_USES_HYPRE
-    stk::mesh::put_field(*hypreGlobalId_, *parts[ipart]);
+    stk::mesh::put_field_on_mesh(*hypreGlobalId_, *parts[ipart], nullptr);
 #endif
   }
 
@@ -929,12 +956,13 @@ Realm::setup_post_processing_algorithms()
   if ( NULL != actuator_ )
     actuator_->setup();
 
-  if ( NULL != ablForcingAlg_)
-    ablForcingAlg_->setup();
-
   // check for norm nodal fields
   if ( NULL != solutionNormPostProcessing_ )
     solutionNormPostProcessing_->setup();
+
+  // Boundary layer statistics (MUST BE after turbulence averaging)
+  if (nullptr != bdyLayerStats_)
+    bdyLayerStats_->setup();
 }
 
 //--------------------------------------------------------------------------
@@ -993,8 +1021,6 @@ void
 Realm::enforce_bc_on_exposed_faces()
 {
   double start_time = NaluEnv::self().nalu_time();
-
-  NaluEnv::self().naluOutputP0() << "Realm::skin_mesh(): Begin" << std::endl;
 
   NaluEnv::self().naluOutputP0() << "Realm::skin_mesh(): Begin" << std::endl;
 
@@ -1503,7 +1529,7 @@ Realm::setup_property()
           if ( "na" != auxVarName ) {
             // register and put the field; assume a scalar for now; species extraction will complicate the matter
             ScalarFieldType *auxVar =  &(metaData_->declare_field<ScalarFieldType>(stk::topology::NODE_RANK, auxVarName));
-            stk::mesh::put_field(*auxVar, *targetPart);
+            stk::mesh::put_field_on_mesh(*auxVar, *targetPart, nullptr);
             // create the algorithm to populate it from an HDF5 file
 	    HDF5TablePropAlgorithm * auxVarAlg = new HDF5TablePropAlgorithm(*this, 
 									 targetPart, 
@@ -2973,22 +2999,22 @@ Realm::register_nodal_fields(
   // mesh motion/deformation is high level
   if ( solutionOptions_->meshMotion_ || solutionOptions_->externalMeshDeformation_) {
     VectorFieldType *displacement = &(metaData_->declare_field<VectorFieldType>(stk::topology::NODE_RANK, "mesh_displacement"));
-    stk::mesh::put_field(*displacement, *part, nDim);
+    stk::mesh::put_field_on_mesh(*displacement, *part, nDim, nullptr);
     VectorFieldType *currentCoords = &(metaData_->declare_field<VectorFieldType>(stk::topology::NODE_RANK, "current_coordinates"));
-    stk::mesh::put_field(*currentCoords, *part, nDim);
+    stk::mesh::put_field_on_mesh(*currentCoords, *part, nDim, nullptr);
     VectorFieldType *meshVelocity = &(metaData_->declare_field<VectorFieldType>(stk::topology::NODE_RANK, "mesh_velocity"));
-    stk::mesh::put_field(*meshVelocity, *part, nDim);
+    stk::mesh::put_field_on_mesh(*meshVelocity, *part, nDim, nullptr);
     VectorFieldType *velocityRTM = &(metaData_->declare_field<VectorFieldType>(stk::topology::NODE_RANK, "velocity_rtm"));
-    stk::mesh::put_field(*velocityRTM, *part, nDim);
+    stk::mesh::put_field_on_mesh(*velocityRTM, *part, nDim, nullptr);
     // only internal mesh motion requires rotation rate
     if ( solutionOptions_->meshMotion_ ) {
       ScalarFieldType *omega = &(metaData_->declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "omega"));
-      stk::mesh::put_field(*omega, *part);
+      stk::mesh::put_field_on_mesh(*omega, *part, nullptr);
     }
     // only external mesh deformation requires dvi/dxj (for GCL)
     if ( solutionOptions_->externalMeshDeformation_) {
       ScalarFieldType *divV = &(metaData_->declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "div_mesh_velocity"));
-      stk::mesh::put_field(*divV, *part);
+      stk::mesh::put_field_on_mesh(*divV, *part, nullptr);
     }
   }
 }
@@ -3043,7 +3069,7 @@ Realm::register_wall_bc(
 
   GenericFieldType *exposedAreaVec_
     = &(metaData_->declare_field<GenericFieldType>(static_cast<stk::topology::rank_t>(metaData_->side_rank()), "exposed_area_vector"));
-  stk::mesh::put_field(*exposedAreaVec_, *part, nDim*numScsIp );
+  stk::mesh::put_field_on_mesh(*exposedAreaVec_, *part, nDim*numScsIp , nullptr);
 
   //====================================================
   // Register wall algorithms
@@ -3086,7 +3112,7 @@ Realm::register_inflow_bc(
 
   GenericFieldType *exposedAreaVec_
     = &(metaData_->declare_field<GenericFieldType>(static_cast<stk::topology::rank_t>(metaData_->side_rank()), "exposed_area_vector"));
-  stk::mesh::put_field(*exposedAreaVec_, *part, nDim*numScsIp );
+  stk::mesh::put_field_on_mesh(*exposedAreaVec_, *part, nDim*numScsIp , nullptr);
 
   //====================================================
   // Register wall algorithms
@@ -3128,7 +3154,8 @@ Realm::register_open_bc(
 
   GenericFieldType *exposedAreaVec_
     = &(metaData_->declare_field<GenericFieldType>(static_cast<stk::topology::rank_t>(metaData_->side_rank()), "exposed_area_vector"));
-  stk::mesh::put_field(*exposedAreaVec_, *part, nDim*numScsIp );
+  stk::mesh::put_field_on_mesh(*exposedAreaVec_, *part, nDim*numScsIp , nullptr);
+
 
   //====================================================
   // Register wall algorithms
@@ -3170,7 +3197,7 @@ Realm::register_symmetry_bc(
 
   GenericFieldType *exposedAreaVec_
     = &(metaData_->declare_field<GenericFieldType>(static_cast<stk::topology::rank_t>(metaData_->side_rank()), "exposed_area_vector"));
-  stk::mesh::put_field(*exposedAreaVec_, *part, nDim*numScsIp );
+  stk::mesh::put_field_on_mesh(*exposedAreaVec_, *part, nDim*numScsIp , nullptr);
 
   //====================================================
   // Register symmetry algorithms
@@ -3276,7 +3303,7 @@ Realm::register_non_conformal_bc(
   // exposed area vector
   GenericFieldType *exposedAreaVec_
     = &(metaData_->declare_field<GenericFieldType>(static_cast<stk::topology::rank_t>(metaData_->side_rank()), "exposed_area_vector"));
-  stk::mesh::put_field(*exposedAreaVec_, *part, nDim*numScsIp );
+  stk::mesh::put_field_on_mesh(*exposedAreaVec_, *part, nDim*numScsIp , nullptr);
    
   //====================================================
   // Register non-conformal algorithms
@@ -3669,6 +3696,10 @@ Realm::initial_work()
     turbulenceAveragingPostProcessing_->execute();
   }
 
+  if (bdyLayerStats_ != nullptr) {
+      bdyLayerStats_->execute();
+  }
+
   if ( solutionOptions_->meshMotion_ )
     process_mesh_motion();
   equationSystems_.initial_work();
@@ -3937,10 +3968,6 @@ Realm::dump_simulation_time()
                   << " \tmin: " << g_min_time[4] << " \tmax: " << g_max_time[4] << std::endl;
   NaluEnv::self().naluOutputP0() << " io populate fd   --  " << " \tavg: " << g_total_time[5]/double(nprocs)
                   << " \tmin: " << g_min_time[5] << " \tmax: " << g_max_time[5] << std::endl;
-  NaluEnv::self().naluOutputP0() << "Timing for connectivity/finalize lysys: " << std::endl;
-  NaluEnv::self().naluOutputP0() << "         eqs init --  " << " \tavg: " << g_total_time[2]/double(nprocs)
-                  << " \tmin: " << g_min_time[2] << " \tmax: " << g_max_time[2] << std::endl;
-
   NaluEnv::self().naluOutputP0() << "Timing for property evaluation:         " << std::endl;
   NaluEnv::self().naluOutputP0() << "            props --  " << " \tavg: " << g_total_time[3]/double(nprocs)
                   << " \tmin: " << g_min_time[3] << " \tmax: " << g_max_time[3] << std::endl;
@@ -4030,6 +4057,18 @@ Realm::dump_simulation_time()
     NaluEnv::self().naluOutputP0() << "Timing for promote_mesh :    " << std::endl;
     NaluEnv::self().naluOutputP0() << "        promote_mesh --  " << " \tavg: " << g_totalPromote/double(nprocs)
                                          << " \tmin: " << g_minPromote << " \tmax: " << g_maxPromote << std::endl;
+  }
+
+  // consolidated sort
+  if (solutionOptions_->useConsolidatedSolverAlg_ ) {
+    double g_totalSort= 0.0, g_minSort= 0.0, g_maxSort= 0.0;
+    stk::all_reduce_min(NaluEnv::self().parallel_comm(), &timerSortExposedFace_, &g_minSort, 1);
+    stk::all_reduce_max(NaluEnv::self().parallel_comm(), &timerSortExposedFace_, &g_maxSort, 1);
+    stk::all_reduce_sum(NaluEnv::self().parallel_comm(), &timerSortExposedFace_, &g_totalSort, 1);
+    
+    NaluEnv::self().naluOutputP0() << "Timing for sort_mesh: " << std::endl;
+    NaluEnv::self().naluOutputP0() << "       sort_mesh  -- " << " \tavg: " << g_totalSort/double(nprocs)
+                                   << " \tmin: " << g_minSort<< " \tmax: " << g_maxSort<< std::endl;
   }
 
   NaluEnv::self().naluOutputP0() << std::endl;
@@ -4199,12 +4238,7 @@ bool
 Realm::get_noc_usage(
   const std::string dofName )
 {
-  bool factor = solutionOptions_->nocDefault_;
-  std::map<std::string, bool>::const_iterator iter
-    = solutionOptions_->nocMap_.find(dofName);
-  if (iter != solutionOptions_->nocMap_.end()) {
-    factor = (*iter).second;
-  }
+  bool factor = solutionOptions_->get_noc_usage(dofName);
   return factor;
 }
 
@@ -4222,6 +4256,16 @@ Realm::get_shifted_grad_op(
     factor = (*iter).second;
   }
   return factor;
+}
+
+//--------------------------------------------------------------------------
+//-------- get_skew_symmetric ----------------------------------------------
+//--------------------------------------------------------------------------
+bool
+Realm::get_skew_symmetric(
+  const std::string dofName )
+{
+  return solutionOptions_->get_skew_symmetric(dofName);
 }
 
 //--------------------------------------------------------------------------
@@ -4550,6 +4594,9 @@ Realm::post_converged_work()
 
   if ( NULL != dataProbePostProcessing_ )
     dataProbePostProcessing_->execute();
+
+  if (nullptr != bdyLayerStats_)
+    bdyLayerStats_->execute();
 }
 
 //--------------------------------------------------------------------------
@@ -4930,13 +4977,18 @@ Realm::get_inactive_selector()
   //
   // Treat this selector differently because certain entities from interior
   // blocks could have been inactivated by the overset algorithm. 
+  stk::mesh::Selector nothing;
   stk::mesh::Selector inactiveOverSetSelector = (hasOverset_) ?
-      oversetManager_->get_inactive_selector() : stk::mesh::Selector();
+      oversetManager_->get_inactive_selector() : nothing;
 
   stk::mesh::Selector otherInactiveSelector = (
     metaData_->universal_part()
     & !(stk::mesh::selectUnion(interiorPartVec_))
     & !(stk::mesh::selectUnion(bcPartVec_)));
+
+  if (interiorPartVec_.empty() && bcPartVec_.empty()) {
+    otherInactiveSelector = nothing;
+  }
 
   return inactiveOverSetSelector | otherInactiveSelector;
 }
@@ -4994,15 +5046,6 @@ void Realm::balance_nodes()
 }
 
 //--------------------------------------------------------------------------
-//-------- get_quad_type() -------------------------------------------------
-//--------------------------------------------------------------------------
-std::string Realm::get_quad_type() const
-{
-  ThrowRequire(solutionOptions_ != nullptr);
-  return solutionOptions_->quadType_;
-}
-
-//--------------------------------------------------------------------------
 //-------- mesh_changed() --------------------------------------------------
 //--------------------------------------------------------------------------
 bool
@@ -5010,6 +5053,12 @@ bool
 {
   // for now, adaptivity only; load-balance in the future?
   return solutionOptions_->activateAdaptivity_;
+}
+
+bool
+Realm::using_tensor_product_kernels() const
+{
+  return solutionOptions_->newHO_;
 }
 
 } // namespace nalu
