@@ -9,56 +9,14 @@
 #include <EigenDecomposition.h>
 #include <NaluParsing.h>
 
-<<<<<<< HEAD
-=======
 #include <SimdInterface.h>
 
->>>>>>> master
 // basic c++
 #include <stdexcept>
 
 namespace sierra{
 namespace nalu{
 
-<<<<<<< HEAD
-//==========================================================================
-// Class Definition
-//==========================================================================
-// EigenDecomposition -- Computes an eigenvalue decomposition and other
-//                    -- related functionality
-//==========================================================================
-//--------------------------------------------------------------------------
-//-------- constructor -----------------------------------------------------
-//--------------------------------------------------------------------------
-EigenDecomposition::EigenDecomposition() 
-{
-  // does nothing
-}
-
-//--------------------------------------------------------------------------
-//-------- destructor ------------------------------------------------------
-//--------------------------------------------------------------------------
-EigenDecomposition::~EigenDecomposition()
-{
-  // nothing to do
-}
-
-//--------------------------------------------------------------------------
-//-------- diagonalize (2D) ------------------------------------------------
-//--------------------------------------------------------------------------
-void
-EigenDecomposition::diagonalize(
-  const double (&A)[2][2], double (&Q)[2][2], double (&D)[2][2])
-{
-  // nothing to do
-}
-
-//--------------------------------------------------------------------------
-//-------- diagonalize (3D) ------------------------------------------------
-//--------------------------------------------------------------------------
-void
-EigenDecomposition::diagonalize(
-=======
 //--------------------------------------------------------------------------
 //-------- symmetric diagonalize (2D) --------------------------------------
 //--------------------------------------------------------------------------
@@ -147,14 +105,12 @@ EigenDecomposition::matrix_matrix_multiply(
 //--------------------------------------------------------------------------
 void
 EigenDecomposition::sym_diagonalize(
->>>>>>> master
   const double (&A)[3][3], double (&Q)[3][3], double (&D)[3][3])
 {
   /*
     obtained from: 
     http://stackoverflow.com/questions/4372224/
     fast-method-for-computing-3x3-symmetric-matrix-spectral-decomposition
-
     A must be a symmetric matrix.
     returns Q and D such that 
     Diagonal matrix D = QT * A * Q;  and  A = Q*D*QT
@@ -252,46 +208,7 @@ EigenDecomposition::sym_diagonalize(
 }
 
 //--------------------------------------------------------------------------
-<<<<<<< HEAD
-//-------- sort ------------------------------------------------------------
-//--------------------------------------------------------------------------
-//void
-//EigenDecomposition::sort(
-//  const double (&D)[3][3])
-//{
-//  // Goal: sort diagonalization eigenvalues from high to low; save off row in D from high to low
-//
-//  // fist, fill in data to sort (using a trivial N^2 "selection sort; N ~small)
-//  double data[3] = {D[0][0], D[1][1], D[2][2]};
-//  rowMap_[0] = 0;
-//  rowMap_[1] = 1;
-//  rowMap_[2] = 2;
-//
-//  int j = 0;
-//  double tmp = 0;
-//  for(int i=0; i < 3; ++i){
-//    j = i;
-//    for(int k = i; k < 3; ++k){
-//      if(data[j] < data[k]){
-//        j = k;
-//      }
-//    }
-//    tmp = data[i];
-//    int tmpI = rowMap_[i];
-//    // deal with data
-//    data[i] = data[j];
-//    data[j] = tmp;
-//    // now row mapping
-//    rowMap_[i] = rowMap_[j];
-//    rowMap_[j] = tmpI;
-//  }
-//}
-
-//--------------------------------------------------------------------------
-//-------- reconstruct_matrix_from_decomposition ---------------------------
-=======
 //-------- reconstruct_matrix_from_decomposition 3D ------------------------
->>>>>>> master
 //--------------------------------------------------------------------------
 void
 EigenDecomposition::reconstruct_matrix_from_decomposition(
@@ -315,11 +232,7 @@ EigenDecomposition::reconstruct_matrix_from_decomposition(
 }
 
 //--------------------------------------------------------------------------
-<<<<<<< HEAD
-//-------- matrix_matrix_multiply ------------------------------------------
-=======
 //-------- matrix_matrix_multiply 3D ---------------------------------------
->>>>>>> master
 //--------------------------------------------------------------------------
 void
 EigenDecomposition::matrix_matrix_multiply(
@@ -337,8 +250,6 @@ EigenDecomposition::matrix_matrix_multiply(
   }
 }
 
-<<<<<<< HEAD
-=======
 #ifndef STK_HAVE_NO_SIMD
 //--------------------------------------------------------------------------
 //------------- SIMD solvers -----------------------------------------------
@@ -438,7 +349,6 @@ EigenDecomposition::sym_diagonalize(
     obtained from: 
     http://stackoverflow.com/questions/4372224/
     fast-method-for-computing-3x3-symmetric-matrix-spectral-decomposition
-
     A must be a symmetric matrix.
     returns Q and D such that 
     Diagonal matrix D = QT * A * Q;  and  A = Q*D*QT
@@ -601,6 +511,5 @@ EigenDecomposition::matrix_matrix_multiply(
 }
 #endif // STK_HAVE_NO_SIMD
 
->>>>>>> master
 } // namespace nalu
 } // namespace Sierra
