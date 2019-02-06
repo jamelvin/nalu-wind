@@ -13,11 +13,16 @@ add_sources(GlobalSourceList
    MomentumBuoyancySrcElemKernel.C
    MomentumBuoyancySrcHOElemKernel.C
    MomentumCoriolisSrcElemKernel.C
+   MomentumBodyForceSrcElemKernel.C
    MomentumHybridTurbElemKernel.C
    MomentumMassElemKernel.C
    MomentumMassHOElemKernel.C
    MomentumOpenAdvDiffElemKernel.C
    MomentumSymmetryElemKernel.C
+   MomentumTAMSKEpsDiffElemKernel.C
+   MomentumTAMSKEpsForcingElemKernel.C
+   MomentumTAMSSSTDiffElemKernel.C
+   MomentumTAMSSSTForcingElemKernel.C
    MomentumUpwAdvDiffElemKernel.C
    MomentumWallFunctionElemKernel.C
    PressurePoissonHOElemKernel.C
@@ -34,10 +39,16 @@ add_sources(GlobalSourceList
    ScalarUpwAdvDiffElemKernel.C
    SpecificDissipationRateSSTSrcElemKernel.C
    SpecificDissipationRateSSTDESSrcElemKernel.C
+   SpecificDissipationRateTAMSSSTSrcElemKernel.C
+   TotalDissipationRateChienKEpsSrcElemKernel.C
+   TotalDissipationRateTAMSKEpsSrcElemKernel.C
+   TurbKineticEnergyChienKEpsSrcElemKernel.C
    TurbKineticEnergyKsgsDesignOrderSrcElemKernel.C
    TurbKineticEnergyKsgsSrcElemKernel.C
    TurbKineticEnergySSTDESSrcElemKernel.C
    TurbKineticEnergySSTSrcElemKernel.C
+   TurbKineticEnergyTAMSSSTSrcElemKernel.C
+   TurbKineticEnergyTAMSKEpsSrcElemKernel.C
    WallDistElemKernel.C
 )
 

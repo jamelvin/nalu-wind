@@ -9,4 +9,6 @@ add_sources(GlobalUnitSourceList
   UnitTestMomentumABLWallFuncEdge.C
   UnitTestMomentumSymmetryEdge.C
   UnitTestScalarOpenEdge.C
+
+  UnitTestMomentumTAMSSSTDiffEdge.C
   )
