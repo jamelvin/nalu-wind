@@ -47,9 +47,9 @@
 #include <TurbKineticEnergyKsgsNodeSourceSuppAlg.h>
 #include <TurbKineticEnergySSTNodeSourceSuppAlg.h>
 #include <TurbKineticEnergySSTDESNodeSourceSuppAlg.h>
+#include <TurbKineticEnergyChienKEpsNodeSourceSuppAlg.h>
 #include <TurbKineticEnergyKsgsBuoyantElemSuppAlg.h>
 #include <TurbKineticEnergyRodiNodeSourceSuppAlg.h>
-
 #include <SolverAlgorithmDriver.h>
 
 // template for kernels
@@ -62,10 +62,17 @@
 #include <kernel/ScalarMassElemKernel.h>
 #include <kernel/ScalarAdvDiffElemKernel.h>
 #include <kernel/ScalarUpwAdvDiffElemKernel.h>
+#include <kernel/ScalarTAMSAdvDiffElemKernel.h>
+#include <kernel/ScalarTAMSUpwAdvDiffElemKernel.h>
 #include <kernel/TurbKineticEnergyKsgsSrcElemKernel.h>
 #include <kernel/TurbKineticEnergyKsgsDesignOrderSrcElemKernel.h>
 #include <kernel/TurbKineticEnergySSTSrcElemKernel.h>
 #include <kernel/TurbKineticEnergySSTDESSrcElemKernel.h>
+#include <kernel/TurbKineticEnergyChienKEpsSrcElemKernel.h>
+
+// UT Austin Hybird TAMS kernel
+#include <kernel/TurbKineticEnergySSTTAMSSrcElemKernel.h>
+#include <kernel/TurbKineticEnergyTAMSKEpsSrcElemKernel.h>
 
 // bc kernels
 #include <kernel/ScalarOpenAdvElemKernel.h>
@@ -148,8 +155,8 @@ TurbKineticEnergyEquationSystem::TurbKineticEnergyEquationSystem(
   realm_.push_equation_to_systems(this);
 
   // sanity check on turbulence model
-  if ( (turbulenceModel_ != SST) && (turbulenceModel_ != KSGS) && (turbulenceModel_ != SST_DES) ) {
-    throw std::runtime_error("User has requested TurbKinEnergyEqs, however, turbulence model is not KSGS, SST or SST_DES");
+  if ( (turbulenceModel_ != SST) && (turbulenceModel_ != KSGS) && (turbulenceModel_ != SST_DES) && (turbulenceModel_ != KEPS) && (turbulenceModel_ != TAMS_SST) && (turbulenceModel_ != TAMS_KEPS)) {
+    throw std::runtime_error("User has requested TurbKinEnergyEqs, however, turbulence model is not KSGS, SST, SST_DES, KEPS, TAMS_SST or TAMS_KEPS");
   }
 
   // create projected nodal gradient equation system
@@ -360,8 +367,18 @@ TurbKineticEnergyEquationSystem::register_interior_algorithm(
           theSrc = new TurbKineticEnergySSTDESNodeSourceSuppAlg(realm_);
         }
         break;
+      case KEPS:
+        {
+          theSrc = new TurbKineticEnergyChienKEpsNodeSourceSuppAlg(realm_);
+        }
+        break;
+      case TAMS_SST: case TAMS_KEPS:
+        {
+           throw std::runtime_error("TAMS is only supported using the consolidated kernel approach");
+        }
+        break;
       default:
-        throw std::runtime_error("Unsupported turbulence model in TurbKe: only SST, SST_DES and Ksgs supported");
+        throw std::runtime_error("Unsupported turbulence model in TurbKe: only KEPS, SST, SST_DES and Ksgs supported");
       }
       theAlg->supplementalAlg_.push_back(theSrc);
       
@@ -420,9 +437,17 @@ TurbKineticEnergyEquationSystem::register_interior_algorithm(
       build_topo_kernel_if_requested<ScalarAdvDiffElemKernel>
         (partTopo, *this, activeKernels, "advection_diffusion",
          realm_.bulk_data(), *realm_.solutionOptions_, tke_, evisc_, dataPreReqs);
+
+      build_topo_kernel_if_requested<ScalarTAMSAdvDiffElemKernel>
+        (partTopo, *this, activeKernels, "TAMS_advection_diffusion",
+         realm_.bulk_data(), *realm_.solutionOptions_, tke_, evisc_, dataPreReqs);
       
       build_topo_kernel_if_requested<ScalarUpwAdvDiffElemKernel>
         (partTopo, *this, activeKernels, "upw_advection_diffusion",
+         realm_.bulk_data(), *realm_.solutionOptions_, this, tke_, dkdx_, evisc_, dataPreReqs);
+
+      build_topo_kernel_if_requested<ScalarTAMSUpwAdvDiffElemKernel>
+        (partTopo, *this, activeKernels, "TAMS_upw_advection_diffusion",
          realm_.bulk_data(), *realm_.solutionOptions_, this, tke_, dkdx_, evisc_, dataPreReqs);
 
       build_topo_kernel_if_requested<TurbKineticEnergyKsgsSrcElemKernel>
@@ -449,6 +474,14 @@ TurbKineticEnergyEquationSystem::register_interior_algorithm(
         (partTopo, *this, activeKernels, "lumped_sst_des",
          realm_.bulk_data(), *realm_.solutionOptions_, dataPreReqs, true);
 
+      build_topo_kernel_if_requested<TurbKineticEnergyChienKEpsSrcElemKernel>
+        (partTopo, *this, activeKernels, "keps",
+         realm_.bulk_data(), *realm_.solutionOptions_, dataPreReqs, false);
+
+      build_topo_kernel_if_requested<TurbKineticEnergyChienKEpsSrcElemKernel>
+        (partTopo, *this, activeKernels, "lumped_keps",
+         realm_.bulk_data(), *realm_.solutionOptions_, dataPreReqs, true);
+
       build_topo_kernel_if_requested<ScalarNSOElemKernel>
         (partTopo, *this, activeKernels, "NSO_2ND",
          realm_.bulk_data(), *realm_.solutionOptions_, tke_, dkdx_, evisc_, 0.0, 0.0, dataPreReqs);
@@ -464,6 +497,23 @@ TurbKineticEnergyEquationSystem::register_interior_algorithm(
       build_topo_kernel_if_requested<ScalarNSOElemKernel>
         (partTopo, *this, activeKernels, "NSO_4TH_ALT",
          realm_.bulk_data(), *realm_.solutionOptions_, tke_, dkdx_, evisc_, 1.0, 1.0, dataPreReqs);
+      
+      // UT Austin Hybrid TAMS model implementations for TKE source terms
+      build_topo_kernel_if_requested<TurbKineticEnergySSTTAMSSrcElemKernel>
+        (partTopo, *this, activeKernels, "tams_sst",
+         realm_.bulk_data(), *realm_.solutionOptions_, dataPreReqs, false);
+
+      build_topo_kernel_if_requested<TurbKineticEnergySSTTAMSSrcElemKernel>
+        (partTopo, *this, activeKernels, "lumped_tams_sst",
+         realm_.bulk_data(), *realm_.solutionOptions_, dataPreReqs, true);
+
+      build_topo_kernel_if_requested<TurbKineticEnergyTAMSKEpsSrcElemKernel>
+        (partTopo, *this, activeKernels, "tams_keps",
+         realm_.bulk_data(), *realm_.solutionOptions_, dataPreReqs, false);
+
+      build_topo_kernel_if_requested<TurbKineticEnergyTAMSKEpsSrcElemKernel>
+        (partTopo, *this, activeKernels, "lumped_tams_keps",
+         realm_.bulk_data(), *realm_.solutionOptions_, dataPreReqs, true);
 
       report_invalid_supp_alg_names();
       report_built_supp_alg_names();
@@ -483,15 +533,21 @@ TurbKineticEnergyEquationSystem::register_interior_algorithm(
         effDiffAlg = new EffectiveDiffFluxCoeffAlgorithm(realm_, part, visc_, tvisc_, evisc_, lamSc, turbSc);
       }
       break;
-      case SST: case SST_DES:
+      case SST: case SST_DES: case TAMS_SST:
       {
         const double sigmaKOne = realm_.get_turb_model_constant(TM_sigmaKOne);
         const double sigmaKTwo = realm_.get_turb_model_constant(TM_sigmaKTwo);
         effDiffAlg = new EffectiveSSTDiffFluxCoeffAlgorithm(realm_, part, visc_, tvisc_, evisc_, sigmaKOne, sigmaKTwo);
       }
       break;
+      case KEPS: case TAMS_KEPS:
+      {
+        const double sigmaK = realm_.get_turb_model_constant(TM_sigmaK);
+        effDiffAlg = new EffectiveDiffFluxCoeffAlgorithm(realm_, part, visc_, tvisc_, evisc_, 1.0, sigmaK);
+      }
+      break;
       default:
-        throw std::runtime_error("Unsupported turbulence model in TurbKe: only SST, SST_DES and Ksgs supported");
+        throw std::runtime_error("Unsupported turbulence model in TurbKe: only KEPS, SST, SST_DES, TAMS_KEPS, TAMS_SST and Ksgs supported");
     }
     diffFluxCoeffAlgDriver_->algMap_[algType] = effDiffAlg;
   }

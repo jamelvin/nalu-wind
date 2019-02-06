@@ -71,7 +71,7 @@ void ComputeMetricTensorElemAlgorithm::execute() {
 
     // extract master element specifics
     const int nodesPerElement = meSCV->nodesPerElement_;
-    const int numScvIp = meSCV->numIntPoints_;
+    const int numScvIp = meSCV->num_integration_points();
 
     // resize std::vectors based on element type
     ws_coordinates.resize(nDim * nodesPerElement);

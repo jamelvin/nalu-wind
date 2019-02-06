@@ -38,7 +38,7 @@ public:
   ScalarFieldType *minDistance_;
   GenericFieldType *dudx_;
   ScalarFieldType *tvisc_;
-  
+  ScalarFieldType *avgTime_;  
 };
 
 } // namespace nalu
