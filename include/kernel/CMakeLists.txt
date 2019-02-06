@@ -18,6 +18,7 @@ add_sources(GlobalHeaderList
    MomentumMassHOElemKernel.h
    MomentumOpenAdvDiffElemKernel.h
    MomentumSymmetryElemKernel.h
+   MomentumTAMSDiffElemKernel.h
    MomentumUpwAdvDiffElemKernel.h
    MomentumWallFunctionElemKernel.h
    PressurePoissonHOElemKernel.h
@@ -32,6 +33,7 @@ add_sources(GlobalHeaderList
    ScalarOpenAdvElemKernel.h
    ScalarUpwAdvDiffElemKernel.h
    SpecificDissipationRateSSTSrcElemKernel.h
+   SpecificDissipationRateSSTTAMSSrcElemKernel.h
    TensorProductCVFEMMomentumAdvDiff.h
    TensorProductCVFEMDiffusion.h
    TensorProductCVFEMMomentumBDF2TimeDerivative.h
@@ -44,6 +46,7 @@ add_sources(GlobalHeaderList
    TurbKineticEnergyKsgsSrcElemKernel.h
    TurbKineticEnergySSTDESSrcElemKernel.h
    TurbKineticEnergySSTSrcElemKernel.h
+   TurbKineticEnergySSTTAMSSrcElemKernel.h
 )
 
 

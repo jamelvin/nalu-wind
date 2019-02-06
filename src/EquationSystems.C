@@ -26,6 +26,7 @@
 #include <ShearStressTransportEquationSystem.h>
 #include <MassFractionEquationSystem.h>
 #include <TurbKineticEnergyEquationSystem.h>
+#include <TAMSEquationSystem.h>
 #include <pmr/RadiativeTransportEquationSystem.h>
 #include <mesh_motion/MeshDisplacementEquationSystem.h>
 
@@ -171,6 +172,11 @@ void EquationSystems::load(const YAML::Node & y_node)
           get_if_present_no_default(y_eqsys, "deform_wrt_model_coordinates", deformWrtModelCoords);
           if (root()->debug()) NaluEnv::self().naluOutputP0() << "eqSys = MeshDisplacement " << std::endl;
           eqSys = new MeshDisplacementEquationSystem(*this, activateMass, deformWrtModelCoords);
+        }
+        else if( expect_map(y_system, "TAMS", true) ) {
+          y_eqsys =  expect_map(y_system, "TAMS", true) ;
+          if (root()->debug()) NaluEnv::self().naluOutputP0() << "eqSys = tams " << std::endl;
+          eqSys = new TAMSEquationSystem(*this);
         }
         else {
           if (!NaluEnv::self().parallel_rank()) {

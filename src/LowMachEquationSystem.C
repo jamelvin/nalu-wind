@@ -144,8 +144,8 @@
 #include <nso/MomentumNSOSijElemKernel.h>
 #include <nso/MomentumNSOGradElemSuppAlg.h>
 
-// hybrid turbulence
-#include <kernel/MomentumHybridTurbElemKernel.h>
+// UT Austin Hybird TAMS kernels
+#include <kernel/MomentumTAMSDiffElemKernel.h>
 
 // user function
 #include <user_functions/ConvectingTaylorVortexVelocityAuxFunction.h>
@@ -1228,14 +1228,14 @@ MomentumEquationSystem::register_interior_algorithm(
     kb.build_topo_kernel_if_requested<MomentumAdvDiffElemKernel>
       ("advection_diffusion",
        realm_.bulk_data(), *realm_.solutionOptions_, velocity_,
-       realm_.is_turbulent()? evisc_ : visc_,
-       dataPreReqs);
+       ((realm_.is_turbulent()) && (realm_.solutionOptions_->turbulenceModel_ != TAMS)) ? 
+       evisc_ : visc_, dataPreReqs);
 
     kb.build_topo_kernel_if_requested<MomentumUpwAdvDiffElemKernel>
       ("upw_advection_diffusion",
        realm_.bulk_data(), *realm_.solutionOptions_, this, velocity_,
-       realm_.is_turbulent()? evisc_ : visc_, dudx_,
-       dataPreReqs);
+       ((realm_.is_turbulent()) && (realm_.solutionOptions_->turbulenceModel_ != TAMS)) ? 
+       evisc_ : visc_, dudx_, dataPreReqs);
 
     kb.build_topo_kernel_if_requested<MomentumActuatorSrcElemKernel>
         ("actuator",
@@ -1324,6 +1324,11 @@ MomentumEquationSystem::register_interior_algorithm(
     kb.build_sgl_kernel_if_requested<MomentumBuoyancySrcHOElemKernel>
       ("experimental_ho_buoyancy",
         realm_.bulk_data(), *realm_.solutionOptions_,  dataPreReqsHO);
+
+    // UT Austin Hybrid TAMS model implementation for subgrid quantities
+    kb.build_topo_kernel_if_requested<MomentumTAMSDiffElemKernel>
+      ("TAMS",
+       realm_.bulk_data(), *realm_.solutionOptions_, tvisc_, dataPreReqs);
 
     kb.report();
  
@@ -1456,7 +1461,7 @@ MomentumEquationSystem::register_interior_algorithm(
         case WALE:
           theAlg = new TurbViscWaleAlgorithm(realm_, part);
           break;
-        case SST: case SST_DES:
+        case SST: case SST_DES: case TAMS:
           theAlg = new TurbViscSSTAlgorithm(realm_, part);
           break;
         default:

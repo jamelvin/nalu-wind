@@ -78,7 +78,10 @@ add_sources(GlobalHeaderList
    ComputeMdotElemOpenPenaltyAlgorithm.h
    ComputeMdotInflowAlgorithm.h
    ComputeMdotNonConformalAlgorithm.h
+   ComputeMetricTensorElemAlgorithm.h
    ComputeSSTMaxLengthScaleElemAlgorithm.h
+   ComputeTAMSAveragesElemAlgorithm.h
+   ComputeTAMSKratioElemAlgorithm.h
    ComputeTurbKineticEnergyWallFunctionAlgorithm.h
    ComputeWallFrictionVelocityAlgorithm.h
    ComputeWallModelSDRWallAlgorithm.h
@@ -186,6 +189,7 @@ add_sources(GlobalHeaderList
    SurfaceForceAndMomentAlgorithm.h
    SurfaceForceAndMomentAlgorithmDriver.h
    SurfaceForceAndMomentWallFunctionAlgorithm.h
+   TAMSEquationSystem.h
    TimeIntegrator.h
    TpetraLinearSystem.h
    TurbKineticEnergyEquationSystem.h

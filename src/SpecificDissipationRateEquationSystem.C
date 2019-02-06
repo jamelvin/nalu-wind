@@ -59,6 +59,9 @@
 #include <kernel/ScalarUpwAdvDiffElemKernel.h>
 #include <kernel/SpecificDissipationRateSSTSrcElemKernel.h>
 
+// UT Austin Hybird TAMS kernel
+#include <kernel/SpecificDissipationRateSSTTAMSSrcElemKernel.h>
+
 // nso
 #include <nso/ScalarNSOElemKernel.h>
 #include <nso/ScalarNSOKeElemSuppAlg.h>
@@ -396,6 +399,15 @@ SpecificDissipationRateEquationSystem::register_interior_algorithm(
       build_topo_kernel_if_requested<ScalarNSOElemKernel>
         (partTopo, *this, activeKernels, "NSO_4TH_ALT",
          realm_.bulk_data(), *realm_.solutionOptions_, sdr_, dwdx_, evisc_, 1.0, 1.0, dataPreReqs);
+
+      // UT Austin Hybrid TAMS model implementations for SDR source terms
+      build_topo_kernel_if_requested<SpecificDissipationRateSSTTAMSSrcElemKernel>
+        (partTopo, *this, activeKernels, "tams",
+         realm_.bulk_data(), *realm_.solutionOptions_, dataPreReqs, false);
+
+      build_topo_kernel_if_requested<SpecificDissipationRateSSTTAMSSrcElemKernel>
+        (partTopo, *this, activeKernels, "lumped_tams",
+         realm_.bulk_data(), *realm_.solutionOptions_, dataPreReqs, true);
 
       report_invalid_supp_alg_names();
       report_built_supp_alg_names();
