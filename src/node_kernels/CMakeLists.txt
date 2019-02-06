@@ -9,8 +9,14 @@ add_sources(GlobalSourceList
   MomentumMassBDFNodeKernel.C
   MomentumActuatorNodeKernel.C
   MomentumCoriolisNodeKernel.C
+  MomentumTAMSKEpsForcingNodeKernel.C
+  MomentumTAMSSSTForcingNodeKernel.C
   ScalarGclNodeKernel.C
   ScalarMassBDFNodeKernel.C
+  SpecificDissipationRateTAMSSSTSrcNodeKernel.C
+  TotalDissipationRateTAMSKEpsSrcNodeKernel.C
+  TurbKineticEnergyTAMSKEpsSrcNodeKernel.C
+  TurbKineticEnergyTAMSSSTSrcNodeKernel.C
   TurbKineticEnergyRodiNodeKernel.C
   TKEKsgsNodeKernel.C
   TKESSTNodeKernel.C

@@ -18,16 +18,22 @@ class Realm;
 class ComputeMetricTensorElemAlgorithm : public Algorithm {
 public:
   ComputeMetricTensorElemAlgorithm(Realm &realm, stk::mesh::Part *part);
-  virtual ~ComputeMetricTensorElemAlgorithm() {}
+  virtual ~ComputeMetricTensorElemAlgorithm();
 
   virtual void execute();
 
+  void post_work();
+
+  std::ofstream tmpFile;
+
   VectorFieldType *coordinates_{nullptr};
-  GenericFieldType *Mij_{nullptr};
+  GenericFieldType *nodalMij_{nullptr};
+  ScalarFieldType *dualNodalVolume_{nullptr};
 
   std::vector<double> ws_coordinates;
   std::vector<double> ws_dndx;
   std::vector<double> ws_deriv;
+  std::vector<double> ws_scv_volume;
   std::vector<double> ws_det_j;
   std::vector<double> ws_Mij;
 };

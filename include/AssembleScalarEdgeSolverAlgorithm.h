@@ -34,7 +34,8 @@ public:
     EquationSystem *eqSystem,
     ScalarFieldType *scalarQ,
     VectorFieldType *dqdx,
-    ScalarFieldType *diffFluxCoeff);
+    ScalarFieldType *diffFluxCoeff,
+    const bool useAvgMdot = false);
   virtual ~AssembleScalarEdgeSolverAlgorithm();
   virtual void initialize_connectivity();
   virtual void execute();

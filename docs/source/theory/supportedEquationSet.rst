@@ -802,6 +802,40 @@ and :math:`c_{DES}` represents a blended set of DES constants:
 scale, :math:`l_{DES}` is the maximum edge length scale touching a given
 node.
 
+Time Averaged Model Split (TAMS) Formulation
+++++++++++++++++++++++++++++++++++++++++++++
+
+The TAMS approach is a recently developed hybrid technique by Haering, 
+Oliver and Moser :cite:`Haering:2018`.  In this approach a triple
+decomposition is used, breaking the instantaneous velocity field into
+an average component :math:`<u_i>`, a resolved fluctuation :math:`u_i^>` 
+and an unresolved fluctuation :math:`u_i^<`.  The subgrid stress is
+split into two terms, :math:`\tau_{ij} = \tau_{ij}^{SGRS} + 
+\tau_{ij}^SGET`, with :math:`\tau_{ij}^{SGRS}` modeling the mean 
+subgrid stress, taking on the form of a standard RANS subgrid stress
+model and :math:`\tau_{ij}^{SGET}` representing the energy transfer
+from the resolved to the modeled scales.  In addition, a forcing stress
+:math:`F_i` is added to the momentum equations to induce the transfer
+of energy from the modeled to the resolved scales.  Thus the TAMS
+approach solves the following momentum equation
+
+.. math::
+      :label: tams-mom-les
+
+   &\int \frac{\partial \bar{\rho} \widetilde{u}_i}{\partial t}
+   {\rm d}V + \int \bar{\rho} \widetilde{u}_i \widetilde{u}_j n_j {\rm d}S
+   + \int \left( \bar{P} + \frac{2}{3} \bar{\rho} k \right)
+   n_i {\rm d}S = \\
+   & \int 2 \mu \left( \widetilde{S}_{ij} - \frac{1}{3}
+   \widetilde{S}_{kk} \delta_{ij} \right) n_j {\rm d}S
+   + \int \left(\bar{\rho} - \rho_{\circ} \right) g_i {\rm d}V + \\
+   & \int 2 \mu_t \left( <S_{ij}> - \frac{1}{3}
+   <S_{kk}> \delta_{ij} \right) n_j {\rm d}S
+   + \int \left( \mu_{ik}^t \widetilde{u}_j + \mu_{jk}^t \widetilde{u}_i \right) n_k {\rm d}S 
+   + \int f_i {\rm d}V. 
+
+
+
 Solid Stress
 ++++++++++++
 

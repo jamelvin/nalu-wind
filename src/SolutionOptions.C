@@ -336,6 +336,13 @@ SolutionOptions::load(const YAML::Node & y_node)
               gravity_[i] = y_user_constants["gravity"][i].as<double>() ;
             }
           }
+          if (expect_sequence( y_user_constants, "body_force", optional) ) {
+            const int bodyForceSize = y_user_constants["body_force"].size();
+            bodyForce_.resize(bodyForceSize);
+            for (int i = 0; i < bodyForceSize; ++i ) {
+              bodyForce_[i] = y_user_constants["body_force"][i].as<double>() ;
+            }
+          }
           if (expect_sequence( y_user_constants, "east_vector", optional) ) {
             const int vecSize = y_user_constants["east_vector"].size();
             eastVector_.resize(vecSize);
@@ -612,7 +619,7 @@ SolutionOptions::initialize_turbulence_constants()
   turbModelConstantMap_[TM_kappa] = 0.41;
   turbModelConstantMap_[TM_cDESke] = 0.61; 
   turbModelConstantMap_[TM_cDESkw] = 0.78;
-  turbModelConstantMap_[TM_tkeProdLimitRatio] = (turbulenceModel_ == SST || turbulenceModel_ == SST_DES) ? 10.0 : 500.0;
+  turbModelConstantMap_[TM_tkeProdLimitRatio] = (turbulenceModel_ == SST || turbulenceModel_ == SST_DES || turbulenceModel_ == TAMS_SST) ? 10.0 : 500.0;
   turbModelConstantMap_[TM_cmuEps] = 0.0856; 
   turbModelConstantMap_[TM_cEps] = 0.845;
   turbModelConstantMap_[TM_betaStar] = 0.09;
@@ -633,6 +640,14 @@ SolutionOptions::initialize_turbulence_constants()
   turbModelConstantMap_[TM_ci] = 0.9;
   turbModelConstantMap_[TM_elog] = 9.8;
   turbModelConstantMap_[TM_yplus_crit] = 11.63;
+  turbModelConstantMap_[TM_fMuExp] = -0.0115;
+  turbModelConstantMap_[TM_utau] = 1.0;
+  turbModelConstantMap_[TM_cEpsOne] = 1.35;
+  turbModelConstantMap_[TM_cEpsTwo] = 1.80;
+  turbModelConstantMap_[TM_fOne] = 1.0;
+  turbModelConstantMap_[TM_sigmaK] = 1.0;
+  turbModelConstantMap_[TM_sigmaEps] = 1.3;
+  turbModelConstantMap_[TM_CMdeg] = 0.13;
 }
 
 
@@ -728,6 +743,14 @@ SolutionOptions::get_gravity_vector(const unsigned nDim) const
     return gravity_;
 }
 
+std::vector<double>
+SolutionOptions::get_bodyForce_vector(const unsigned nDim) const
+{
+  if ( nDim != bodyForce_.size() )
+    throw std::runtime_error("SolutionOptions::get_bodyForce_vector():Error Expected size does not equaly nDim");
+  else
+    return bodyForce_;
+}
 //--------------------------------------------------------------------------
 //-------- get_turb_model_constant() ------------------------------------------
 //--------------------------------------------------------------------------

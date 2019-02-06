@@ -24,8 +24,10 @@
 #include <LowMachEquationSystem.h>
 #include <MixtureFractionEquationSystem.h>
 #include <ShearStressTransportEquationSystem.h>
+#include <ChienKEpsilonEquationSystem.h>
 #include <MassFractionEquationSystem.h>
 #include <TurbKineticEnergyEquationSystem.h>
+#include <TAMSEquationSystem.h>
 #include <pmr/RadiativeTransportEquationSystem.h>
 #include <mesh_motion/MeshDisplacementEquationSystem.h>
 #include "WallDistEquationSystem.h"
@@ -106,6 +108,11 @@ void EquationSystems::load(const YAML::Node & y_node)
           if (root()->debug()) NaluEnv::self().naluOutputP0() << "eqSys = tke/sdr " << std::endl;
           eqSys = new ShearStressTransportEquationSystem(*this);
         }
+        else if( expect_map(y_system, "ChienKEpsilon", true) ) {
+          y_eqsys =  expect_map(y_system, "ChienKEpsilon", true);
+          if (root()->debug()) NaluEnv::self().naluOutputP0() << "eqSys = tke/tdr " << std::endl;
+          eqSys = new ChienKEpsilonEquationSystem(*this);
+        }
         else if( expect_map(y_system, "TurbKineticEnergy", true) ) {
 	  y_eqsys =  expect_map(y_system, "TurbKineticEnergy", true) ;
           if (root()->debug()) NaluEnv::self().naluOutputP0() << "eqSys = tke " << std::endl;
@@ -176,6 +183,11 @@ void EquationSystems::load(const YAML::Node & y_node)
         else if (expect_map(y_system, "WallDistance", true)) {
           y_eqsys = expect_map(y_system, "WallDistance", true);
           eqSys = new WallDistEquationSystem(*this);
+        }
+        else if( expect_map(y_system, "TAMS", true) ) {
+          y_eqsys =  expect_map(y_system, "TAMS", true) ;
+          if (root()->debug()) NaluEnv::self().naluOutputP0() << "eqSys = time_averaged_mode_split " << std::endl;
+          eqSys = new TAMSEquationSystem(*this);
         }
         else {
           if (!NaluEnv::self().parallel_rank()) {
