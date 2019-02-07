@@ -12,6 +12,7 @@ add_sources(GlobalSourceList
    MomentumBuoyancySrcElemKernel.C
    MomentumBuoyancySrcHOElemKernel.C
    MomentumCoriolisSrcElemKernel.C
+   MomentumConstBodyForceSrcElemKernel.C
    MomentumHybridTurbElemKernel.C
    MomentumMassElemKernel.C
    MomentumMassHOElemKernel.C

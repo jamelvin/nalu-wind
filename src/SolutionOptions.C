@@ -336,6 +336,13 @@ SolutionOptions::load(const YAML::Node & y_node)
               gravity_[i] = y_user_constants["gravity"][i].as<double>() ;
             }
           }
+          if (expect_sequence( y_user_constants, "constBodyForce", optional) ) {
+            const int constBodyForceSize = y_user_constants["constBodyForce"].size();
+            constBodyForce_.resize(constBodyForceSize);
+            for (int i = 0; i < constBodyForceSize; ++i ) {
+              constBodyForce_[i] = y_user_constants["constBodyForce"][i].as<double>() ;
+            }
+          }
           if (expect_sequence( y_user_constants, "east_vector", optional) ) {
             const int vecSize = y_user_constants["east_vector"].size();
             eastVector_.resize(vecSize);
@@ -718,6 +725,14 @@ SolutionOptions::get_gravity_vector(const unsigned nDim) const
     return gravity_;
 }
 
+std::vector<double>
+SolutionOptions::get_constBodyForce_vector(const unsigned nDim) const
+{
+  if ( nDim != constBodyForce_.size() )
+    throw std::runtime_error("SolutionOptions::get_constBodyForce_vector():Error Expected size does not equaly nDim");
+  else
+    return constBodyForce_;
+}
 //--------------------------------------------------------------------------
 //-------- get_turb_model_constant() ------------------------------------------
 //--------------------------------------------------------------------------
