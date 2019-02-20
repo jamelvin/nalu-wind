@@ -16,9 +16,15 @@ MotionTranslation::MotionTranslation(const YAML::Node& node)
 
 void MotionTranslation::load(const YAML::Node& node)
 {
+  // perturb start and end times with a small value for
+  // accurate comparison with floats
+  double eps = std::numeric_limits<double>::epsilon();
+
   get_if_present(node, "start_time", startTime_, startTime_);
+  startTime_ = startTime_-eps;
 
   get_if_present(node, "end_time", endTime_, endTime_);
+  endTime_ = endTime_+eps;
 
   // translation could be based on velocity or displacement
   if( node["velocity"] )
@@ -35,22 +41,21 @@ void MotionTranslation::build_transformation(
   const double time,
   const double*  /* xyz */)
 {
-  double eps = std::numeric_limits<double>::epsilon();
+  if(time < (startTime_)) return;
 
-  if( (time >= (startTime_-eps)) && (time <= (endTime_+eps)) )
+  double motionTime = (time < endTime_)? time : endTime_;
+
+  // determine translation based on user defined input
+  if (useVelocity_)
   {
-    // determine translation based on user defined input
-    if (useVelocity_)
-    {
-      ThreeDVecType curr_disp = {};
-      for (int d=0; d < threeDVecSize; d++)
-        curr_disp[d] = velocity_[d]*(time-startTime_);
+    ThreeDVecType curr_disp = {};
+    for (int d=0; d < threeDVecSize; d++)
+      curr_disp[d] = velocity_[d]*(motionTime-startTime_);
 
-      translation_mat(curr_disp);
-    }
-    else
-      translation_mat(displacement_);
+    translation_mat(curr_disp);
   }
+  else
+    translation_mat(displacement_);
 }
 
 void MotionTranslation::translation_mat(const ThreeDVecType& curr_disp)
@@ -64,15 +69,13 @@ void MotionTranslation::translation_mat(const ThreeDVecType& curr_disp)
 }
 
 MotionBase::ThreeDVecType MotionTranslation::compute_velocity(
-  double time,
+  const double time,
   const TransMatType&  /* compTrans */,
-  double*  /* xyz */ )
+  const double*  /* xyz */ )
 {
   ThreeDVecType vel = {};
 
-  double eps = std::numeric_limits<double>::epsilon();
-
-  if( (time >= (startTime_-eps)) && (time <= (endTime_+eps)) )
+  if( (time >= startTime_) && (time <= endTime_) )
     vel = velocity_;
 
   return vel;

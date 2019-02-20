@@ -30,14 +30,14 @@ public:
   /** Function to compute motion-specific velocity
    *
    * @param[in] time           Current time
-   * @param[in] comp_trans_mat Transformation matrix
+   * @param[in] compTrans      Transformation matrix
    *                           for points other than xyz
    * @param[in] xyz            Transformed coordinates
    */
   virtual ThreeDVecType compute_velocity(
-    double time,
+    const double time,
     const TransMatType& compTrans,
-    double* xyz ) = 0;
+    const double* xyz ) = 0;
 
   /** Composite addition of motions
    *

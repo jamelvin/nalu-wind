@@ -1083,8 +1083,8 @@ MomentumEquationSystem::register_nodal_fields(
       =  &(meta_data.declare_field<VectorFieldType>(stk::topology::NODE_RANK, "actuator_source_lhs"));
     ScalarFieldType *g
       =  &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "g"));
-    stk::mesh::put_field_on_mesh(*actuatorSource, *part, nullptr);
-    stk::mesh::put_field_on_mesh(*actuatorSourceLHS, *part, nullptr);
+    stk::mesh::put_field_on_mesh(*actuatorSource, *part, nDim, nullptr);
+    stk::mesh::put_field_on_mesh(*actuatorSourceLHS, *part, nDim, nullptr);
     stk::mesh::put_field_on_mesh(*g, *part, nullptr);
   }
 
@@ -1816,13 +1816,19 @@ MomentumEquationSystem::register_wall_bc(
         if ( fcnName == "tornado" ) {
           theAuxFunc = new TornadoAuxFunction(0,nDim);
         }
-        else {
-          throw std::runtime_error("Only wind_energy and tornado user functions supported");
+        else if (fcnName == "wind_energy") {
+          NaluEnv::self().naluOutputP0()
+            << "MomentumEqSys: WARNING! mesh_motion user function for wall BC "
+               "has been deprecated" << std::endl;
+        } else {
+          throw std::runtime_error("MomentumEqSys::register_wall_function: "
+                                   "Only tornado user functions supported");
         }
       }
     }
     else {
-      throw std::runtime_error("Invalid Wall Data Specification; must provide const or fcn for velocity");
+      throw std::runtime_error("Invalid Wall Data Specification; must provide "
+                               "const or fcn for velocity");
     }
 
     auxAlg = new AuxFunctionAlgorithm(realm_, part,

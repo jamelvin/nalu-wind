@@ -181,7 +181,6 @@ add_sources(GlobalSourceList
    AssembleWallDistNonConformalAlgorithm.C
    WallDistEquationSystem.C
    WallDistSrcNodeSuppAlg.C
-   UnitTests.C
 )
 
 if(ENABLE_FFTW)
@@ -192,7 +191,9 @@ endif()
 
 if(ENABLE_OPENFAST)
    add_sources(GlobalSourceList
+      ActuatorFAST.C
       ActuatorLineFAST.C
+      ActuatorDiskFAST.C
    )
 endif()
 
