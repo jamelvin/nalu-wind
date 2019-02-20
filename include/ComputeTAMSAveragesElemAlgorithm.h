@@ -22,6 +22,7 @@ public:
 
   virtual void execute();
 
+  const double betaStar_;
   const bool meshMotion_;
 
   VectorFieldType *velocityRTM_{nullptr};
@@ -29,12 +30,14 @@ public:
   ScalarFieldType *density_{nullptr};
   ScalarFieldType *specDissipationRate_{nullptr};
   ScalarFieldType *turbKineticEnergy_{nullptr};
+  GenericFieldType *dudx_{nullptr};
   VectorFieldType *avgVelocity_{nullptr};
   ScalarFieldType *avgPress_{nullptr};
   ScalarFieldType *avgDensity_{nullptr};
   ScalarFieldType *avgTurbKineticEnergy_{nullptr};
   ScalarFieldType *avgSpecDissipationRate_{nullptr};
   GenericFieldType *avgResolvedStress_{nullptr};
+  GenericFieldType *avgDudx_{nullptr};
 };
 
 } // namespace nalu

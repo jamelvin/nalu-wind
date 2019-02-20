@@ -8,6 +8,7 @@
 // nalu
 #include <Algorithm.h>
 #include <ComputeTAMSResAdequacyElemAlgorithm.h>
+#include <EigenDecomposition.h>
 
 #include <FieldTypeDef.h>
 #include <Realm.h>
@@ -34,19 +35,18 @@ namespace nalu {
 //--------------------------------------------------------------------------
 ComputeTAMSResAdequacyElemAlgorithm::ComputeTAMSResAdequacyElemAlgorithm(
     Realm &realm, stk::mesh::Part *part)
-    : Algorithm(realm, part) 
+    : Algorithm(realm, part),
+    nDim_(realm.meta_data().spatial_dimension()),
     betaStar_(realm.get_turb_model_constant(TM_betaStar)),
     CMdeg_(realm.get_turb_model_constant(TM_CMdeg))
 {
 
   // save off data
-  stk::mesh::MetaData &meta_data = realm_.meta_data();
- 
-  nDim_ = meta_data.spatial_dimension();
+  stk::mesh::MetaData &metaData = realm_.meta_data();
 
-  coordinates_ = meta_data.get_field<VectorFieldType>(
+  coordinates_ = metaData.get_field<VectorFieldType>(
       stk::topology::NODE_RANK, realm_.get_coordinates_name());
-  viscosity_ = meta_data.get_field<ScalarFieldType>(
+  viscosity_ = metaData.get_field<ScalarFieldType>(
     stk::topology::NODE_RANK, "viscosity");
 
   // FIXME: Field of state stuff...
@@ -74,7 +74,7 @@ ComputeTAMSResAdequacyElemAlgorithm::ComputeTAMSResAdequacyElemAlgorithm(
     stk::topology::ELEMENT_RANK, "resolution_adequacy_parameter");
   avgResAdeq_ = metaData.get_field<ScalarFieldType>(
     stk::topology::ELEMENT_RANK, "average_resolution_adequacy_parameter");
-  Mij_ = meta_data.get_field<GenericFieldType>(
+  Mij_ = metaData.get_field<GenericFieldType>(
     stk::topology::ELEMENT_RANK, "metric_tensor");
 }
 
@@ -112,6 +112,7 @@ void ComputeTAMSResAdequacyElemAlgorithm::execute() {
     ws_deriv.resize(nDim_ * numScsIp * nodesPerElement);
     ws_det_j.resize(numScsIp);
     ws_scs_areav.resize(numScsIp*nDim_);
+    ws_shape_function.resize(numScsIp*nodesPerElement);
 
     ws_mu.resize(nodesPerElement);
 
@@ -143,6 +144,7 @@ void ComputeTAMSResAdequacyElemAlgorithm::execute() {
     double *p_deriv = &ws_deriv[0];
     double *p_det_j = &ws_det_j[0];
     double *p_scs_areav = &ws_scs_areav[0];
+    double *p_shape_function = &ws_shape_function[0];
 
     double *p_mu = &ws_mu[0];
 
@@ -170,33 +172,35 @@ void ComputeTAMSResAdequacyElemAlgorithm::execute() {
     double *p_Psgs = &Psgs[0];
 
     // Get resolution adequacy field for filling
-    double *resAdeq = *stk::mesh::field_data(*resAdeq_, b);
-    double *avgResAdeq = *stk::mesh::field_data(*avgResAdeq_, b);
+    double *resAdeq = stk::mesh::field_data(*resAdeq_, b);
+    double *avgResAdeq = stk::mesh::field_data(*avgResAdeq_, b);
+
+    meSCS->shape_fcn(&p_shape_function[0]);
 
     for (stk::mesh::Bucket::size_type k = 0; k < length; ++k) {
 
       // get Mij field_data
-      const double *p_Mij = *stk::mesh::field_data(*Mij_, b[k]);
+      const double *p_Mij = stk::mesh::field_data(*Mij_, b[k]);
 
-      double Mij[nDim_][nDim_];
-      double PM[nDim_][nDim_];
-      double Q[nDim_][nDim_];
-      double D[nDim_][nDim_];
+      double Mij[3][3];
+      double PM[3][3];
+      double Q[3][3];
+      double D[3][3];
 
-      for (unsigned i = 0; i < AlgTraits::nDim_; i++) {
-        iNdim = i*nDim_;
-        for (unsigned j = 0; j < AlgTraits::nDim_; j++) {
+      for (unsigned i = 0; i < nDim_; i++) {
+        const int iNdim = i*nDim_;
+        for (unsigned j = 0; j < nDim_; j++) {
           Mij[i][j] = p_Mij[iNdim + j];
         }
       }
 
       // Eigenvalue decomposition of metric tensor
-      EigenDecomposition::sym_diagonalize<double>(Mij, Q, D)
+      EigenDecomposition::sym_diagonalize<double>(Mij, Q, D);
 
       // initialize M43 to 0
       double M43[nDim_][nDim_];
-      for (int i = 0; i < nDim_; ++i)
-        for (int j = 0; j < nDim_; ++j)
+      for (unsigned i = 0; i < nDim_; ++i)
+        for (unsigned j = 0; j < nDim_; ++j)
           M43[i][j] = 0.0;
 
       const double fourThirds = 4.0/3.0;
@@ -293,12 +297,12 @@ void ComputeTAMSResAdequacyElemAlgorithm::execute() {
         const int offSet = ip*nodesPerElement;
         for ( int ic = 0; ic < nodesPerElement; ++ic ) {
           // save off shape function
-          const double r = ws_shape_function[offSet+ic];
+          const double r = p_shape_function[offSet+ic];
 
           // scalars 
           tkeScs += r*p_tke[ic];
           alphaScs += r*p_alpha[ic];
-          muScs += r*p_viscosity[ic];
+          muScs += r*p_mu[ic];
 
           fluctRhoScs += r*(p_rhoNp1[ic] - p_avgRho[ic]); 
           fluctTkeScs += r*(p_tke[ic] - p_avgTke[ic]); 
@@ -335,13 +339,13 @@ void ComputeTAMSResAdequacyElemAlgorithm::execute() {
             // mean quantities... i.e this is (tauSGRS = alpha*tauSST)
             // The 2 in the coeff cancels with the 1/2 in the strain rate tensor
             const double coeffSGRS = -alphaScs * muScs;
-            p_tauSGRS[i*nDim_ + j] += p_avgDuDxScs[i*nDim_ + j] + p_avgDuDxScs[j*nDim_ + i];
+            p_tauSGRS[i*nDim_ + j] += p_avgDudxScs[i*nDim_ + j] + p_avgDudxScs[j*nDim_ + i];
 
             for (unsigned k = 0; k < nDim_; ++k) {
               // Calculate tauSGET_ij = CM43*<eps>^(1/3)*(M43_ik*dkuj' + M43_jkdkui')
               // where <eps> is the mean dissipation backed out from the SST mean k and
               // mean omega and dkuj' is the fluctuating velocity gradients.
-              const double coeffSGET = -rhoScs * CM43 * epsilon13;
+              const double coeffSGET = -avgRhoScs * CM43 * epsilon13;
               p_tauSGET[i*nDim_ + j] += coeffSGET * (M43[i][k] * p_fluctDudxScs[j*nDim_ + k] + 
                                                    M43[j][k] * p_fluctDudxScs[i*nDim_ + k]);
             }
@@ -371,17 +375,17 @@ void ComputeTAMSResAdequacyElemAlgorithm::execute() {
             for (unsigned k = 0; k < nDim_; ++k) 
               PM[i][j] = p_Psgs[i*nDim_ + k] * Mij[i][j];
 
-        EigenDecomposition::sym_diagonalize<double>(PM, Q, D)
+        EigenDecomposition::sym_diagonalize<double>(PM, Q, D);
 
-        const double maxPM = stk::math::max(std::abs(D[0][0]), stk::math::max(std::abs(D[1][1]), std::abs(D[2][2])));
+        const double maxPM = std::max(std::abs(D[0][0]), std::max(std::abs(D[1][1]), std::abs(D[2][2])));
         const double T_sst = 1.0 / (betaStar_ * avgSdrScs);
         const double v2 = 5.0 * muScs * T_sst;
 
-        resAdeqSum += stk::math::pow(1.5/v2,1.5)*maxPM;
+        resAdeqSum += std::pow(1.5/v2,1.5)*maxPM;
       }
       
       // Update the instantaneous resAdeq field
-      resAdeq[k] = resAdeq/numScsIp;
+      resAdeq[k] = resAdeqSum/numScsIp;
   
       // Update the average field here as well since it is an element quantity
       // and the averaging algorithm operates on the nodes
@@ -393,7 +397,7 @@ void ComputeTAMSResAdequacyElemAlgorithm::execute() {
       }
 
       // The division by number of nodes cancels out here
-      const double T_ave = elemAvgTke[k]/elemAvgSdr[k];
+      const double T_ave = elemAvgTke/elemAvgSdr;
 
       const double weightAvg = std::max(1.0 - dt/T_ave, 0.0);
       const double weightInst = std::min(dt/T_ave, 1.0);
@@ -403,9 +407,7 @@ void ComputeTAMSResAdequacyElemAlgorithm::execute() {
   }
 }
 
-template <typename AlgTraits>
-double ComputeTAMSResAdequacyElemAlgorithm::get_M43_constant(
-  double D[nDim_][nDim_]) 
+double ComputeTAMSResAdequacyElemAlgorithm::get_M43_constant(double D[3][3])
 {
   // Coefficients for the polynomial 
   double c[15] = {1.033749474513071,-0.154122686264488,-0.007737595743644,

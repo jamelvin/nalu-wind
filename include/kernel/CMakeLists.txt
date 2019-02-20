@@ -20,6 +20,7 @@ add_sources(GlobalHeaderList
    MomentumOpenAdvDiffElemKernel.h
    MomentumSymmetryElemKernel.h
    MomentumTAMSDiffElemKernel.h
+   MomentumTAMSForcingElemKernel.h
    MomentumUpwAdvDiffElemKernel.h
    MomentumWallFunctionElemKernel.h
    PressurePoissonHOElemKernel.h

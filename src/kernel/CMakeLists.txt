@@ -19,6 +19,7 @@ add_sources(GlobalSourceList
    MomentumOpenAdvDiffElemKernel.C
    MomentumSymmetryElemKernel.C
    MomentumTAMSDiffElemKernel.C
+   MomentumTAMSForcingElemKernel.C
    MomentumUpwAdvDiffElemKernel.C
    MomentumWallFunctionElemKernel.C
    PressurePoissonHOElemKernel.C

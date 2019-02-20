@@ -87,6 +87,7 @@ public:
   ScalarFieldType *avgTurbKineticEnergy_;
   ScalarFieldType *avgSpecDissipationRate_;
   GenericFieldType *avgResolvedStress_;
+  GenericFieldType *avgDudx_;
   GenericFieldType *metric_;
 
   ScalarFieldType *resAdequacy_;

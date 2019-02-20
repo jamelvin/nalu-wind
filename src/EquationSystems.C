@@ -175,7 +175,7 @@ void EquationSystems::load(const YAML::Node & y_node)
         }
         else if( expect_map(y_system, "TAMS", true) ) {
           y_eqsys =  expect_map(y_system, "TAMS", true) ;
-          if (root()->debug()) NaluEnv::self().naluOutputP0() << "eqSys = tams " << std::endl;
+          if (root()->debug()) NaluEnv::self().naluOutputP0() << "eqSys = time_averaged_mode_split " << std::endl;
           eqSys = new TAMSEquationSystem(*this);
         }
         else {

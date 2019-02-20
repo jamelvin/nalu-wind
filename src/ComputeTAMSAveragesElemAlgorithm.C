@@ -35,6 +35,7 @@ namespace nalu {
 ComputeTAMSAveragesElemAlgorithm::ComputeTAMSAveragesElemAlgorithm(
     Realm &realm, stk::mesh::Part *part)
     : Algorithm(realm, part),
+    betaStar_(realm.get_turb_model_constant(TM_betaStar)),
     meshMotion_(realm_.does_mesh_move()) {
   // save off data
   stk::mesh::MetaData &meta_data = realm_.meta_data();
@@ -48,6 +49,7 @@ ComputeTAMSAveragesElemAlgorithm::ComputeTAMSAveragesElemAlgorithm(
   density_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "density");
   turbKineticEnergy_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "turbulent_ke");
   specDissipationRate_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "specific_dissipation_rate");
+  dudx_ = meta_data.get_field<GenericFieldType>(stk::topology::NODE_RANK, "dudx");
 
   // average quantities
   // FIXME: Do i need a if statement for mesh motion for the average too??
@@ -56,6 +58,7 @@ ComputeTAMSAveragesElemAlgorithm::ComputeTAMSAveragesElemAlgorithm(
   avgDensity_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "average_density");
   avgTurbKineticEnergy_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "average_turbulent_ke");
   avgSpecDissipationRate_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "average_specific_dissipation_rate");
+  avgDudx_ = meta_data.get_field<GenericFieldType>(stk::topology::NODE_RANK, "average_dudx");
   avgResolvedStress_ = meta_data.get_field<GenericFieldType>(stk::topology::NODE_RANK, "average_resolved_stress");
 }
 
@@ -101,11 +104,14 @@ void ComputeTAMSAveragesElemAlgorithm::execute() {
     for (stk::mesh::Bucket::size_type k = 0; k < length; ++k) {
       // get velocity field data
       const double * vel = stk::mesh::field_data(velocityNp1, b[k]);
+      const double * dudx = stk::mesh::field_data(*dudx_, b[k]);
       double * avgVel = stk::mesh::field_data(*avgVelocity_, b[k]);
       double * avgResStress = stk::mesh::field_data(*avgResolvedStress_, b[k]);
+      double * avgDudx = stk::mesh::field_data(*avgDudx_, b[k]);
       // FIXME: Verify this is correct for T_ave... this is from slides, 
       //        but CDP has something different
-      const double T_ave = avgTke[k]/avgSdr[k];
+
+      const double T_ave = 1.0/(betaStar_*avgSdr[k]);
 
       const double weightAvg = std::max(1.0 - dt/T_ave, 0.0);
       const double weightInst = std::min(dt/T_ave, 1.0);
@@ -113,8 +119,9 @@ void ComputeTAMSAveragesElemAlgorithm::execute() {
       for (int i = 0; i < nDim; ++i) {
         avgVel[i] = weightAvg * avgVel[i] + weightInst * vel[i];
         for (int j = 0; j < nDim; ++j) {
-          avgResStress[i * nDim + j] = weightAvg * avgResStress[i * nDim + j] + weightInst * 
+          avgResStress[i*nDim + j] = weightAvg * avgResStress[i*nDim + j] + weightInst * 
                 (vel[i]*vel[j] - vel[i]*avgVel[j] - vel[j]*avgVel[i] + avgVel[i]*avgVel[j]);
+          avgDudx[i*nDim + j] = weightAvg * avgDudx[i*nDim + j] + weightInst * dudx[i*nDim + j];
         }
       }
       

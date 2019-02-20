@@ -100,6 +100,7 @@
 #include <TurbViscKsgsAlgorithm.h>
 #include <TurbViscSmagorinskyAlgorithm.h>
 #include <TurbViscSSTAlgorithm.h>
+#include <TurbViscTAMSSSTAlgorithm.h>
 #include <TurbViscWaleAlgorithm.h>
 #include <wind_energy/ABLForcingAlgorithm.h>
 #include <FixPressureAtNodeAlgorithm.h>
@@ -147,6 +148,7 @@
 
 // UT Austin Hybird TAMS kernels
 #include <kernel/MomentumTAMSDiffElemKernel.h>
+#include <kernel/MomentumTAMSForcingElemKernel.h>
 
 // user function
 #include <user_functions/ConvectingTaylorVortexVelocityAuxFunction.h>
@@ -1336,8 +1338,12 @@ MomentumEquationSystem::register_interior_algorithm(
 
     // UT Austin Hybrid TAMS model implementation for subgrid quantities
     kb.build_topo_kernel_if_requested<MomentumTAMSDiffElemKernel>
-      ("TAMS",
+      ("tams",
        realm_.bulk_data(), *realm_.solutionOptions_, tvisc_, dataPreReqs);
+
+    kb.build_topo_kernel_if_requested<MomentumTAMSForcingElemKernel>
+      ("tams_forcing",
+       realm_.bulk_data(), *realm_.solutionOptions_, visc_, tvisc_, dataPreReqs);
 
     kb.report();
  
@@ -1470,9 +1476,11 @@ MomentumEquationSystem::register_interior_algorithm(
         case WALE:
           theAlg = new TurbViscWaleAlgorithm(realm_, part);
           break;
-        case SST: case SST_DES: case TAMS:
+        case SST: case SST_DES: 
           theAlg = new TurbViscSSTAlgorithm(realm_, part);
           break;
+        case TAMS:
+          theAlg = new TurbViscTAMSSSTAlgorithm(realm_,part);
         default:
           throw std::runtime_error("non-supported turb model");
       }

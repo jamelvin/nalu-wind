@@ -280,6 +280,20 @@ MomentumTAMSDiffElemKernel<AlgTraits>::execute(
           // SGRS (average) term, scaled by alpha
           const DoubleType lhsfacDiffSGRS_j = -alphaScs*muScs*v_dndx(ip,ic,i)*axj;
 
+          //DEBUGGING: FIXME: REMOVE
+          if (lhsfacDiff_j._data[0] != lhsfacDiff_j._data[0])
+             int jj = 2;
+          
+          if (lhsfacDiffSGRS_j._data[0] != lhsfacDiffSGRS_j._data[0])
+             int kk = 2;
+
+          if (lhs_riC_i._data[0] != lhs_riC_i._data[0])
+             int ll = 2; 
+
+          if (lhs_riCSGRS_i._data[0] != lhs_riCSGRS_i._data[0])
+             int mm = 2;
+
+
           // lhs; il then ir
           lhs(indexL, icNdim + j) += lhsfacDiff_j + lhsfacDiffSGRS_j;
           lhs(indexR, icNdim + j) -= lhsfacDiff_j + lhsfacDiffSGRS_j;

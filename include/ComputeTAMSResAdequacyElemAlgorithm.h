@@ -21,13 +21,13 @@ public:
   virtual ~ComputeTAMSResAdequacyElemAlgorithm() {}
 
   virtual void execute();
-  double get_M43_constant(double D[realm_.meta_data().spatial_dimension()][realm_.meta_data().spatial_dimension()]);
+  double get_M43_constant(double D[3][3]);
 
-  const int nDim_;
+  const unsigned nDim_{0};
   const double betaStar_;
   const double CMdeg_;
 
-  GenericFieldType *coordinates_{nullptr};
+  VectorFieldType *coordinates_{nullptr};
   VectorFieldType *velocityNp1_{nullptr};
   ScalarFieldType *viscosity_{nullptr};
   ScalarFieldType *densityNp1_{nullptr};
@@ -47,7 +47,7 @@ public:
   std::vector<double> ws_deriv;
   std::vector<double> ws_det_j;
   std::vector<double> ws_scs_areav;
-
+  std::vector<double> ws_shape_function;
   std::vector<double> ws_mu;
 
   std::vector<double> ws_uNp1;
