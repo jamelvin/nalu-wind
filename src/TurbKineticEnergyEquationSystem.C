@@ -47,6 +47,7 @@
 #include <TurbKineticEnergyKsgsNodeSourceSuppAlg.h>
 #include <TurbKineticEnergySSTNodeSourceSuppAlg.h>
 #include <TurbKineticEnergySSTDESNodeSourceSuppAlg.h>
+#include <TurbKineticEnergyChienKENodeSourceSuppAlg.h>
 #include <TurbKineticEnergyKsgsBuoyantElemSuppAlg.h>
 #include <TurbKineticEnergyRodiNodeSourceSuppAlg.h>
 
@@ -66,6 +67,7 @@
 #include <kernel/TurbKineticEnergyKsgsDesignOrderSrcElemKernel.h>
 #include <kernel/TurbKineticEnergySSTSrcElemKernel.h>
 #include <kernel/TurbKineticEnergySSTDESSrcElemKernel.h>
+#include <kernel/TurbKineticEnergyChienKESrcElemKernel.h>
 
 // bc kernels
 #include <kernel/ScalarOpenAdvElemKernel.h>
@@ -148,8 +150,8 @@ TurbKineticEnergyEquationSystem::TurbKineticEnergyEquationSystem(
   realm_.push_equation_to_systems(this);
 
   // sanity check on turbulence model
-  if ( (turbulenceModel_ != SST) && (turbulenceModel_ != KSGS) && (turbulenceModel_ != SST_DES) ) {
-    throw std::runtime_error("User has requested TurbKinEnergyEqs, however, turbulence model is not KSGS, SST or SST_DES");
+  if ( (turbulenceModel_ != SST) && (turbulenceModel_ != KSGS) && (turbulenceModel_ != SST_DES) && (turbulenceModel_ != KE) ) {
+    throw std::runtime_error("User has requested TurbKinEnergyEqs, however, turbulence model is not KSGS, SST, SST_DES or KE");
   }
 
   // create projected nodal gradient equation system
@@ -360,8 +362,13 @@ TurbKineticEnergyEquationSystem::register_interior_algorithm(
           theSrc = new TurbKineticEnergySSTDESNodeSourceSuppAlg(realm_);
         }
         break;
+      case KE:
+        {
+          theSrc = new TurbKineticEnergyChienKENodeSourceSuppAlg(realm_);
+        } 
+        break;
       default:
-        throw std::runtime_error("Unsupported turbulence model in TurbKe: only SST, SST_DES and Ksgs supported");
+        throw std::runtime_error("Unsupported turbulence model in TurbKe: only KE, SST, SST_DES and Ksgs supported");
       }
       theAlg->supplementalAlg_.push_back(theSrc);
       
@@ -449,6 +456,14 @@ TurbKineticEnergyEquationSystem::register_interior_algorithm(
         (partTopo, *this, activeKernels, "lumped_sst_des",
          realm_.bulk_data(), *realm_.solutionOptions_, dataPreReqs, true);
 
+      build_topo_kernel_if_requested<TurbKineticEnergyChienKESrcElemKernel>
+        (partTopo, *this, activeKernels, "ke",
+         realm_.bulk_data(), *realm_.solutionOptions_, dataPreReqs, false);
+
+      build_topo_kernel_if_requested<TurbKineticEnergyChienKESrcElemKernel>
+        (partTopo, *this, activeKernels, "lumped_ke",
+         realm_.bulk_data(), *realm_.solutionOptions_, dataPreReqs, true);
+
       build_topo_kernel_if_requested<ScalarNSOElemKernel>
         (partTopo, *this, activeKernels, "NSO_2ND",
          realm_.bulk_data(), *realm_.solutionOptions_, tke_, dkdx_, evisc_, 0.0, 0.0, dataPreReqs);
@@ -490,8 +505,13 @@ TurbKineticEnergyEquationSystem::register_interior_algorithm(
         effDiffAlg = new EffectiveSSTDiffFluxCoeffAlgorithm(realm_, part, visc_, tvisc_, evisc_, sigmaKOne, sigmaKTwo);
       }
       break;
+      case KE:
+      {
+        const double sigmaK = realm_.get_turb_model_constant(TM_sigmaK);
+        effDiffAlg = new EffectiveDiffFluxCoeffAlgorithm(realm_, part, visc_, tvisc_, evisc_, 1.0, sigmaK);
+      }
       default:
-        throw std::runtime_error("Unsupported turbulence model in TurbKe: only SST, SST_DES and Ksgs supported");
+        throw std::runtime_error("Unsupported turbulence model in TurbKe: only KE, SST, SST_DES and Ksgs supported");
     }
     diffFluxCoeffAlgDriver_->algMap_[algType] = effDiffAlg;
   }

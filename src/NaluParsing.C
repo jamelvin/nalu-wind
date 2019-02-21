@@ -597,6 +597,19 @@ namespace YAML
     return true;
   }
 
+  bool convert<sierra::nalu::TotDissRate>::decode(const Node& node,
+    sierra::nalu::TotDissRate& tdr)
+  {
+    if (!node.IsScalar())
+    {
+      return false;
+    }
+
+    tdr.totDissRate_ = node.as<double>();
+
+    return true;
+  }
+
   bool convert<sierra::nalu::Temperature>::decode(const Node& node,
     sierra::nalu::Temperature& t)
   {
@@ -984,6 +997,12 @@ namespace YAML
           sierra::nalu::SpecDissRate>();
       inflowData.sdrSpec_ = true;
     }
+    if (node["total_dissipation_rate"])
+    {
+      inflowData.tdr_ = node["total_dissipation_rate"].as<
+          sierra::nalu::TotDissRate>();
+      inflowData.tdrSpec_ = true;
+    }
     if (node["mixture_fraction"])
     {
       inflowData.mixFrac_ = node["mixture_fraction"].as<
@@ -1059,6 +1078,12 @@ namespace YAML
       openData.sdr_ = node["specific_dissipation_rate"].as<
           sierra::nalu::SpecDissRate>();
       openData.sdrSpec_ = true;
+    }
+    if (node["total_dissipation_rate"])
+    {
+      openData.tdr_ = node["total_dissipation_rate"].as<
+          sierra::nalu::TotDissRate>();
+      openData.tdrSpec_ = true;
     }
     if (node["pressure"])
     {

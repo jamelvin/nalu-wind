@@ -63,6 +63,7 @@ add_sources(GlobalHeaderList
    BoundaryConditions.h
    BucketLoop.h
    BuildTemplates.h
+   ChienKEpsilonEquationSystem.h
    ComputeABLWallFrictionVelocityAlgorithm.h
    ComputeGeometryAlgorithmDriver.h
    ComputeGeometryBoundaryAlgorithm.h
@@ -186,13 +187,16 @@ add_sources(GlobalHeaderList
    SurfaceForceAndMomentAlgorithmDriver.h
    SurfaceForceAndMomentWallFunctionAlgorithm.h
    TimeIntegrator.h
+   TotalDissipationRateChienKENodeSourceSuppAlg.h
    TpetraLinearSystem.h
+   TurbKineticEnergyChienKENodeSourceSuppAlg.h
    TurbKineticEnergyEquationSystem.h
    TurbKineticEnergyKsgsBuoyantElemSuppAlg.h
    TurbKineticEnergyKsgsNodeSourceSuppAlg.h
    TurbKineticEnergyRodiNodeSourceSuppAlg.h
    TurbKineticEnergySSTDESNodeSourceSuppAlg.h
    TurbKineticEnergySSTNodeSourceSuppAlg.h
+   TurbViscChienKEAlgorithm.h
    TurbViscKsgsAlgorithm.h
    TurbViscSSTAlgorithm.h
    TurbViscSmagorinskyAlgorithm.h

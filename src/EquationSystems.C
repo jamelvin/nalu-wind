@@ -24,6 +24,7 @@
 #include <LowMachEquationSystem.h>
 #include <MixtureFractionEquationSystem.h>
 #include <ShearStressTransportEquationSystem.h>
+#include <ChienKEpsilonEquationSystem.h>
 #include <MassFractionEquationSystem.h>
 #include <TurbKineticEnergyEquationSystem.h>
 #include <pmr/RadiativeTransportEquationSystem.h>
@@ -105,6 +106,11 @@ void EquationSystems::load(const YAML::Node & y_node)
 	  y_eqsys =  expect_map(y_system, "ShearStressTransport", true);
           if (root()->debug()) NaluEnv::self().naluOutputP0() << "eqSys = tke/sdr " << std::endl;
           eqSys = new ShearStressTransportEquationSystem(*this);
+        }
+        else if( expect_map(y_system, "ChienKEpsilon", true) ) {
+          y_eqsys =  expect_map(y_system, "ChienKEpsilon", true);
+          if (root()->debug()) NaluEnv::self().naluOutputP0() << "eqSys = tke/tdr " << std::endl;
+          eqSys = new ChienKEpsilonEquationSystem(*this);
         }
         else if( expect_map(y_system, "TurbKineticEnergy", true) ) {
 	  y_eqsys =  expect_map(y_system, "TurbKineticEnergy", true) ;

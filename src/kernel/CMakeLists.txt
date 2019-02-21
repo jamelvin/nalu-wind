@@ -33,6 +33,8 @@ add_sources(GlobalSourceList
    ScalarOpenAdvElemKernel.C
    ScalarUpwAdvDiffElemKernel.C
    SpecificDissipationRateSSTSrcElemKernel.C
+   TotalDissipationRateChienKESrcElemKernel.C
+   TurbKineticEnergyChienKESrcElemKernel.C
    TurbKineticEnergyKsgsDesignOrderSrcElemKernel.C
    TurbKineticEnergyKsgsSrcElemKernel.C
    TurbKineticEnergySSTDESSrcElemKernel.C
