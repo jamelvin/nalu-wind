@@ -58,6 +58,7 @@ add_sources(GlobalSourceList
    AuxFunctionAlgorithm.C
    AveragingInfo.C
    BoundaryConditions.C
+   ChienKEpsilonEquationSystem.C
    ComputeABLWallFrictionVelocityAlgorithm.C
    ComputeGeometryAlgorithmDriver.C
    ComputeGeometryBoundaryAlgorithm.C
@@ -172,13 +173,17 @@ add_sources(GlobalSourceList
    SurfaceForceAndMomentWallFunctionAlgorithm.C
    TAMSEquationSystem.C
    TimeIntegrator.C
+   TotalDissipationRateChienKENodeSourceSuppAlg.C
+   TotalDissipationRateEquationSystem.C
    TpetraLinearSystem.C
+   TurbKineticEnergyChienKENodeSourceSuppAlg.C
    TurbKineticEnergyEquationSystem.C
    TurbKineticEnergyKsgsBuoyantElemSuppAlg.C
    TurbKineticEnergyKsgsNodeSourceSuppAlg.C
    TurbKineticEnergyRodiNodeSourceSuppAlg.C
    TurbKineticEnergySSTDESNodeSourceSuppAlg.C
    TurbKineticEnergySSTNodeSourceSuppAlg.C
+   TurbViscChienKEAlgorithm.C
    TurbViscKsgsAlgorithm.C
    TurbViscSSTAlgorithm.C
    TurbViscTAMSSSTAlgorithm.C

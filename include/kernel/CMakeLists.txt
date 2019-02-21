@@ -44,6 +44,8 @@ add_sources(GlobalHeaderList
    TensorProductCVFEMScalarAdvDiff.h
    TensorProductCVFEMScalarBDF2TimeDerivative.h
    TensorProductCVFEMSource.h
+   TotalDissipationRateChienKESrcElemKernel.h
+   TurbKineticEnergyChienKESrcElemKernel.h
    TurbKineticEnergyKsgsDesignOrderSrcElemKernel.h
    TurbKineticEnergyKsgsSrcElemKernel.h
    TurbKineticEnergySSTDESSrcElemKernel.h

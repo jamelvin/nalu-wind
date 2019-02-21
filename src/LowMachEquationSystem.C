@@ -97,6 +97,7 @@
 #include <Simulation.h>
 #include <SolutionOptions.h>
 #include <SolverAlgorithmDriver.h>
+#include <TurbViscChienKEAlgorithm.h>
 #include <TurbViscKsgsAlgorithm.h>
 #include <TurbViscSmagorinskyAlgorithm.h>
 #include <TurbViscSSTAlgorithm.h>
@@ -1478,6 +1479,9 @@ MomentumEquationSystem::register_interior_algorithm(
           break;
         case SST: case SST_DES: 
           theAlg = new TurbViscSSTAlgorithm(realm_, part);
+          break;
+        case KE:
+          theAlg = new TurbViscChienKEAlgorithm(realm_, part);
           break;
         case TAMS:
           theAlg = new TurbViscTAMSSSTAlgorithm(realm_,part);
