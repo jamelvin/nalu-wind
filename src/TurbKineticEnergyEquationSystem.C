@@ -150,7 +150,7 @@ TurbKineticEnergyEquationSystem::TurbKineticEnergyEquationSystem(
   realm_.push_equation_to_systems(this);
 
   // sanity check on turbulence model
-  if ( (turbulenceModel_ != SST) && (turbulenceModel_ != KSGS) && (turbulenceModel_ != SST_DES) && (turbulenceModel_ != KE) && (turbulenceModel_ != TAMS)) {
+  if ( (turbulenceModel_ != SST) && (turbulenceModel_ != KSGS) && (turbulenceModel_ != SST_DES) && (turbulenceModel_ != KEPS) && (turbulenceModel_ != TAMS)) {
     throw std::runtime_error("User has requested TurbKinEnergyEqs, however, turbulence model is not KSGS, SST, SST_DES, KE or TAMS");
   }
 
@@ -362,17 +362,14 @@ TurbKineticEnergyEquationSystem::register_interior_algorithm(
           theSrc = new TurbKineticEnergySSTDESNodeSourceSuppAlg(realm_);
         }
         break;
-<<<<<<< HEAD
-      case TAMS:
-        {
-           throw std::runtime_error("TAMS is only supported through the consolidated kernel appraoch");
-        }
-=======
-      case KE:
+      case KEPS:
         {
           theSrc = new TurbKineticEnergyChienKENodeSourceSuppAlg(realm_);
-        } 
->>>>>>> b6d032e... Initial K-epsilon implementation, compiles. Needs testing.
+        }
+      case TAMS:
+        {
+           throw std::runtime_error("TAMS is only supported using the consolidated kernel approach");
+        }
         break;
       default:
         throw std::runtime_error("Unsupported turbulence model in TurbKe: only KE, SST, SST_DES and Ksgs supported");
@@ -521,17 +518,14 @@ TurbKineticEnergyEquationSystem::register_interior_algorithm(
         effDiffAlg = new EffectiveSSTDiffFluxCoeffAlgorithm(realm_, part, visc_, tvisc_, evisc_, sigmaKOne, sigmaKTwo);
       }
       break;
-      case KE:
+      case KEPS:
       {
         const double sigmaK = realm_.get_turb_model_constant(TM_sigmaK);
         effDiffAlg = new EffectiveDiffFluxCoeffAlgorithm(realm_, part, visc_, tvisc_, evisc_, 1.0, sigmaK);
       }
+      break;
       default:
-<<<<<<< HEAD
-        throw std::runtime_error("Unsupported turbulence model in TurbKe: only SST, SST_DES, TAMS and Ksgs supported");
-=======
-        throw std::runtime_error("Unsupported turbulence model in TurbKe: only KE, SST, SST_DES and Ksgs supported");
->>>>>>> b6d032e... Initial K-epsilon implementation, compiles. Needs testing.
+        throw std::runtime_error("Unsupported turbulence model in TurbKe: only KEPS, SST, SST_DES, TAMS and Ksgs supported");
     }
     diffFluxCoeffAlgDriver_->algMap_[algType] = effDiffAlg;
   }

@@ -1480,7 +1480,7 @@ MomentumEquationSystem::register_interior_algorithm(
         case SST: case SST_DES: 
           theAlg = new TurbViscSSTAlgorithm(realm_, part);
           break;
-        case KE:
+        case KEPS:
           theAlg = new TurbViscChienKEAlgorithm(realm_, part);
           break;
         case TAMS:
