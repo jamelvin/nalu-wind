@@ -98,6 +98,7 @@ TotalDissipationRateChienKESrcElemKernel<AlgTraits>::execute(
   ScratchViews<DoubleType>& scratchViews)
 {
   NALU_ALIGNED DoubleType w_dudx[AlgTraits::nDim_][AlgTraits::nDim_];
+  NALU_ALIGNED DoubleType w_coords[AlgTraits::nDim_];
 
   SharedMemView<DoubleType*>& v_tkeNp1 =
     scratchViews.get_scratch_view_1D(tkeNp1_);
@@ -122,6 +123,10 @@ TotalDissipationRateChienKESrcElemKernel<AlgTraits>::execute(
   SharedMemView<DoubleType*>& v_scv_volume =
     scratchViews.get_me_views(CURRENT_COORDINATES).scv_volume;
 
+
+  SharedMemView<DoubleType**>& v_coords = 
+    scratchViews.get_scratch_view_2D(coordinates_);
+
   for (int ip = 0; ip < AlgTraits::numScvIp_; ++ip) {
 
     // nearest node to ip
@@ -138,8 +143,9 @@ TotalDissipationRateChienKESrcElemKernel<AlgTraits>::execute(
     DoubleType dplus = 0.0;
     DoubleType minD = 0.0;
     for (int i = 0; i < AlgTraits::nDim_; ++i) {
+      w_coords[i] = 0.0;
       for (int j = 0; j < AlgTraits::nDim_; ++j) {
-        w_dudx[i][j] = 0.0;
+        w_dudx[i][j] = 0.0; 
       }
     }
 
@@ -156,6 +162,7 @@ TotalDissipationRateChienKESrcElemKernel<AlgTraits>::execute(
       minD += r * v_minD(ic);
 
       for (int i = 0; i < AlgTraits::nDim_; ++i) {
+        w_coords[i] += r*v_coords(ic,i);
         const DoubleType dni = v_dndx(ip, ic, i);
         const DoubleType ui = v_velocityNp1(ic, i);
         for (int j = 0; j < AlgTraits::nDim_; ++j) {
@@ -187,11 +194,16 @@ TotalDissipationRateChienKESrcElemKernel<AlgTraits>::execute(
     const DoubleType LeFac = 2.0 * visc * stk::math::exp(-0.5*dplus) / minD / minD;
     const DoubleType Le = -LeFac * tdr;
 
+    
+    //std::cout << " (" << w_coords[0] << ", "<< w_coords[1] << ", " << w_coords[2] << ") " << tdr <<" " << tke << " " << Pe << " " << De << " " << Le << " " << minD << " " << dplus << " " << tvisc << std::endl;
+    
+    //const DoubleType extraFac = -cEpsTwo_ * stk::math::exp(-Re_t*Re_t / 36.0) * rho * rho * rho * tke * tke * tke / 81.0 / visc / visc / stk::math::max(tdr, 1.0e-16);
+
     // assemble RHS and LHS
     rhs(nearestNode) += (Pe - De + Le) * scV;
     for (int ic = 0; ic < AlgTraits::nodesPerElement_; ++ic) {
       lhs(nearestNode, ic) +=
-        v_shape_function_(ip, ic) * (-PeFac + 2.0*DeFac + LeFac) * scV;
+        v_shape_function_(ip, ic) * (2.0*DeFac + LeFac) * scV;
     }
   }
 }

@@ -94,6 +94,7 @@ TurbKineticEnergyChienKESrcElemKernel<AlgTraits>::execute(
   ScratchViews<DoubleType>& scratchViews)
 {
   NALU_ALIGNED DoubleType w_dudx[AlgTraits::nDim_][AlgTraits::nDim_];
+  NALU_ALIGNED DoubleType w_coords[AlgTraits::nDim_];
 
   SharedMemView<DoubleType*>& v_tkeNp1 =
     scratchViews.get_scratch_view_1D(tkeNp1_);
@@ -116,6 +117,10 @@ TurbKineticEnergyChienKESrcElemKernel<AlgTraits>::execute(
   SharedMemView<DoubleType*>& v_scv_volume =
     scratchViews.get_me_views(CURRENT_COORDINATES).scv_volume;
 
+
+  SharedMemView<DoubleType**>& v_coords =
+    scratchViews.get_scratch_view_2D(coordinates_);
+
   for (int ip = 0; ip < AlgTraits::numScvIp_; ++ip) {
 
     // nearest node to ip
@@ -130,9 +135,12 @@ TurbKineticEnergyChienKESrcElemKernel<AlgTraits>::execute(
     DoubleType visc = 0.0;
     DoubleType tvisc = 0.0;
     DoubleType minD = 0.0;
-    for (int i = 0; i < AlgTraits::nDim_; ++i)
-      for (int j = 0; j < AlgTraits::nDim_; ++j)
+    for (int i = 0; i < AlgTraits::nDim_; ++i) {
+      w_coords[i] = 0.0;
+      for (int j = 0; j < AlgTraits::nDim_; ++j) {
         w_dudx[i][j] = 0.0;
+      }
+    }
 
     for (int ic = 0; ic < AlgTraits::nodesPerElement_; ++ic) {
 
@@ -147,6 +155,7 @@ TurbKineticEnergyChienKESrcElemKernel<AlgTraits>::execute(
 
       for (int i = 0; i < AlgTraits::nDim_; ++i) {
         const DoubleType ui = v_velocityNp1(ic, i);
+        w_coords[i] += r*v_coords(ic,i);
         for (int j = 0; j < AlgTraits::nDim_; ++j) {
           w_dudx[i][j] += v_dndx(ip, ic, j) * ui;
         }
@@ -167,6 +176,8 @@ TurbKineticEnergyChienKESrcElemKernel<AlgTraits>::execute(
     // wall distance source term (rho's cancel out...)
     const DoubleType lFac = 2.0 * visc / minD / minD;
     DoubleType Lk = -lFac * tke;
+
+    //std::cout << " (" << w_coords[0] << ", "<< w_coords[1] << ", " << w_coords[2] << ") " << tdr <<" " << tke << " " << Pk << " " << Dk << " " << Lk << " " << minD << " " << " " << tvisc << std::endl;
 
     // assemble RHS and LHS
     rhs(nearestNode) += (Pk - Dk + Lk) * scV;

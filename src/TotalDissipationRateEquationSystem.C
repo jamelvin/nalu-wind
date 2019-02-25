@@ -106,7 +106,6 @@ TotalDissipationRateEquationSystem::TotalDissipationRateEquationSystem(
     visc_(NULL),
     tvisc_(NULL),
     evisc_(NULL),
-    tdrWallBc_(NULL),
     assembleNodalGradAlgDriver_(new AssembleNodalGradAlgorithmDriver(realm_, "total_dissipation_rate", "dedx")),
     diffFluxCoeffAlgDriver_(new AlgorithmDriver(realm_))
 {
@@ -582,16 +581,61 @@ TotalDissipationRateEquationSystem::register_wall_bc(
 
   stk::mesh::MetaData &meta_data = realm_.meta_data();
 
-  // register boundary data; tdr_bc
-  tdrWallBc_ = &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "tdr_bc"));
-  stk::mesh::put_field_on_mesh(*tdrWallBc_, *part, nullptr);
+  // register boundary data; tke_bc
+  ScalarFieldType *theBcField = &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "tdr_bc"));
+  stk::mesh::put_field_on_mesh(*theBcField, *part, nullptr);
+
+  // extract the value for user specified tke and save off the AuxFunction
+  WallUserData userData = wallBCData.userData_;
+  std::string tdrName = "total_dissipation_rate";
+  const bool tdrSpecified = bc_data_specified(userData, tdrName);
+  bool wallFunctionApproach = userData.wallFunctionApproach_;
+  if ( tdrSpecified && wallFunctionApproach ) {
+    NaluEnv::self().naluOutputP0() << "Both wall function and tdr specified; will go with dirichlet" << std::endl;
+    wallFunctionApproach = false;
+  }
+
+  if ( wallFunctionApproach ) {
+    throw std::runtime_error("Total dissipation rate is not set up with wall functions yet.");
+  }
+  else if ( tdrSpecified ) {
+
+    // FIXME: Generalize for constant vs function
+
+    // extract data
+    std::vector<double> userSpec(1);
+    TotDissRate tdr = userData.tdr_;
+    userSpec[0] = tdr.totDissRate_;
+
+    // new it
+    ConstantAuxFunction *theAuxFunc = new ConstantAuxFunction(0, 1, userSpec);
+
+    // bc data alg
+    AuxFunctionAlgorithm *auxAlg
+      = new AuxFunctionAlgorithm(realm_, part,
+                                 theBcField, theAuxFunc,
+                                 stk::topology::NODE_RANK);
+    bcDataAlg_.push_back(auxAlg);
+
+    // copy tke_bc to tke np1...
+    CopyFieldAlgorithm *theCopyAlg
+      = new CopyFieldAlgorithm(realm_, part,
+                               theBcField, &tdrNp1,
+                               0, 1,
+                               stk::topology::NODE_RANK);
+    bcDataMapAlg_.push_back(theCopyAlg);
+
+  }
+  else {
+    throw std::runtime_error("TDR active with wall bc, however, no value of total_dissipation_rate specified");
+  }
 
   // Dirichlet bc
   std::map<AlgorithmType, SolverAlgorithm *>::iterator itd =
       solverAlgDriver_->solverDirichAlgMap_.find(algType);
   if ( itd == solverAlgDriver_->solverDirichAlgMap_.end() ) {
     DirichletBC *theAlg =
-        new DirichletBC(realm_, this, part, &tdrNp1, tdrWallBc_, 0, 1);
+        new DirichletBC(realm_, this, part, &tdrNp1, theBcField, 0, 1);
     solverAlgDriver_->solverDirichAlgMap_[algType] = theAlg;
   }
   else {
