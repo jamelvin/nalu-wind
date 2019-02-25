@@ -83,7 +83,6 @@ public:
   ScalarFieldType *visc_;
   ScalarFieldType *tvisc_;
   ScalarFieldType *evisc_;
-  ScalarFieldType *tdrWallBc_;
   
   AssembleNodalGradAlgorithmDriver *assembleNodalGradAlgDriver_;
   AlgorithmDriver *diffFluxCoeffAlgDriver_;

@@ -808,6 +808,12 @@ namespace YAML
       wallData.bcDataSpecifiedMap_["turbulent_ke"] = true;
       wallData.bcDataTypeMap_["turbulent_ke"] = sierra::nalu::CONSTANT_UD;
     }
+    if (node["total_dissipation_rate"])
+    {
+      wallData.tdr_ = node["total_dissipation_rate"].as<sierra::nalu::TotDissRate>();
+      wallData.bcDataSpecifiedMap_["total_dissipation_rate"] = true;
+      wallData.bcDataTypeMap_["total_dissipation_rate"] = sierra::nalu::CONSTANT_UD;
+    }
     if (node["temperature"])
     {
       wallData.temperature_ =

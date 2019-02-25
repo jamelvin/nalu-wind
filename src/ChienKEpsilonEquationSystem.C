@@ -143,7 +143,6 @@ ChienKEpsilonEquationSystem::solve_and_update()
     // compute projected nodal gradients
     tkeEqSys_->compute_projected_nodal_gradient();
     tdrEqSys_->assemble_nodal_gradient();
-    clip_min_distance_to_wall();
     // FIXME: This needs to be done every timestep dynamically once utau issue
     //        is resolved...
     compute_dplus_function();
@@ -151,7 +150,6 @@ ChienKEpsilonEquationSystem::solve_and_update()
     isInit_ = false;
   } else if (realm_.has_mesh_motion()) {
     if (realm_.currentNonlinearIteration_ == 1) {
-      clip_min_distance_to_wall();
       //FIXME: This needs to be done every timestep dynamically once utau issue
       //       is resolved...
       compute_dplus_function();
@@ -217,7 +215,7 @@ ChienKEpsilonEquationSystem::initial_work()
       const double tkeNew = tke[k];
       const double tdrNew = tdr[k];
       
-      if ( (tkeNew >= 0.0) && (tdrNew > 0.0) ) {
+      if ( (tkeNew >= 0.0) && (tdrNew >= 0.0) ) {
         // nothing
       }
       else if ( (tkeNew < 0.0) && (tdrNew < 0.0) ) {
@@ -235,6 +233,9 @@ ChienKEpsilonEquationSystem::initial_work()
       }
     }
   }
+
+  if (isInit_)
+    compute_dplus_function();
 }
 
 //--------------------------------------------------------------------------
@@ -296,7 +297,7 @@ ChienKEpsilonEquationSystem::update_and_clip()
       const double tkeNew = tke[k] + kTmp[k];
       const double tdrNew = tdr[k] + eTmp[k];
       
-      if ( (tkeNew >= 0.0) && (tdrNew > 0.0) ) {
+      if ( (tkeNew >= 0.0) && (tdrNew >= 0.0) ) {
         // if all is well
         tke[k] = tkeNew;
         tdr[k] = tdrNew;
@@ -329,111 +330,6 @@ ChienKEpsilonEquationSystem::update_and_clip()
   if (realm_.debug()) {
     NaluEnv::self().naluOutputP0() << "Add KE clipping diagnostic" << std::endl;
   }
-}
-
-//--------------------------------------------------------------------------
-//-------- clip_min_distance_to_wall ---------------------------------------
-//--------------------------------------------------------------------------
-void
-ChienKEpsilonEquationSystem::clip_min_distance_to_wall()
-{
-  // if this is a restart, then min distance has already been clipped
-  if (realm_.restarted_simulation())
-    return;
-
-  // okay, no restart: proceed with clipping of minimum wall distance
-  stk::mesh::BulkData & bulk_data = realm_.bulk_data();
-  stk::mesh::MetaData & meta_data = realm_.meta_data();
-
-  const int nDim = meta_data.spatial_dimension();
-
-  // extract fields required
-  GenericFieldType *exposedAreaVec = meta_data.get_field<GenericFieldType>(meta_data.side_rank(), "exposed_area_vector");
-  VectorFieldType *coordinates = meta_data.get_field<VectorFieldType>(stk::topology::NODE_RANK, realm_.get_coordinates_name());
-
-  // define vector of parent topos; should always be UNITY in size
-  std::vector<stk::topology> parentTopo;
-
-  // selector
-  stk::mesh::Selector s_locally_owned_union = meta_data.locally_owned_part()
-      &stk::mesh::selectUnion(wallBcPart_);
-
-   stk::mesh::BucketVector const& face_buckets =
-     realm_.get_buckets( meta_data.side_rank(), s_locally_owned_union );
-   for ( stk::mesh::BucketVector::const_iterator ib = face_buckets.begin();
-         ib != face_buckets.end() ; ++ib ) {
-     stk::mesh::Bucket & b = **ib ;
-
-     // extract connected element topology
-     b.parent_topology(stk::topology::ELEMENT_RANK, parentTopo);
-     ThrowAssert ( parentTopo.size() == 1 );
-     stk::topology theElemTopo = parentTopo[0];
-
-     // extract master element
-     MasterElement *meSCS = sierra::nalu::MasterElementRepo::get_surface_master_element(theElemTopo);
-
-     const stk::mesh::Bucket::size_type length   = b.size();
-
-     for ( stk::mesh::Bucket::size_type k = 0 ; k < length ; ++k ) {
-
-       // get face
-       stk::mesh::Entity face = b[k];
-       int num_face_nodes = bulk_data.num_nodes(face);
-
-       // pointer to face data
-       const double * areaVec = stk::mesh::field_data(*exposedAreaVec, face);
-
-       // extract the connected element to this exposed face; should be single in size!
-       const stk::mesh::Entity* face_elem_rels = bulk_data.begin_elements(face);
-       ThrowAssert( bulk_data.num_elements(face) == 1 );
-
-       // get element; its face ordinal number and populate face_node_ordinals
-       stk::mesh::Entity element = face_elem_rels[0];
-       const int face_ordinal = bulk_data.begin_element_ordinals(face)[0];
-       const int *face_node_ordinals = meSCS->side_node_ordinals(face_ordinal);
-
-       // get the relations off of element
-       stk::mesh::Entity const * elem_node_rels = bulk_data.begin_nodes(element);
-
-       // loop over face nodes
-       for ( int ip = 0; ip < num_face_nodes; ++ip ) {
-
-         const int offSetAveraVec = ip*nDim;
-
-         const int opposingNode = meSCS->opposingNodes(face_ordinal,ip);
-         const int nearestNode = face_node_ordinals[ip];
-
-         // left and right nodes; right is on the face; left is the opposing node
-         stk::mesh::Entity nodeL = elem_node_rels[opposingNode];
-         stk::mesh::Entity nodeR = elem_node_rels[nearestNode];
-
-         // extract nodal fields
-         const double * coordL = stk::mesh::field_data(*coordinates, nodeL );
-         const double * coordR = stk::mesh::field_data(*coordinates, nodeR );
-
-         double aMag = 0.0;
-         for ( int j = 0; j < nDim; ++j ) {
-           const double axj = areaVec[offSetAveraVec+j];
-           aMag += axj*axj;
-         }
-         aMag = std::sqrt(aMag);
-
-         // form unit normal and determine yp (approximated by 1/4 distance along edge)
-         double ypbip = 0.0;
-         for ( int j = 0; j < nDim; ++j ) {
-           const double nj = areaVec[offSetAveraVec+j]/aMag;
-           const double ej = 0.25*(coordR[j] - coordL[j]);
-           ypbip += nj*ej*nj*ej;
-         }
-         ypbip = std::sqrt(ypbip);
-
-         // assemble to nodal quantities
-         double *minD = stk::mesh::field_data(*minDistanceToWall_, nodeR );
-
-         *minD = std::max(*minD, ypbip);
-       }
-     }
-   }
 }
 
 //--------------------------------------------------------------------------
