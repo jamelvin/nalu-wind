@@ -110,8 +110,6 @@ TAMSEquationSystem::TAMSEquationSystem(
     avgVelocity_(NULL),
     avgPressure_(NULL),
     avgDensity_(NULL),
-    avgTurbKineticEnergy_(NULL),
-    avgSpecDissipationRate_(NULL),
     avgResolvedStress_(NULL),
     avgDudx_(NULL),
     metric_(NULL),
@@ -182,14 +180,6 @@ TAMSEquationSystem::register_nodal_fields(
   avgDensity_ = &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "average_density"));
   stk::mesh::put_field_on_mesh(*avgDensity_, *part, nullptr);
   realm_.augment_restart_variable_list("average_density");
-
-  avgTurbKineticEnergy_ = &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "average_turbulent_ke"));
-  stk::mesh::put_field_on_mesh(*avgTurbKineticEnergy_, *part, nullptr);
-  realm_.augment_restart_variable_list("average_turbulent_ke");
-
-  avgSpecDissipationRate_ = &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "average_specific_dissipation_rate"));
-  stk::mesh::put_field_on_mesh(*avgSpecDissipationRate_, *part, nullptr);
-  realm_.augment_restart_variable_list("average_specific_dissipation_rate");
 
   avgDudx_ = &(meta_data.declare_field<GenericFieldType>(stk::topology::NODE_RANK, "average_dudx"));
   stk::mesh::put_field_on_mesh(*avgDudx_, *part, nDim*nDim, nullptr);
@@ -463,56 +453,7 @@ TAMSEquationSystem::initial_work()
 {
   compute_metric_tensor();
 
-  // need to clip avgTke and avgSdr in case input is bad as they are doing so
-  // in the ShearStressTransport system and the instant and avg value should
-  // match in the averaging function
-  const double clipValue = 1.0e-8;
-
   stk::mesh::MetaData & meta_data = realm_.meta_data();
-
-  // required fields
-  ScalarFieldType *viscosity = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "viscosity");
-
-  // define some common selectors
-  stk::mesh::Selector s_all_nodes
-    = (meta_data.locally_owned_part() | meta_data.globally_shared_part())
-    &stk::mesh::selectField(*avgSpecDissipationRate_);
-
-  stk::mesh::BucketVector const& node_buckets =
-    realm_.get_buckets( stk::topology::NODE_RANK, s_all_nodes );
-  for ( stk::mesh::BucketVector::const_iterator ib = node_buckets.begin();
-        ib != node_buckets.end() ; ++ib ) {
-    stk::mesh::Bucket & b = **ib ;
-    const stk::mesh::Bucket::size_type length   = b.size();
-
-    const double *visc = stk::mesh::field_data(*viscosity, b);
-    const double *rho = stk::mesh::field_data(*avgDensity_, b);
-    double *tke = stk::mesh::field_data(*avgTurbKineticEnergy_, b);
-    double *sdr = stk::mesh::field_data(*avgSpecDissipationRate_, b);
-
-    for ( stk::mesh::Bucket::size_type k = 0 ; k < length ; ++k ) {
-
-      const double tkeNew = tke[k];
-      const double sdrNew = sdr[k];
-
-      if ( (tkeNew >= 0.0) && (sdrNew > 0.0) ) {
-        // nothing
-      }
-      else if ( (tkeNew < 0.0) && (sdrNew < 0.0) ) {
-        // both negative;
-        tke[k] = clipValue;
-        sdr[k] = rho[k]*clipValue/visc[k];
-      }
-      else if ( tkeNew < 0.0 ) {
-        tke[k] = visc[k]*sdrNew/rho[k];
-        sdr[k] = sdrNew;
-      }
-      else {
-        sdr[k] = rho[k]*tkeNew/visc[k];
-        tke[k] = tkeNew;
-      }
-    }
-  }
 
   // FIXME: Hack since setting an element field to a constant using Aux doesn't seem to work...
   // required fields
@@ -539,6 +480,11 @@ TAMSEquationSystem::initial_work()
   const int nDim = meta_data.spatial_dimension();
 
   GenericFieldType *dudx_ = meta_data.get_field<GenericFieldType>(stk::topology::NODE_RANK, "dudx");
+
+  // define some common selectors
+  stk::mesh::Selector s_all_nodes
+    = (meta_data.locally_owned_part() | meta_data.globally_shared_part())
+    &stk::mesh::selectField(*avgDudx_);
 
   // FIXME: I need to initialize the computed quantities... avg_dudx
   // since they will be weighted

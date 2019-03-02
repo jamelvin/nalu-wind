@@ -69,8 +69,6 @@ private:
   ScalarFieldType* minDist_{nullptr};
   VectorFieldType* avgVelocity_{nullptr};
   ScalarFieldType* avgDensity_{nullptr};
-  ScalarFieldType* avgTke_{nullptr};
-  ScalarFieldType* avgSdr_{nullptr};
 
   ScalarFieldType *viscosity_{nullptr};
   ScalarFieldType *turbViscosity_{nullptr};

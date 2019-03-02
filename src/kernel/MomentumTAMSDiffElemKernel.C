@@ -53,10 +53,6 @@ MomentumTAMSDiffElemKernel<AlgTraits>::MomentumTAMSDiffElemKernel(
     metaData.get_field<VectorFieldType>(stk::topology::NODE_RANK, "average_velocity");
   avgDensity_ =
     metaData.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "average_density");
-  avgTke_ = metaData.get_field<ScalarFieldType>(
-    stk::topology::NODE_RANK, "average_turbulent_ke");
-  avgSdr_ = metaData.get_field<ScalarFieldType>(
-    stk::topology::NODE_RANK, "average_specific_dissipation_rate");
 
   //resAdeq_ = metaData.get_field<ScalarFieldType>(
   //  stk::topology::NODE_RANK, "resolution_adequacy_parameter");
@@ -82,8 +78,6 @@ MomentumTAMSDiffElemKernel<AlgTraits>::MomentumTAMSDiffElemKernel(
   dataPreReqs.add_gathered_nodal_field(*sdrNp1_, 1);
   dataPreReqs.add_gathered_nodal_field(*avgVelocity_, AlgTraits::nDim_);
   dataPreReqs.add_gathered_nodal_field(*avgDensity_, 1);
-  dataPreReqs.add_gathered_nodal_field(*avgTke_, 1);
-  dataPreReqs.add_gathered_nodal_field(*avgSdr_, 1);
   dataPreReqs.add_gathered_nodal_field(*alphaNp1_, 1);
   dataPreReqs.add_element_field(*Mij_, AlgTraits::nDim_, AlgTraits::nDim_);
 
@@ -119,10 +113,6 @@ MomentumTAMSDiffElemKernel<AlgTraits>::execute(
     scratchViews.get_scratch_view_2D(*avgVelocity_);
   SharedMemView<DoubleType*>& v_avgRho =
     scratchViews.get_scratch_view_1D(*avgDensity_);
-  SharedMemView<DoubleType*>& v_avgTke =
-    scratchViews.get_scratch_view_1D(*avgTke_);
-  SharedMemView<DoubleType*>& v_avgSdr =
-    scratchViews.get_scratch_view_1D(*avgSdr_);
   SharedMemView<DoubleType*>& v_alphaNp1 =
     scratchViews.get_scratch_view_1D(*alphaNp1_);
   SharedMemView<DoubleType **> &v_Mij =
@@ -185,10 +175,8 @@ MomentumTAMSDiffElemKernel<AlgTraits>::execute(
     DoubleType muScs = 0.0;
     DoubleType fluctRhoScs = 0.0;
     DoubleType avgRhoScs = 0.0;
-    DoubleType fluctTkeScs = 0.0;
-    DoubleType avgTkeScs = 0.0;
-    DoubleType fluctSdrScs = 0.0;
-    DoubleType avgSdrScs = 0.0;
+    DoubleType tkeScs = 0.0;
+    DoubleType sdrScs = 0.0;
     DoubleType alphaScs = 0.0;
     DoubleType avgDivU = 0.0;
 
@@ -201,10 +189,8 @@ MomentumTAMSDiffElemKernel<AlgTraits>::execute(
       muScs       += r * v_viscosity(ic);
       fluctRhoScs += r * (v_rhoNp1(ic) - v_avgRho(ic));
       avgRhoScs   += r * v_avgRho(ic);
-      fluctTkeScs += r * (v_tkeNp1(ic) - v_avgTke(ic));
-      avgTkeScs   += r * v_avgTke(ic);
-      fluctSdrScs += r * (v_sdrNp1(ic) - v_avgSdr(ic));
-      avgSdrScs   += r * v_avgSdr(ic);
+      tkeScs      += r * v_tkeNp1(ic);
+      sdrScs      += r * v_sdrNp1(ic);
       alphaScs    += r * v_alphaNp1(ic);
 
       for (int j = 0; j < AlgTraits::nDim_; ++j) {
@@ -225,7 +211,7 @@ MomentumTAMSDiffElemKernel<AlgTraits>::execute(
     }
 
     // FIXME: Does this need a rho in it?
-    const DoubleType epsilon13Scs = stk::math::pow(betaStar_*avgTkeScs*avgSdrScs,1.0/3.0);
+    const DoubleType epsilon13Scs = stk::math::pow(betaStar_*tkeScs*sdrScs,1.0/3.0);
 
     for (int ic = 0; ic < AlgTraits::nodesPerElement_; ++ic) {
 
@@ -237,10 +223,6 @@ MomentumTAMSDiffElemKernel<AlgTraits>::execute(
         // tke stress term
         //const DoubleType twoThirdRhoTke =
         //  2.0 / 3.0 * alphaScs * rhoScs * tkeScs * v_scs_areav(ip, i);
-
-        // tke stress term
-        //const DoubleType avgTwoThirdRhoTke =
-        //   2.0 / 3.0 * alphaScs * avgRhoScs * avgTkeScs * v_scs_areav(ip, i);
 
         const int indexL = ilNdim + i;
         const int indexR = irNdim + i;
@@ -260,7 +242,9 @@ MomentumTAMSDiffElemKernel<AlgTraits>::execute(
           for (int k = 0; k < AlgTraits::nDim_; ++k) {
             //FIXME: I need to verify this form, fluctRho or avgRho, right indices on axj and dndx
             // ..., do I need a deviatoric part only...
-            lhsfacDiff_i += -fluctRhoScs * CM43 * epsilon13Scs * M43[j][k] * v_dndx(ip, ic, k) * axj;
+            // fluctRho will be 0 for incompressible, so if that's the right term, need a better 
+            // way to handle it, probably up above...
+            lhsfacDiff_i += -avgRhoScs * CM43 * epsilon13Scs * M43[j][k] * v_dndx(ip, ic, k) * axj;
           }
 
           // SGRS (average) term, scaled by alpha
@@ -274,7 +258,7 @@ MomentumTAMSDiffElemKernel<AlgTraits>::execute(
           DoubleType lhsfacDiff_j = 0.0;
           for (int k = 0; k < AlgTraits::nDim_; ++k) {
             //FIXME: See above notes...
-            lhsfacDiff_j += -fluctRhoScs * CM43 * epsilon13Scs * M43[i][k] * v_dndx(ip, ic, k) * axj;
+            lhsfacDiff_j += -avgRhoScs * CM43 * epsilon13Scs * M43[i][k] * v_dndx(ip, ic, k) * axj;
           }
 
           // SGRS (average) term, scaled by alpha

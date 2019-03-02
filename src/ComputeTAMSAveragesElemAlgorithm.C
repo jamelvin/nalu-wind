@@ -56,8 +56,6 @@ ComputeTAMSAveragesElemAlgorithm::ComputeTAMSAveragesElemAlgorithm(
   avgVelocity_ = meta_data.get_field<VectorFieldType>(stk::topology::NODE_RANK, "average_velocity");
   avgPress_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "average_pressure");
   avgDensity_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "average_density");
-  avgTurbKineticEnergy_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "average_turbulent_ke");
-  avgSpecDissipationRate_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "average_specific_dissipation_rate");
   avgDudx_ = meta_data.get_field<GenericFieldType>(stk::topology::NODE_RANK, "average_dudx");
   avgResolvedStress_ = meta_data.get_field<GenericFieldType>(stk::topology::NODE_RANK, "average_resolved_stress");
 }
@@ -98,8 +96,6 @@ void ComputeTAMSAveragesElemAlgorithm::execute() {
     // get average field data
     double * avgPres = stk::mesh::field_data(*avgPress_, b);
     double * avgRho = stk::mesh::field_data(*avgDensity_, b);
-    double * avgTke = stk::mesh::field_data(*avgTurbKineticEnergy_, b);
-    double * avgSdr = stk::mesh::field_data(*avgSpecDissipationRate_, b);
       
     for (stk::mesh::Bucket::size_type k = 0; k < length; ++k) {
       // get velocity field data
@@ -111,7 +107,7 @@ void ComputeTAMSAveragesElemAlgorithm::execute() {
       // FIXME: Verify this is correct for T_ave... this is from slides, 
       //        but CDP has something different
 
-      const double T_ave = 1.0/(betaStar_*avgSdr[k]);
+      const double T_ave = 1.0/(betaStar_*sdr[k]);
 
       const double weightAvg = std::max(1.0 - dt/T_ave, 0.0);
       const double weightInst = std::min(dt/T_ave, 1.0);
@@ -128,8 +124,6 @@ void ComputeTAMSAveragesElemAlgorithm::execute() {
       // FIXME: Should I be doing Favre averaging?????
       avgPres[k] = weightAvg * avgPres[k] + weightInst * pres[k];
       avgRho[k]  = weightAvg * avgRho[k]  + weightInst * rho[k];
-      avgTke[k]  = weightAvg * avgTke[k]  + weightInst * tke[k];
-      avgSdr[k]  = weightAvg * avgSdr[k]  + weightInst * sdr[k];
     }
   }
 }

@@ -38,9 +38,9 @@ TurbKineticEnergySSTTAMSSrcElemKernel<AlgTraits>::TurbKineticEnergySSTTAMSSrcEle
 {
   const stk::mesh::MetaData& metaData = bulkData.mesh_meta_data();
   tkeNp1_ = metaData.get_field<ScalarFieldType>(
-    stk::topology::NODE_RANK, "average_turbulent_ke");
+    stk::topology::NODE_RANK, "turbulent_ke");
   sdrNp1_ = metaData.get_field<ScalarFieldType>(
-    stk::topology::NODE_RANK, "average_specific_dissipation_rate");
+    stk::topology::NODE_RANK, "specific_dissipation_rate");
   densityNp1_ = metaData.get_field<ScalarFieldType>(
     stk::topology::NODE_RANK, "average_density");
   velocityNp1_ = metaData.get_field<VectorFieldType>(
@@ -176,7 +176,7 @@ TurbKineticEnergySSTTAMSSrcElemKernel<AlgTraits>::execute(
     }
     // 2) the addition of alpha to modify the production
     Pk *= alpha*tvisc;
-    Pk = Pk + Pk_imp;
+    Pk = Pk - Pk_imp;
 
     // tke factor
     const DoubleType tkeFac = betaStar_ * rho * sdr;

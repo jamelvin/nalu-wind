@@ -51,10 +51,6 @@ MomentumTAMSForcingElemKernel<AlgTraits>::MomentumTAMSForcingElemKernel(
     metaData.get_field<VectorFieldType>(stk::topology::NODE_RANK, "average_velocity");
   avgDensity_ =
     metaData.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "average_density");
-  avgTke_ = metaData.get_field<ScalarFieldType>(
-    stk::topology::NODE_RANK, "average_turbulent_ke");
-  avgSdr_ = metaData.get_field<ScalarFieldType>(
-    stk::topology::NODE_RANK, "average_specific_dissipation_rate");
 
   avgResAdeq_ = metaData.get_field<ScalarFieldType>(
     stk::topology::ELEMENT_RANK, "average_resolution_adequacy_parameter");
@@ -83,8 +79,6 @@ MomentumTAMSForcingElemKernel<AlgTraits>::MomentumTAMSForcingElemKernel(
   dataPreReqs.add_gathered_nodal_field(*sdrNp1_, 1);
   dataPreReqs.add_gathered_nodal_field(*avgVelocity_, AlgTraits::nDim_);
   dataPreReqs.add_gathered_nodal_field(*avgDensity_, 1);
-  dataPreReqs.add_gathered_nodal_field(*avgTke_, 1);
-  dataPreReqs.add_gathered_nodal_field(*avgSdr_, 1);
   dataPreReqs.add_gathered_nodal_field(*alphaNp1_, 1);
   dataPreReqs.add_gathered_nodal_field(*minDist_, 1);
   dataPreReqs.add_element_field(*avgResAdeq_, 1);

@@ -23,7 +23,7 @@ public:
   virtual void execute();
 
   ScalarFieldType *alpha_{nullptr};
-  ScalarFieldType *avgTurbKineticEnergy_{nullptr};
+  ScalarFieldType *turbKineticEnergy_{nullptr};
   GenericFieldType *avgResolvedStress_{nullptr};
 };
 

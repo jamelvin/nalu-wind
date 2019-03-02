@@ -65,10 +65,6 @@ ComputeTAMSResAdequacyElemAlgorithm::ComputeTAMSResAdequacyElemAlgorithm(
     stk::topology::NODE_RANK, "average_velocity");
   avgDensity_ = metaData.get_field<ScalarFieldType>(
     stk::topology::NODE_RANK, "average_density");
-  avgTke_ = metaData.get_field<ScalarFieldType>(
-    stk::topology::NODE_RANK, "average_turbulent_ke");
-  avgSdr_ = metaData.get_field<ScalarFieldType>(
-    stk::topology::NODE_RANK, "average_specific_dissipation_rate");
 
   resAdeq_ = metaData.get_field<ScalarFieldType>(
     stk::topology::ELEMENT_RANK, "resolution_adequacy_parameter");
@@ -124,8 +120,6 @@ void ComputeTAMSResAdequacyElemAlgorithm::execute() {
 
     ws_avgU.resize(nDim_ * nodesPerElement);
     ws_avgRho.resize(nodesPerElement);
-    ws_avgTke.resize(nodesPerElement);
-    ws_avgSdr.resize(nodesPerElement);
 
     fluctUjScs.resize(nDim_);
     avgUjScs.resize(nDim_);
@@ -156,8 +150,6 @@ void ComputeTAMSResAdequacyElemAlgorithm::execute() {
 
     double *p_avgU = &ws_avgU[0];
     double *p_avgRho = &ws_avgRho[0];
-    double *p_avgTke = &ws_avgTke[0];
-    double *p_avgSdr = &ws_avgSdr[0];
 
     double *p_fluctUjScs = &fluctUjScs[0];
     double *p_avgUjScs = &avgUjScs[0];
@@ -241,8 +233,6 @@ void ComputeTAMSResAdequacyElemAlgorithm::execute() {
         p_alpha[ni]   = *stk::mesh::field_data(*alphaNp1_, node);
 
         p_avgRho[ni]  = *stk::mesh::field_data(*avgDensity_, node);
-        p_avgTke[ni]  = *stk::mesh::field_data(*avgTke_, node);
-        p_avgSdr[ni]  = *stk::mesh::field_data(*avgSdr_, node);
 
         // gather vectors
         const int niNdim = ni*nDim_;
@@ -265,18 +255,15 @@ void ComputeTAMSResAdequacyElemAlgorithm::execute() {
 
         // zero out; instantaneous quantities
         double tkeScs = 0.0;
+        double sdrScs = 0.0;
         double alphaScs = 0.0;
         double muScs = 0.0;
 
         // zero out; fluctuating quantities
         double fluctRhoScs = 0.0;
-        double fluctTkeScs = 0.0;
-        double fluctSdrScs = 0.0;
   
         // zero out; mean quantities
         double avgRhoScs = 0.0;
-        double avgTkeScs = 0.0;
-        double avgSdrScs = 0.0;
 
         // zero out; vectors and tensors
         for ( unsigned j = 0; j < nDim_; ++j ) {
@@ -301,16 +288,13 @@ void ComputeTAMSResAdequacyElemAlgorithm::execute() {
 
           // scalars 
           tkeScs += r*p_tke[ic];
+          sdrScs += r*p_sdr[ic];
           alphaScs += r*p_alpha[ic];
           muScs += r*p_mu[ic];
 
           fluctRhoScs += r*(p_rhoNp1[ic] - p_avgRho[ic]); 
-          fluctTkeScs += r*(p_tke[ic] - p_avgTke[ic]); 
-          fluctSdrScs += r*(p_sdr[ic] - p_avgSdr[ic]); 
 
           avgRhoScs += r*p_avgRho[ic];
-          avgTkeScs += r*p_avgTke[ic];
-          avgSdrScs += r*p_avgSdr[ic];
 
           const int offSetDnDx = nDim_*nodesPerElement*ip + ic*nDim_;
           for ( int j = 0; j < nDim_; ++j ) {
@@ -329,7 +313,7 @@ void ComputeTAMSResAdequacyElemAlgorithm::execute() {
           }
         }
 
-        const double epsilon13 = stk::math::pow(betaStar_*avgTkeScs*avgSdrScs, 1.0/3.0);
+        const double epsilon13 = stk::math::pow(betaStar_*tkeScs*sdrScs, 1.0/3.0);
 
         for (unsigned i = 0; i < nDim_; ++i) {
 
@@ -378,7 +362,7 @@ void ComputeTAMSResAdequacyElemAlgorithm::execute() {
         EigenDecomposition::sym_diagonalize<double>(PM, Q, D);
 
         const double maxPM = std::max(std::abs(D[0][0]), std::max(std::abs(D[1][1]), std::abs(D[2][2])));
-        const double T_sst = 1.0 / (betaStar_ * avgSdrScs);
+        const double T_sst = 1.0 / (betaStar_ * sdrScs);
         const double v2 = 5.0 * muScs * T_sst;
 
         resAdeqSum += std::pow(1.5/v2,1.5)*maxPM;
@@ -389,15 +373,15 @@ void ComputeTAMSResAdequacyElemAlgorithm::execute() {
   
       // Update the average field here as well since it is an element quantity
       // and the averaging algorithm operates on the nodes
-      double elemAvgTke = 0.0;
-      double elemAvgSdr = 0.0;
+      double elemTke = 0.0;
+      double elemSdr = 0.0;
       for ( int ic = 0; ic < nodesPerElement; ++ic ) {
-        elemAvgTke += p_avgTke[ic];
-        elemAvgSdr += p_avgSdr[ic];
+        elemTke += p_tke[ic];
+        elemSdr += p_sdr[ic];
       }
 
       // The division by number of nodes cancels out here
-      const double T_ave = elemAvgTke/elemAvgSdr;
+      const double T_ave = elemTke/elemSdr;
 
       const double weightAvg = std::max(1.0 - dt/T_ave, 0.0);
       const double weightInst = std::min(dt/T_ave, 1.0);

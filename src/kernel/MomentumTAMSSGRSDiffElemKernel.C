@@ -42,7 +42,7 @@ MomentumTAMSSGRSDiffElemKernel<AlgTraits>::MomentumTAMSSGRSDiffElemKernel(
   densityNp1_ =
     metaData.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "average_density");
   tkeNp1_ = metaData.get_field<ScalarFieldType>(
-    stk::topology::NODE_RANK, "average_turbulent_ke");
+    stk::topology::NODE_RANK, "turbulent_ke");
   alphaNp1_ = metaData.get_field<ScalarFieldType>(
     stk::topology::NODE_RANK, "k_ratio");
 

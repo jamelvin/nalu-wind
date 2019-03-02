@@ -39,7 +39,7 @@ ComputeTAMSKratioElemAlgorithm::ComputeTAMSKratioElemAlgorithm(
   stk::mesh::MetaData &meta_data = realm_.meta_data();
 
   alpha_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "k_ratio");
-  avgTurbKineticEnergy_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "average_turbulent_ke");
+  turbKineticEnergy_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "turbulent_ke");
   avgResolvedStress_ = meta_data.get_field<GenericFieldType>(stk::topology::NODE_RANK, "average_resolved_stress");
 }
 
@@ -63,7 +63,7 @@ void ComputeTAMSKratioElemAlgorithm::execute() {
     const stk::mesh::Bucket::size_type length = b.size();
 
     // get field data
-    double * avgTke = stk::mesh::field_data(*avgTurbKineticEnergy_, b);
+    double * tke = stk::mesh::field_data(*turbKineticEnergy_, b);
     double * alpha = stk::mesh::field_data(*alpha_, b);
       
     for (stk::mesh::Bucket::size_type k = 0; k < length; ++k) {
@@ -74,10 +74,10 @@ void ComputeTAMSKratioElemAlgorithm::execute() {
       }
       kResolved *= 0.5;
 
-      if (avgTke[k] == 0.0)
+      if (tke[k] == 0.0)
          alpha[k] = 1.0;
       else
-         alpha[k] = 1.0 - kResolved/avgTke[k];
+         alpha[k] = 1.0 - kResolved/tke[k];
     }
   }
 }

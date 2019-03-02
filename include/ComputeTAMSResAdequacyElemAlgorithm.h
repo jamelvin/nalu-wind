@@ -36,8 +36,6 @@ public:
   ScalarFieldType *alphaNp1_{nullptr};
   VectorFieldType *avgVelocity_{nullptr};
   ScalarFieldType *avgDensity_{nullptr};
-  ScalarFieldType *avgTke_{nullptr};
-  ScalarFieldType *avgSdr_{nullptr};
   ScalarFieldType *resAdeq_{nullptr};
   ScalarFieldType *avgResAdeq_{nullptr};
   GenericFieldType *Mij_{nullptr};
@@ -58,8 +56,6 @@ public:
 
   std::vector<double> ws_avgU;
   std::vector<double> ws_avgRho;
-  std::vector<double> ws_avgTke;
-  std::vector<double> ws_avgSdr;
 
   std::vector<double> fluctUjScs;
   std::vector<double> avgUjScs;
