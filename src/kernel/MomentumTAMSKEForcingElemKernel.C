@@ -5,7 +5,7 @@
 /*  directory structure                                                   */
 /*------------------------------------------------------------------------*/
 
-#include "kernel/MomentumTAMSForcingElemKernel.h"
+#include "kernel/MomentumTAMSKEForcingElemKernel.h"
 #include "AlgTraits.h"
 #include "EigenDecomposition.h"
 #include "master_element/MasterElement.h"
@@ -26,7 +26,7 @@ namespace sierra {
 namespace nalu {
 
 template <typename AlgTraits>
-MomentumTAMSForcingElemKernel<AlgTraits>::MomentumTAMSForcingElemKernel(
+MomentumTAMSKEForcingElemKernel<AlgTraits>::MomentumTAMSKEForcingElemKernel(
   const stk::mesh::BulkData& bulkData,
   const SolutionOptions& solnOpts,
   ScalarFieldType* viscosity,
@@ -43,7 +43,7 @@ MomentumTAMSForcingElemKernel<AlgTraits>::MomentumTAMSForcingElemKernel(
   velocityNp1_ = metaData.get_field<VectorFieldType>(stk::topology::NODE_RANK, "velocity");
   densityNp1_ = metaData.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "density");
   tkeNp1_ = metaData.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "turbulent_ke");
-  sdrNp1_ = metaData.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "specific_dissipation_rate");
+  tdrNp1_ = metaData.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "total_dissipation_rate");
   alphaNp1_ = metaData.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "k_ratio");
   Mij_ = metaData.get_field<GenericFieldType>(stk::topology::ELEMENT_RANK, "metric_tensor");
 
@@ -76,7 +76,7 @@ MomentumTAMSForcingElemKernel<AlgTraits>::MomentumTAMSForcingElemKernel(
   dataPreReqs.add_gathered_nodal_field(*turbViscosity_, 1);
   dataPreReqs.add_gathered_nodal_field(*densityNp1_, 1);
   dataPreReqs.add_gathered_nodal_field(*tkeNp1_, 1);
-  dataPreReqs.add_gathered_nodal_field(*sdrNp1_, 1);
+  dataPreReqs.add_gathered_nodal_field(*tdrNp1_, 1);
   dataPreReqs.add_gathered_nodal_field(*avgVelocity_, AlgTraits::nDim_);
   dataPreReqs.add_gathered_nodal_field(*avgDensity_, 1);
   dataPreReqs.add_gathered_nodal_field(*alphaNp1_, 1);
@@ -90,7 +90,7 @@ MomentumTAMSForcingElemKernel<AlgTraits>::MomentumTAMSForcingElemKernel(
 
 template<typename AlgTraits>
 void
-MomentumTAMSForcingElemKernel<AlgTraits>::setup(const TimeIntegrator& timeIntegrator)
+MomentumTAMSKEForcingElemKernel<AlgTraits>::setup(const TimeIntegrator& timeIntegrator)
 {
   time_ = timeIntegrator.get_current_time();
   dt_   = timeIntegrator.get_time_step();
@@ -98,7 +98,7 @@ MomentumTAMSForcingElemKernel<AlgTraits>::setup(const TimeIntegrator& timeIntegr
 
 template <typename AlgTraits>
 void
-MomentumTAMSForcingElemKernel<AlgTraits>::execute(
+MomentumTAMSKEForcingElemKernel<AlgTraits>::execute(
   SharedMemView<DoubleType**>& lhs,
   SharedMemView<DoubleType*>& rhs,
   ScratchViews<DoubleType>& scratchViews)
@@ -115,8 +115,8 @@ MomentumTAMSForcingElemKernel<AlgTraits>::execute(
     scratchViews.get_scratch_view_1D(*densityNp1_);
   SharedMemView<DoubleType*>& v_tkeNp1 =
     scratchViews.get_scratch_view_1D(*tkeNp1_);
-  SharedMemView<DoubleType*>& v_sdrNp1 =
-    scratchViews.get_scratch_view_1D(*sdrNp1_);
+  SharedMemView<DoubleType*>& v_tdrNp1 =
+    scratchViews.get_scratch_view_1D(*tdrNp1_);
   SharedMemView<DoubleType*>& v_viscosity = 
     scratchViews.get_scratch_view_1D(*viscosity_);
   SharedMemView<DoubleType*>& v_turbViscosity =
@@ -151,7 +151,7 @@ MomentumTAMSForcingElemKernel<AlgTraits>::execute(
     DoubleType mu_tScs = 0.0;
     DoubleType rhoScs = 0.0;
     DoubleType tkeScs = 0.0;
-    DoubleType sdrScs = 0.0;
+    DoubleType tdrScs = 0.0;
     DoubleType alphaScs = 0.0;
     DoubleType wallDistScs = 0.0;
 
@@ -165,7 +165,7 @@ MomentumTAMSForcingElemKernel<AlgTraits>::execute(
       mu_tScs     += r * v_turbViscosity(ic);
       rhoScs      += r * v_rhoNp1(ic);
       tkeScs      += r * v_tkeNp1(ic);
-      sdrScs      += r * v_sdrNp1(ic);
+      tdrScs      += r * v_tdrNp1(ic);
       alphaScs    += r * v_alphaNp1(ic);
       wallDistScs += r * v_minDist(ic);
 
@@ -175,8 +175,6 @@ MomentumTAMSForcingElemKernel<AlgTraits>::execute(
         w_fluctUScs[i] += r * (v_uNp1(ic,i) - v_avgU(ic,i));
       }
     }
-
-    const DoubleType epsScs = betaStar_*tkeScs*sdrScs;
 
     // First we calculate the a_i's
     const double FORCING_CL = 4.0;
@@ -190,12 +188,12 @@ MomentumTAMSForcingElemKernel<AlgTraits>::execute(
     const DoubleType periodicForcingLengthY = 0.25;
     const DoubleType periodicForcingLengthZ = 3.0/8.0 * pi_;
 
-    DoubleType length = FORCING_CL*stk::math::pow(alphaScs*tkeScs,1.5)/epsScs;
-    length = stk::math::max(length, Ceta*(stk::math::pow(muScs,0.75)/stk::math::pow(epsScs,0.25)));
+    DoubleType length = FORCING_CL*stk::math::pow(alphaScs*tkeScs,1.5)/tdrScs;
+    length = stk::math::max(length, Ceta*(stk::math::pow(muScs,0.75)/stk::math::pow(tdrScs,0.25)));
     length = stk::math::min(length, wallDistScs);
     
-    DoubleType T_alpha = alphaScs*tkeScs/epsScs;
-    T_alpha = stk::math::max(T_alpha,Ct*stk::math::sqrt(muScs/epsScs));
+    DoubleType T_alpha = alphaScs*tkeScs/tdrScs;
+    T_alpha = stk::math::max(T_alpha,Ct*stk::math::sqrt(muScs/tdrScs));
     T_alpha = BL_T*T_alpha;
   
     const DoubleType ceilLengthX = stk::math::max(length, 2.0*v_Mij(0,0));
@@ -250,7 +248,7 @@ MomentumTAMSForcingElemKernel<AlgTraits>::execute(
   
     // Now we calculate the scaling of the initial field
     // FIXME: Pass the 0.22 as another turbulence constant (V2F_Cmu)
-    const DoubleType v2Scs = mu_tScs * betaStar_ * sdrScs / (0.22 * rhoScs);
+    const DoubleType v2Scs = mu_tScs * tdrScs / (0.22 * rhoScs * tkeScs);
     const DoubleType F_target = FORCING_FACTOR * stk::math::sqrt(alphaScs*v2Scs)/T_alpha; 
   
     const DoubleType prod_r = (F_target*dt_) * (hX*w_fluctUScs[0] + hY*w_fluctUScs[1] + hZ*w_fluctUScs[2]);
@@ -262,18 +260,51 @@ MomentumTAMSForcingElemKernel<AlgTraits>::execute(
   
     DoubleType Sa = a_sign;
   
-    DoubleType a_kol = stk::math::min(BL_KOL*stk::math::sqrt(muScs*epsScs)/tkeScs,1.0);
+    DoubleType a_kol = stk::math::min(BL_KOL*stk::math::sqrt(muScs*tdrScs/rhoScs)/tkeScs,1.0);
+
+    // FIXME: Can I do a compound if statement with if_then... it was not working...
+    for (int simdIndex = 0; simdIndex < stk::simd::ndoubles; ++simdIndex) {
+      double tmp_asign = stk::simd::get_data(a_sign, simdIndex);
+      double tmp_akol = stk::simd::get_data(a_kol, simdIndex);
+      double tmp_alpha = stk::simd::get_data(alphaScs, simdIndex);
+      double tmp_Sa = stk::simd::get_data(Sa, simdIndex);
+
+      if (tmp_asign < 0.0) {
+        if (tmp_alpha <= tmp_akol)
+           tmp_Sa = tmp_Sa - (1.0 + tmp_akol - tmp_alpha)*tmp_asign;
+      }
+      else {
+        if (tmp_alpha >= 1.0)
+           tmp_Sa = tmp_Sa - tmp_alpha*tmp_asign;
+      }
+      stk::simd::set_data(Sa, simdIndex, tmp_Sa);
+    }
   
-    stk::math::if_then_else(a_sign < 0.0, 
-          stk::math::if_then_else_zero(alphaScs <= a_kol, Sa = Sa - (1.0+a_kol-alphaScs)*a_sign),
-          stk::math::if_then_else_zero(alphaScs >= 1.0, Sa = Sa - alphaScs*a_sign));
+    //stk::math::if_then_else((a_sign < 0.0) && (alphaScs <= a_kol), Sa = Sa - (1.0+a_kol-alphaScs)*a_sign, Sa = Sa*1.0);
+
+    //stk::math::if_then_else((a_sign >= 0.0) && (alphaScs >= 1.0), Sa = Sa - alphaScs*a_sign, Sa = Sa*1.0);
   
     const DoubleType fd_temp = v_avgResAdeq(0);
   
     DoubleType C_F;
-    stk::math::if_then_else((fd_temp < 1.0) && (prod_r > 0.0), C_F = -1.0 * F_target * Sa, C_F = 0.0);
+    // FIXME: Can I do a compound if statement with if_then... it was not working...
+    for (int simdIndex = 0; simdIndex < stk::simd::ndoubles; ++simdIndex) {
+      double tmp_fd = stk::simd::get_data(fd_temp, simdIndex);
+      double tmp_prodr = stk::simd::get_data(prod_r, simdIndex);
+      double tmp_CF = stk::simd::get_data(C_F, simdIndex);
+      double tmp_Ftarget = stk::simd::get_data(F_target, simdIndex);
+      double tmp_Sa = stk::simd::get_data(Sa, simdIndex);
+
+      if ((tmp_fd < 1.0) && (tmp_prodr >= 0.0))
+        C_F = -1.0 * tmp_Ftarget * tmp_Sa;
+      else 
+        C_F = 0.0;
+      stk::simd::set_data(C_F, simdIndex, tmp_CF);
+    }
+    //stk::math::if_then_else((fd_temp < 1.0) && (prod_r >= 0.0), C_F = -1.0 * F_target * Sa, C_F = 0.0);
   
-    const DoubleType norm = C_F * dt_;
+    // Since we aren't projecting, ignore scaling by dt which is done before projection and then removed...
+    const DoubleType norm = C_F; //* dt_;
   
     // Now we determine the actual forcing field
     DoubleType gX = norm * hX; 
@@ -297,7 +328,7 @@ MomentumTAMSForcingElemKernel<AlgTraits>::execute(
   }
 }
 
-INSTANTIATE_KERNEL(MomentumTAMSForcingElemKernel);
+INSTANTIATE_KERNEL(MomentumTAMSKEForcingElemKernel);
 
 } // namespace nalu
 } // namespace sierra

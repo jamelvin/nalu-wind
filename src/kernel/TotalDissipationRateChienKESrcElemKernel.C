@@ -40,15 +40,29 @@ TotalDissipationRateChienKESrcElemKernel<AlgTraits>::
                  ->ipNodeMap())
 {
   const stk::mesh::MetaData& metaData = bulkData.mesh_meta_data();
-  tkeNp1_ = get_field_ordinal(metaData, "turbulent_ke", stk::mesh::StateNP1);
-  tdrNp1_ = get_field_ordinal(metaData, "total_dissipation_rate", stk::mesh::StateNP1);
-  densityNp1_ = get_field_ordinal(metaData, "density", stk::mesh::StateNP1);
-  velocityNp1_ = get_field_ordinal(metaData, "velocity", stk::mesh::StateNP1);
-  visc_ = get_field_ordinal(metaData, "viscosity");
-  tvisc_ = get_field_ordinal(metaData, "turbulent_viscosity");
-  dplus_ = get_field_ordinal(metaData, "dplus_wall_function");
-  minD_ = get_field_ordinal(metaData, "minimum_distance_to_wall");
-  coordinates_ = get_field_ordinal(metaData, solnOpts.get_coordinates_name());
+
+  ScalarFieldType* tke = metaData.get_field<ScalarFieldType>(
+    stk::topology::NODE_RANK, "turbulent_ke");
+  tkeNp1_ = &tke->field_of_state(stk::mesh::StateNP1);
+  ScalarFieldType* tdr = metaData.get_field<ScalarFieldType>(
+    stk::topology::NODE_RANK, "total_dissipation_rate");
+  tdrNp1_ = &tdr->field_of_state(stk::mesh::StateNP1);
+  ScalarFieldType* density =
+    metaData.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "density");
+  densityNp1_ = &density->field_of_state(stk::mesh::StateNP1);
+  VectorFieldType* velocity =
+    metaData.get_field<VectorFieldType>(stk::topology::NODE_RANK, "velocity");
+  velocityNp1_ = &(velocity->field_of_state(stk::mesh::StateNP1));
+  visc_ = metaData.get_field<ScalarFieldType>(
+    stk::topology::NODE_RANK, "viscosity");
+  tvisc_ = metaData.get_field<ScalarFieldType>(
+    stk::topology::NODE_RANK, "turbulent_viscosity");
+  dplus_ = metaData.get_field<ScalarFieldType>(
+    stk::topology::NODE_RANK, "dplus_wall_function");
+  minD_ = metaData.get_field<ScalarFieldType>(
+    stk::topology::NODE_RANK, "minimum_distance_to_wall");
+  coordinates_ = metaData.get_field<VectorFieldType>(
+    stk::topology::NODE_RANK, solnOpts.get_coordinates_name());
 
   MasterElement* meSCV =
     sierra::nalu::MasterElementRepo::get_volume_master_element(
@@ -67,15 +81,15 @@ TotalDissipationRateChienKESrcElemKernel<AlgTraits>::
 
   // fields and data
   dataPreReqs.add_coordinates_field(
-    coordinates_, AlgTraits::nDim_, CURRENT_COORDINATES);
-  dataPreReqs.add_gathered_nodal_field(tkeNp1_, 1);
-  dataPreReqs.add_gathered_nodal_field(tdrNp1_, 1);
-  dataPreReqs.add_gathered_nodal_field(densityNp1_, 1);
-  dataPreReqs.add_gathered_nodal_field(velocityNp1_, AlgTraits::nDim_);
-  dataPreReqs.add_gathered_nodal_field(visc_, 1);
-  dataPreReqs.add_gathered_nodal_field(tvisc_, 1);
-  dataPreReqs.add_gathered_nodal_field(dplus_, 1);
-  dataPreReqs.add_gathered_nodal_field(minD_, 1);
+    *coordinates_, AlgTraits::nDim_, CURRENT_COORDINATES);
+  dataPreReqs.add_gathered_nodal_field(*tkeNp1_, 1);
+  dataPreReqs.add_gathered_nodal_field(*tdrNp1_, 1);
+  dataPreReqs.add_gathered_nodal_field(*densityNp1_, 1);
+  dataPreReqs.add_gathered_nodal_field(*velocityNp1_, AlgTraits::nDim_);
+  dataPreReqs.add_gathered_nodal_field(*visc_, 1);
+  dataPreReqs.add_gathered_nodal_field(*tvisc_, 1);
+  dataPreReqs.add_gathered_nodal_field(*dplus_, 1);
+  dataPreReqs.add_gathered_nodal_field(*minD_, 1);
   dataPreReqs.add_master_element_call(SCV_VOLUME, CURRENT_COORDINATES);
   if (shiftedGradOp_)
     dataPreReqs.add_master_element_call(
@@ -101,21 +115,21 @@ TotalDissipationRateChienKESrcElemKernel<AlgTraits>::execute(
   NALU_ALIGNED DoubleType w_coords[AlgTraits::nDim_];
 
   SharedMemView<DoubleType*>& v_tkeNp1 =
-    scratchViews.get_scratch_view_1D(tkeNp1_);
+    scratchViews.get_scratch_view_1D(*tkeNp1_);
   SharedMemView<DoubleType*>& v_tdrNp1 =
-    scratchViews.get_scratch_view_1D(tdrNp1_);
+    scratchViews.get_scratch_view_1D(*tdrNp1_);
   SharedMemView<DoubleType*>& v_densityNp1 =
-    scratchViews.get_scratch_view_1D(densityNp1_);
+    scratchViews.get_scratch_view_1D(*densityNp1_);
   SharedMemView<DoubleType**>& v_velocityNp1 =
-    scratchViews.get_scratch_view_2D(velocityNp1_);
+    scratchViews.get_scratch_view_2D(*velocityNp1_);
   SharedMemView<DoubleType*>& v_visc =
-    scratchViews.get_scratch_view_1D(visc_);
+    scratchViews.get_scratch_view_1D(*visc_);
   SharedMemView<DoubleType*>& v_tvisc =
-    scratchViews.get_scratch_view_1D(tvisc_);
+    scratchViews.get_scratch_view_1D(*tvisc_);
   SharedMemView<DoubleType*>& v_dplus =
-    scratchViews.get_scratch_view_1D(dplus_);
+    scratchViews.get_scratch_view_1D(*dplus_);
   SharedMemView<DoubleType*>& v_minD =
-    scratchViews.get_scratch_view_1D(minD_);
+    scratchViews.get_scratch_view_1D(*minD_);
   SharedMemView<DoubleType***>& v_dndx =
     shiftedGradOp_
       ? scratchViews.get_me_views(CURRENT_COORDINATES).dndx_scv_shifted
@@ -125,7 +139,7 @@ TotalDissipationRateChienKESrcElemKernel<AlgTraits>::execute(
 
 
   SharedMemView<DoubleType**>& v_coords = 
-    scratchViews.get_scratch_view_2D(coordinates_);
+    scratchViews.get_scratch_view_2D(*coordinates_);
 
   for (int ip = 0; ip < AlgTraits::numScvIp_; ++ip) {
 

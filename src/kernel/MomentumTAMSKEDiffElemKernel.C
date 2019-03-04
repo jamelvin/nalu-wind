@@ -5,7 +5,7 @@
 /*  directory structure                                                   */
 /*------------------------------------------------------------------------*/
 
-#include "kernel/MomentumTAMSDiffElemKernel.h"
+#include "kernel/MomentumTAMSKEDiffElemKernel.h"
 #include "AlgTraits.h"
 #include "EigenDecomposition.h"
 #include "master_element/MasterElement.h"
@@ -26,7 +26,7 @@ namespace sierra {
 namespace nalu {
 
 template <typename AlgTraits>
-MomentumTAMSDiffElemKernel<AlgTraits>::MomentumTAMSDiffElemKernel(
+MomentumTAMSKEDiffElemKernel<AlgTraits>::MomentumTAMSKEDiffElemKernel(
   const stk::mesh::BulkData& bulkData,
   const SolutionOptions& solnOpts,
   ScalarFieldType* viscosity,
@@ -45,7 +45,7 @@ MomentumTAMSDiffElemKernel<AlgTraits>::MomentumTAMSDiffElemKernel(
   velocityNp1_ = metaData.get_field<VectorFieldType>(stk::topology::NODE_RANK, "velocity");
   densityNp1_ = metaData.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "density");
   tkeNp1_ = metaData.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "turbulent_ke");
-  sdrNp1_ = metaData.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "specific_dissipation_rate");
+  tdrNp1_ = metaData.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "total_dissipation_rate");
   alphaNp1_ = metaData.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "k_ratio");
   Mij_ = metaData.get_field<GenericFieldType>(stk::topology::ELEMENT_RANK, "metric_tensor");
 
@@ -75,7 +75,7 @@ MomentumTAMSDiffElemKernel<AlgTraits>::MomentumTAMSDiffElemKernel(
   dataPreReqs.add_gathered_nodal_field(*viscosity_, 1);
   dataPreReqs.add_gathered_nodal_field(*densityNp1_, 1);
   dataPreReqs.add_gathered_nodal_field(*tkeNp1_, 1);
-  dataPreReqs.add_gathered_nodal_field(*sdrNp1_, 1);
+  dataPreReqs.add_gathered_nodal_field(*tdrNp1_, 1);
   dataPreReqs.add_gathered_nodal_field(*avgVelocity_, AlgTraits::nDim_);
   dataPreReqs.add_gathered_nodal_field(*avgDensity_, 1);
   dataPreReqs.add_gathered_nodal_field(*alphaNp1_, 1);
@@ -92,7 +92,7 @@ MomentumTAMSDiffElemKernel<AlgTraits>::MomentumTAMSDiffElemKernel(
 
 template <typename AlgTraits>
 void
-MomentumTAMSDiffElemKernel<AlgTraits>::execute(
+MomentumTAMSKEDiffElemKernel<AlgTraits>::execute(
   SharedMemView<DoubleType**>& lhs,
   SharedMemView<DoubleType*>& rhs,
   ScratchViews<DoubleType>& scratchViews)
@@ -105,8 +105,8 @@ MomentumTAMSDiffElemKernel<AlgTraits>::execute(
     scratchViews.get_scratch_view_1D(*densityNp1_);
   SharedMemView<DoubleType*>& v_tkeNp1 =
     scratchViews.get_scratch_view_1D(*tkeNp1_);
-  SharedMemView<DoubleType*>& v_sdrNp1 =
-    scratchViews.get_scratch_view_1D(*sdrNp1_);
+  SharedMemView<DoubleType*>& v_tdrNp1 =
+    scratchViews.get_scratch_view_1D(*tdrNp1_);
   SharedMemView<DoubleType*>& v_viscosity = 
     scratchViews.get_scratch_view_1D(*viscosity_);
   SharedMemView<DoubleType**>& v_avgU =
@@ -176,7 +176,7 @@ MomentumTAMSDiffElemKernel<AlgTraits>::execute(
     DoubleType fluctRhoScs = 0.0;
     DoubleType avgRhoScs = 0.0;
     DoubleType tkeScs = 0.0;
-    DoubleType sdrScs = 0.0;
+    DoubleType tdrScs = 0.0;
     DoubleType alphaScs = 0.0;
     DoubleType avgDivU = 0.0;
 
@@ -190,7 +190,7 @@ MomentumTAMSDiffElemKernel<AlgTraits>::execute(
       fluctRhoScs += r * (v_rhoNp1(ic) - v_avgRho(ic));
       avgRhoScs   += r * v_avgRho(ic);
       tkeScs      += r * v_tkeNp1(ic);
-      sdrScs      += r * v_sdrNp1(ic);
+      tdrScs      += r * v_tdrNp1(ic);
       alphaScs    += r * v_alphaNp1(ic);
 
       for (int j = 0; j < AlgTraits::nDim_; ++j) {
@@ -211,7 +211,7 @@ MomentumTAMSDiffElemKernel<AlgTraits>::execute(
     }
 
     // FIXME: Does this need a rho in it?
-    const DoubleType epsilon13Scs = stk::math::pow(betaStar_*tkeScs*sdrScs,1.0/3.0);
+    const DoubleType epsilon13Scs = stk::math::pow(tdrScs,1.0/3.0);
 
     for (int ic = 0; ic < AlgTraits::nodesPerElement_; ++ic) {
 
@@ -304,7 +304,7 @@ MomentumTAMSDiffElemKernel<AlgTraits>::execute(
 
 template <typename AlgTraits>
 DoubleType
-MomentumTAMSDiffElemKernel<AlgTraits>::get_M43_constant(
+MomentumTAMSKEDiffElemKernel<AlgTraits>::get_M43_constant(
   DoubleType D[AlgTraits::nDim_][AlgTraits::nDim_])
 {
 
@@ -317,7 +317,7 @@ MomentumTAMSDiffElemKernel<AlgTraits>::get_M43_constant(
   
 
   if (AlgTraits::nDim_ != 3)
-     throw std::runtime_error("In MomentumTAMSDiffElemKernel, requires 3D problem");
+     throw std::runtime_error("In MomentumTAMSKEDiffElemKernel, requires 3D problem");
 
   // FIXME: Can we find a more elegant way to sort the three eigenvalues...
   DoubleType smallestEV = stk::math::min(D[0][0],stk::math::min(D[1][1],D[2][2]));
@@ -348,7 +348,7 @@ MomentumTAMSDiffElemKernel<AlgTraits>::get_M43_constant(
 
 }
 
-INSTANTIATE_KERNEL(MomentumTAMSDiffElemKernel);
+INSTANTIATE_KERNEL(MomentumTAMSKEDiffElemKernel);
 
 } // namespace nalu
 } // namespace sierra

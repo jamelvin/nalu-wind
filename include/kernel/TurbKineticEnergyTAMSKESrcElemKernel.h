@@ -5,8 +5,8 @@
 /*  directory structure                                                   */
 /*------------------------------------------------------------------------*/
 
-#ifndef TURBKINETICENERGYCHIENKESRCELEMKERNEL_H
-#define TURBKINETICENERGYCHIENKESRCELEMKERNEL_H
+#ifndef TURBKINETICENERGYTAMSKESRCELEMKERNEL_H
+#define TURBKINETICENERGYTAMSKESRCELEMKERNEL_H
 
 #include "Kernel.h"
 #include "FieldTypeDef.h"
@@ -23,16 +23,16 @@ class MasterElement;
 class ElemDataRequests;
 
 template <typename AlgTraits>
-class TurbKineticEnergyChienKESrcElemKernel : public Kernel
+class TurbKineticEnergyTAMSKESrcElemKernel : public Kernel
 {
 public:
-  TurbKineticEnergyChienKESrcElemKernel(
+  TurbKineticEnergyTAMSKESrcElemKernel(
     const stk::mesh::BulkData&,
     const SolutionOptions&,
     ElemDataRequests&,
     const bool);
 
-  virtual ~TurbKineticEnergyChienKESrcElemKernel();
+  virtual ~TurbKineticEnergyTAMSKESrcElemKernel();
 
   /** Execute the kernel within a Kokkos loop and populate the LHS and RHS for
    *  the linear solve
@@ -44,19 +44,23 @@ public:
     ScratchViews<DoubleType>&);
 
 private:
-  TurbKineticEnergyChienKESrcElemKernel() = delete;
+  TurbKineticEnergyTAMSKESrcElemKernel() = delete;
 
   ScalarFieldType* tkeNp1_{nullptr};
   ScalarFieldType* tdrNp1_{nullptr};
   ScalarFieldType* densityNp1_{nullptr};
   VectorFieldType* velocityNp1_{nullptr};
+  GenericFieldType* resStressNp1_{nullptr};
   ScalarFieldType* visc_{nullptr};
   ScalarFieldType* tvisc_{nullptr};
+  ScalarFieldType* alpha_{nullptr};
   ScalarFieldType* minD_{nullptr};
   VectorFieldType* coordinates_{nullptr};
 
   const bool lumpedMass_;
   const bool shiftedGradOp_;
+  const double betaStar_;
+  double tkeProdLimitRatio_{0.0};
 
   const int* ipNodeMap_;
 
@@ -68,4 +72,4 @@ private:
 } // namespace nalu
 } // namespace sierra
 
-#endif /* TURBKINETICENERGYCHIENKESRCELEMKERNEL_H */
+#endif /* TURBKINETICENERGYTAMSKESRCELEMKERNEL_H */

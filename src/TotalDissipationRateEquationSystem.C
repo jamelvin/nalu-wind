@@ -57,6 +57,9 @@
 #include <kernel/ScalarUpwAdvDiffElemKernel.h>
 #include <kernel/TotalDissipationRateChienKESrcElemKernel.h>
 
+// UT Austin Hybird TAMS kernel
+#include <kernel/TotalDissipationRateTAMSKESrcElemKernel.h>
+
 // nso
 #include <nso/ScalarNSOElemKernel.h>
 #include <nso/ScalarNSOKeElemSuppAlg.h>
@@ -109,8 +112,6 @@ TotalDissipationRateEquationSystem::TotalDissipationRateEquationSystem(
     assembleNodalGradAlgDriver_(new AssembleNodalGradAlgorithmDriver(realm_, "total_dissipation_rate", "dedx")),
     diffFluxCoeffAlgDriver_(new AlgorithmDriver(realm_))
 {
-  dofName_ = "total_dissipation_rate";
-
   // extract solver name and solver object
   std::string solverName = realm_.equationSystems_.get_solver_block_name("total_dissipation_rate");
   LinearSolver *solver = realm_.root()->linearSolvers_->create_solver(solverName, EQ_TOT_DISS_RATE);
@@ -391,6 +392,15 @@ TotalDissipationRateEquationSystem::register_interior_algorithm(
       build_topo_kernel_if_requested<ScalarNSOElemKernel>
         (partTopo, *this, activeKernels, "NSO_4TH_ALT",
          realm_.bulk_data(), *realm_.solutionOptions_, tdr_, dedx_, evisc_, 1.0, 1.0, dataPreReqs);
+
+      // UT Austin Hybrid TAMS model implementations for TDR source terms
+      build_topo_kernel_if_requested<TotalDissipationRateTAMSKESrcElemKernel>
+        (partTopo, *this, activeKernels, "tams_ke",
+         realm_.bulk_data(), *realm_.solutionOptions_, dataPreReqs, false);
+
+      build_topo_kernel_if_requested<TotalDissipationRateTAMSKESrcElemKernel>
+        (partTopo, *this, activeKernels, "lumped_tams_ke",
+         realm_.bulk_data(), *realm_.solutionOptions_, dataPreReqs, true);
 
       report_invalid_supp_alg_names();
       report_built_supp_alg_names();

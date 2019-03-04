@@ -5,8 +5,8 @@
 /*  directory structure                                                   */
 /*------------------------------------------------------------------------*/
 
-#ifndef COMPUTETAMSRESADEQUACYELEMALGORITHM_H
-#define COMPUTETAMSRESADEQUACYELEMALGORITHM_H
+#ifndef COMPUTETAMSSSTRESADEQUACYELEMALGORITHM_H
+#define COMPUTETAMSSSTRESADEQUACYELEMALGORITHM_H
 
 #include <Algorithm.h>
 #include <FieldTypeDef.h>
@@ -15,10 +15,10 @@ namespace sierra {
 namespace nalu {
 
 class Realm;
-class ComputeTAMSResAdequacyElemAlgorithm : public Algorithm {
+class ComputeTAMSSSTResAdequacyElemAlgorithm : public Algorithm {
 public:
-  ComputeTAMSResAdequacyElemAlgorithm(Realm &realm, stk::mesh::Part *part);
-  virtual ~ComputeTAMSResAdequacyElemAlgorithm() {}
+  ComputeTAMSSSTResAdequacyElemAlgorithm(Realm &realm, stk::mesh::Part *part);
+  virtual ~ComputeTAMSSSTResAdequacyElemAlgorithm() {}
 
   virtual void execute();
   double get_M43_constant(double D[3][3]);

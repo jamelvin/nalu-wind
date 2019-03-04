@@ -5,8 +5,8 @@
 /*  directory structure                                                   */
 /*------------------------------------------------------------------------*/
 
-#ifndef COMPUTETAMSAVERAGESELEMALGORITHM_H
-#define COMPUTETAMSAVERAGESELEMALGORITHM_H
+#ifndef COMPUTETAMSSSTAVERAGESELEMALGORITHM_H
+#define COMPUTETAMSSSTAVERAGESELEMALGORITHM_H
 
 #include <Algorithm.h>
 #include <FieldTypeDef.h>
@@ -15,10 +15,10 @@ namespace sierra {
 namespace nalu {
 
 class Realm;
-class ComputeTAMSAveragesElemAlgorithm : public Algorithm {
+class ComputeTAMSSSTAveragesElemAlgorithm : public Algorithm {
 public:
-  ComputeTAMSAveragesElemAlgorithm(Realm &realm, stk::mesh::Part *part);
-  virtual ~ComputeTAMSAveragesElemAlgorithm() {}
+  ComputeTAMSSSTAveragesElemAlgorithm(Realm &realm, stk::mesh::Part *part);
+  virtual ~ComputeTAMSSSTAveragesElemAlgorithm() {}
 
   virtual void execute();
 
@@ -34,8 +34,6 @@ public:
   VectorFieldType *avgVelocity_{nullptr};
   ScalarFieldType *avgPress_{nullptr};
   ScalarFieldType *avgDensity_{nullptr};
-  ScalarFieldType *avgTurbKineticEnergy_{nullptr};
-  ScalarFieldType *avgSpecDissipationRate_{nullptr};
   GenericFieldType *avgResolvedStress_{nullptr};
   GenericFieldType *avgDudx_{nullptr};
 };

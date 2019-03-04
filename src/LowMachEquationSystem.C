@@ -102,6 +102,7 @@
 #include <TurbViscSmagorinskyAlgorithm.h>
 #include <TurbViscSSTAlgorithm.h>
 #include <TurbViscTAMSSSTAlgorithm.h>
+#include <TurbViscTAMSKEAlgorithm.h>
 #include <TurbViscWaleAlgorithm.h>
 #include <wind_energy/ABLForcingAlgorithm.h>
 #include <FixPressureAtNodeAlgorithm.h>
@@ -148,8 +149,10 @@
 #include <nso/MomentumNSOGradElemSuppAlg.h>
 
 // UT Austin Hybird TAMS kernels
-#include <kernel/MomentumTAMSDiffElemKernel.h>
-#include <kernel/MomentumTAMSForcingElemKernel.h>
+#include <kernel/MomentumTAMSKEDiffElemKernel.h>
+#include <kernel/MomentumTAMSKEForcingElemKernel.h>
+#include <kernel/MomentumTAMSSSTDiffElemKernel.h>
+#include <kernel/MomentumTAMSSSTForcingElemKernel.h>
 
 // user function
 #include <user_functions/ConvectingTaylorVortexVelocityAuxFunction.h>
@@ -1232,13 +1235,15 @@ MomentumEquationSystem::register_interior_algorithm(
     kb.build_topo_kernel_if_requested<MomentumAdvDiffElemKernel>
       ("advection_diffusion",
        realm_.bulk_data(), *realm_.solutionOptions_, velocity_,
-       ((realm_.is_turbulent()) && (realm_.solutionOptions_->turbulenceModel_ != TAMS)) ? 
+       ((realm_.is_turbulent()) && (realm_.solutionOptions_->turbulenceModel_ != TAMS_SST)
+                                && (realm_.solutionOptions_->turbulenceModel_ != TAMS_KE)) ? 
        evisc_ : visc_, dataPreReqs);
 
     kb.build_topo_kernel_if_requested<MomentumUpwAdvDiffElemKernel>
       ("upw_advection_diffusion",
        realm_.bulk_data(), *realm_.solutionOptions_, this, velocity_,
-       ((realm_.is_turbulent()) && (realm_.solutionOptions_->turbulenceModel_ != TAMS)) ? 
+       ((realm_.is_turbulent()) && (realm_.solutionOptions_->turbulenceModel_ != TAMS_SST)
+                                && (realm_.solutionOptions_->turbulenceModel_ != TAMS_KE)) ? 
        evisc_ : visc_, dudx_, dataPreReqs);
 
     kb.build_topo_kernel_if_requested<MomentumActuatorSrcElemKernel>
@@ -1338,12 +1343,20 @@ MomentumEquationSystem::register_interior_algorithm(
         realm_.bulk_data(), *realm_.solutionOptions_,  dataPreReqsHO);
 
     // UT Austin Hybrid TAMS model implementation for subgrid quantities
-    kb.build_topo_kernel_if_requested<MomentumTAMSDiffElemKernel>
-      ("tams",
+    kb.build_topo_kernel_if_requested<MomentumTAMSSSTDiffElemKernel>
+      ("tams_sst",
        realm_.bulk_data(), *realm_.solutionOptions_, tvisc_, dataPreReqs);
 
-    kb.build_topo_kernel_if_requested<MomentumTAMSForcingElemKernel>
-      ("tams_forcing",
+    kb.build_topo_kernel_if_requested<MomentumTAMSSSTForcingElemKernel>
+      ("tams_sst_forcing",
+       realm_.bulk_data(), *realm_.solutionOptions_, visc_, tvisc_, dataPreReqs);
+
+    kb.build_topo_kernel_if_requested<MomentumTAMSKEDiffElemKernel>
+      ("tams_ke",
+       realm_.bulk_data(), *realm_.solutionOptions_, tvisc_, dataPreReqs);
+
+    kb.build_topo_kernel_if_requested<MomentumTAMSKEForcingElemKernel>
+      ("tams_ke_forcing",
        realm_.bulk_data(), *realm_.solutionOptions_, visc_, tvisc_, dataPreReqs);
 
     kb.report();
@@ -1483,8 +1496,11 @@ MomentumEquationSystem::register_interior_algorithm(
         case KEPS:
           theAlg = new TurbViscChienKEAlgorithm(realm_, part);
           break;
-        case TAMS:
+        case TAMS_SST:
           theAlg = new TurbViscTAMSSSTAlgorithm(realm_,part);
+          break;
+        case TAMS_KE:
+          theAlg = new TurbViscTAMSKEAlgorithm(realm_,part);
           break;
         default:
           throw std::runtime_error("non-supported turb model");

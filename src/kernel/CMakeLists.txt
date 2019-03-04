@@ -18,8 +18,10 @@ add_sources(GlobalSourceList
    MomentumMassHOElemKernel.C
    MomentumOpenAdvDiffElemKernel.C
    MomentumSymmetryElemKernel.C
-   MomentumTAMSDiffElemKernel.C
-   MomentumTAMSForcingElemKernel.C
+   MomentumTAMSKEDiffElemKernel.C
+   MomentumTAMSKEForcingElemKernel.C
+   MomentumTAMSSSTDiffElemKernel.C
+   MomentumTAMSSSTForcingElemKernel.C
    MomentumUpwAdvDiffElemKernel.C
    MomentumWallFunctionElemKernel.C
    PressurePoissonHOElemKernel.C
@@ -37,11 +39,13 @@ add_sources(GlobalSourceList
    SpecificDissipationRateSSTSrcElemKernel.C
    SpecificDissipationRateSSTTAMSSrcElemKernel.C
    TotalDissipationRateChienKESrcElemKernel.C
+   TotalDissipationRateTAMSKESrcElemKernel.C
    TurbKineticEnergyChienKESrcElemKernel.C
    TurbKineticEnergyKsgsDesignOrderSrcElemKernel.C
    TurbKineticEnergyKsgsSrcElemKernel.C
    TurbKineticEnergySSTDESSrcElemKernel.C
    TurbKineticEnergySSTSrcElemKernel.C
    TurbKineticEnergySSTTAMSSrcElemKernel.C
+   TurbKineticEnergyTAMSKESrcElemKernel.C
 )
 

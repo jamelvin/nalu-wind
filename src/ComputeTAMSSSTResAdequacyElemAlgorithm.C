@@ -7,7 +7,7 @@
 
 // nalu
 #include <Algorithm.h>
-#include <ComputeTAMSResAdequacyElemAlgorithm.h>
+#include <ComputeTAMSSSTResAdequacyElemAlgorithm.h>
 #include <EigenDecomposition.h>
 
 #include <FieldTypeDef.h>
@@ -28,12 +28,12 @@ namespace nalu {
 //==========================================================================
 // Class Definition
 //==========================================================================
-// ComputeTAMSResAdequacyElemAlgorithm - Metric Tensor
+// ComputeTAMSSSTResAdequacyElemAlgorithm - Metric Tensor
 //==========================================================================
 //--------------------------------------------------------------------------
 //-------- constructor -----------------------------------------------------
 //--------------------------------------------------------------------------
-ComputeTAMSResAdequacyElemAlgorithm::ComputeTAMSResAdequacyElemAlgorithm(
+ComputeTAMSSSTResAdequacyElemAlgorithm::ComputeTAMSSSTResAdequacyElemAlgorithm(
     Realm &realm, stk::mesh::Part *part)
     : Algorithm(realm, part),
     nDim_(realm.meta_data().spatial_dimension()),
@@ -77,7 +77,7 @@ ComputeTAMSResAdequacyElemAlgorithm::ComputeTAMSResAdequacyElemAlgorithm(
 //--------------------------------------------------------------------------
 //-------- execute ---------------------------------------------------------
 //--------------------------------------------------------------------------
-void ComputeTAMSResAdequacyElemAlgorithm::execute() {
+void ComputeTAMSSSTResAdequacyElemAlgorithm::execute() {
 
   stk::mesh::MetaData &meta_data = realm_.meta_data();
 
@@ -363,7 +363,7 @@ void ComputeTAMSResAdequacyElemAlgorithm::execute() {
 
         const double maxPM = std::max(std::abs(D[0][0]), std::max(std::abs(D[1][1]), std::abs(D[2][2])));
         const double T_sst = 1.0 / (betaStar_ * sdrScs);
-        const double v2 = 5.0 * muScs * T_sst;
+        const double v2 = 5.0 * muScs / T_sst;
 
         resAdeqSum += std::pow(1.5/v2,1.5)*maxPM;
       }
@@ -381,7 +381,7 @@ void ComputeTAMSResAdequacyElemAlgorithm::execute() {
       }
 
       // The division by number of nodes cancels out here
-      const double T_ave = elemTke/elemSdr;
+      const double T_ave = 1.0 / (betaStar_ * elemSdr);
 
       const double weightAvg = std::max(1.0 - dt/T_ave, 0.0);
       const double weightInst = std::min(dt/T_ave, 1.0);
@@ -391,7 +391,7 @@ void ComputeTAMSResAdequacyElemAlgorithm::execute() {
   }
 }
 
-double ComputeTAMSResAdequacyElemAlgorithm::get_M43_constant(double D[3][3])
+double ComputeTAMSSSTResAdequacyElemAlgorithm::get_M43_constant(double D[3][3])
 {
   // Coefficients for the polynomial 
   double c[15] = {1.033749474513071,-0.154122686264488,-0.007737595743644,
@@ -401,7 +401,7 @@ double ComputeTAMSResAdequacyElemAlgorithm::get_M43_constant(double D[3][3])
                   0.000486437925728, 0.002136258066662, 0.005113058518679};
 
   if (nDim_ != 3)
-     throw std::runtime_error("In ComputeTAMSResAdequacyElemAlgorithm, requires 3D");
+     throw std::runtime_error("In ComputeTAMSSSTResAdequacyElemAlgorithm, requires 3D");
 
   // FIXME: Can we find a more elegant way to sort the three eigenvalues...
   double smallestEV = stk::math::min(D[0][0], stk::math::min(D[1][1], D[2][2]));

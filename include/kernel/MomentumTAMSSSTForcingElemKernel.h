@@ -5,8 +5,8 @@
 /*  directory structure                                                   */
 /*------------------------------------------------------------------------*/
 
-#ifndef MOMENTUMTAMSFORCINGELEMKERNEL_H
-#define MOMENTUMTAMSFORCINGELEMKERNEL_H
+#ifndef MOMENTUMTAMSSSTFORCINGELEMKERNEL_H
+#define MOMENTUMTAMSSSTFORCINGELEMKERNEL_H
 
 #include "kernel/Kernel.h"
 #include "FieldTypeDef.h"
@@ -28,17 +28,17 @@ class ElemDataRequests;
  *
  */
 template <typename AlgTraits>
-class MomentumTAMSForcingElemKernel : public Kernel
+class MomentumTAMSSSTForcingElemKernel : public Kernel
 {
 public:
-  MomentumTAMSForcingElemKernel(
+  MomentumTAMSSSTForcingElemKernel(
     const stk::mesh::BulkData&,
     const SolutionOptions&,
     ScalarFieldType*,
     ScalarFieldType*,
     ElemDataRequests&);
 
-  virtual ~MomentumTAMSForcingElemKernel() {}
+  virtual ~MomentumTAMSSSTForcingElemKernel() {}
 
   // Perform pre-timestep work for the computational kernel
   virtual void setup(const TimeIntegrator&);
@@ -56,7 +56,7 @@ private:
 
   DoubleType pi_;
 
-  MomentumTAMSForcingElemKernel() = delete;
+  MomentumTAMSSSTForcingElemKernel() = delete;
 
   VectorFieldType* velocityNp1_{nullptr};
   ScalarFieldType* densityNp1_{nullptr};
@@ -87,4 +87,4 @@ private:
 } // namespace nalu
 } // namespace sierra
 
-#endif /* MOMENTUMTAMSFORCINGELEMKERNEL_H */
+#endif /* MOMENTUMTAMSSSTFORCINGELEMKERNEL_H */

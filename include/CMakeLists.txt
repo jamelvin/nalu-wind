@@ -81,9 +81,11 @@ add_sources(GlobalHeaderList
    ComputeMdotNonConformalAlgorithm.h
    ComputeMetricTensorElemAlgorithm.h
    ComputeSSTMaxLengthScaleElemAlgorithm.h
-   ComputeTAMSAveragesElemAlgorithm.h
+   ComputeTAMSKEAveragesElemAlgorithm.h
+   ComputeTAMSKEResAdequacyElemAlgorithm.h
    ComputeTAMSKratioElemAlgorithm.h
-   ComputeTAMSResAdequacyElemAlgorithm.h
+   ComputeTAMSSSTAveragesElemAlgorithm.h
+   ComputeTAMSSSTResAdequacyElemAlgorithm.h
    ComputeTurbKineticEnergyWallFunctionAlgorithm.h
    ComputeWallFrictionVelocityAlgorithm.h
    ComputeWallModelSDRWallAlgorithm.h
@@ -205,6 +207,7 @@ add_sources(GlobalHeaderList
    TurbViscChienKEAlgorithm.h
    TurbViscKsgsAlgorithm.h
    TurbViscSSTAlgorithm.h
+   TurbViscTAMSKEAlgorithm.h
    TurbViscTAMSSSTAlgorithm.h
    TurbViscSmagorinskyAlgorithm.h
    TurbViscWaleAlgorithm.h

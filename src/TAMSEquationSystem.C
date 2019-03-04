@@ -21,10 +21,12 @@
 #include <AuxFunctionAlgorithm.h>
 #include <ConstantAuxFunction.h>
 #include <CopyFieldAlgorithm.h>
-#include <ComputeTAMSResAdequacyElemAlgorithm.h>
 #include <ComputeMetricTensorElemAlgorithm.h>
-#include <ComputeTAMSAveragesElemAlgorithm.h>
+#include <ComputeTAMSKEAveragesElemAlgorithm.h>
+#include <ComputeTAMSKEResAdequacyElemAlgorithm.h>
 #include <ComputeTAMSKratioElemAlgorithm.h>
+#include <ComputeTAMSSSTAveragesElemAlgorithm.h>
+#include <ComputeTAMSSSTResAdequacyElemAlgorithm.h>
 #include <DirichletBC.h>
 #include <EquationSystem.h>
 #include <EquationSystems.h>
@@ -132,8 +134,8 @@ TAMSEquationSystem::TAMSEquationSystem(
   // push back EQ to manager
   realm_.push_equation_to_systems(this);
 
-  if ( turbulenceModel_ != TAMS ) {
-    throw std::runtime_error("User has requested TAMSEqs, however, turbulence model has not been set to tams, the only one supported by this equation system currently.");
+  if ( turbulenceModel_ != TAMS_SST && turbulenceModel_ != TAMS_KE ) {
+    throw std::runtime_error("User has requested TAMSEqs, however, turbulence model has not been set to tams_sst or tams_ke, the only ones supported by this equation system currently.");
   }
 }
 
@@ -224,13 +226,23 @@ TAMSEquationSystem::register_interior_algorithm(
     resolutionAdequacyAlgDriver_->algMap_.find(algType);
 
   if (it == resolutionAdequacyAlgDriver_->algMap_.end() ) {
-    ComputeTAMSResAdequacyElemAlgorithm *resAdeqAlg =
-      new ComputeTAMSResAdequacyElemAlgorithm(realm_, part);
-    resolutionAdequacyAlgDriver_->algMap_[algType] = resAdeqAlg;
+    Algorithm * theAlg = NULL;
+    switch (turbulenceModel_ ) {
+      case TAMS_SST:
+        theAlg = new ComputeTAMSSSTResAdequacyElemAlgorithm(realm_, part);
+        break;
+      case TAMS_KE:
+        theAlg = new ComputeTAMSKEResAdequacyElemAlgorithm(realm_, part);
+        break;
+      default:
+        throw std::runtime_error("TAMSEquationSystem: non-supported turb model");
+    }
+    resolutionAdequacyAlgDriver_->algMap_[algType] = theAlg;    
   }
   else {
     it->second->partVec_.push_back(part);
   }
+
 
   // metric tensor algorithm
   if ( NULL == metricTensorAlgDriver_ )
@@ -251,17 +263,26 @@ TAMSEquationSystem::register_interior_algorithm(
   // averaging algorithm
   if ( NULL == averagingAlgDriver_ )
     averagingAlgDriver_ = new AlgorithmDriver(realm_);
-
-  std::map<AlgorithmType, Algorithm *>::iterator itavg =
+ 
+  std::map<AlgorithmType, Algorithm *>::iterator itav =
     averagingAlgDriver_->algMap_.find(algType);
 
-  if (itavg == averagingAlgDriver_->algMap_.end() ) {
-    ComputeTAMSAveragesElemAlgorithm *averagingAlg =
-      new ComputeTAMSAveragesElemAlgorithm(realm_, part);
-    averagingAlgDriver_->algMap_[algType] = averagingAlg;
+  if (itav == averagingAlgDriver_->algMap_.end() ) {      
+    Algorithm * theAlg = NULL;
+    switch (turbulenceModel_ ) {
+      case TAMS_SST:
+        theAlg = new ComputeTAMSSSTAveragesElemAlgorithm(realm_, part);
+        break;
+      case TAMS_KE:
+        theAlg = new ComputeTAMSKEAveragesElemAlgorithm(realm_, part);
+        break;
+      default:
+        throw std::runtime_error("TAMSEquationSystem: non-supported turb model");
+    }
+    averagingAlgDriver_->algMap_[algType] = theAlg;    
   }
   else {
-    itmt->second->partVec_.push_back(part);
+    itav->second->partVec_.push_back(part);
   }
 
   // alpha algorithm
@@ -509,8 +530,8 @@ TAMSEquationSystem::initial_work()
   }
 
   compute_averages();
+  compute_alpha();
   compute_resolution_adequacy_parameters();
-  compute_alpha(); 
 }
 
 //--------------------------------------------------------------------------

@@ -46,15 +46,15 @@ public:
 private:
   TotalDissipationRateChienKESrcElemKernel() = delete;
 
-  unsigned  tkeNp1_ {stk::mesh::InvalidOrdinal};
-  unsigned  tdrNp1_ {stk::mesh::InvalidOrdinal};
-  unsigned  densityNp1_ {stk::mesh::InvalidOrdinal};
-  unsigned  velocityNp1_ {stk::mesh::InvalidOrdinal};
-  unsigned  visc_ {stk::mesh::InvalidOrdinal};
-  unsigned  tvisc_ {stk::mesh::InvalidOrdinal};
-  unsigned  dplus_ {stk::mesh::InvalidOrdinal};
-  unsigned  minD_ {stk::mesh::InvalidOrdinal};
-  unsigned  coordinates_ {stk::mesh::InvalidOrdinal};
+  ScalarFieldType* tkeNp1_{nullptr};
+  ScalarFieldType* tdrNp1_{nullptr};
+  ScalarFieldType* densityNp1_{nullptr};
+  VectorFieldType* velocityNp1_{nullptr};
+  ScalarFieldType* visc_{nullptr};
+  ScalarFieldType* tvisc_{nullptr};
+  ScalarFieldType* dplus_{nullptr};
+  ScalarFieldType* minD_{nullptr};
+  VectorFieldType* coordinates_{nullptr};
 
   const bool lumpedMass_;
   const bool shiftedGradOp_;

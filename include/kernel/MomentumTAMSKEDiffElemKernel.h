@@ -5,12 +5,13 @@
 /*  directory structure                                                   */
 /*------------------------------------------------------------------------*/
 
-#ifndef TURBKINETICENERGYCHIENKESRCELEMKERNEL_H
-#define TURBKINETICENERGYCHIENKESRCELEMKERNEL_H
+#ifndef MOMENTUMTAMSKEDIFFELEMKERNEL_H
+#define MOMENTUMTAMSKEDIFFELEMKERNEL_H
 
-#include "Kernel.h"
+#include "kernel/Kernel.h"
 #include "FieldTypeDef.h"
 
+#include <stk_mesh/base/BulkData.hpp>
 #include <stk_mesh/base/Entity.hpp>
 
 #include <Kokkos_Core.hpp>
@@ -22,50 +23,62 @@ class SolutionOptions;
 class MasterElement;
 class ElemDataRequests;
 
+/** Hybrid turbulence for momentum equation
+ *
+ */
 template <typename AlgTraits>
-class TurbKineticEnergyChienKESrcElemKernel : public Kernel
+class MomentumTAMSKEDiffElemKernel : public Kernel
 {
 public:
-  TurbKineticEnergyChienKESrcElemKernel(
+  MomentumTAMSKEDiffElemKernel(
     const stk::mesh::BulkData&,
     const SolutionOptions&,
-    ElemDataRequests&,
-    const bool);
+    ScalarFieldType*,
+    ElemDataRequests&);
 
-  virtual ~TurbKineticEnergyChienKESrcElemKernel();
+  virtual ~MomentumTAMSKEDiffElemKernel() {}
 
-  /** Execute the kernel within a Kokkos loop and populate the LHS and RHS for
-   *  the linear solve
-   */
   using Kernel::execute;
   virtual void execute(
     SharedMemView<DoubleType**>&,
     SharedMemView<DoubleType*>&,
     ScratchViews<DoubleType>&);
 
-private:
-  TurbKineticEnergyChienKESrcElemKernel() = delete;
+  DoubleType get_M43_constant(DoubleType D[AlgTraits::nDim_][AlgTraits::nDim_]);
 
+private:
+  MomentumTAMSKEDiffElemKernel() = delete;
+
+  const double includeDivU_;
+
+  VectorFieldType* velocityNp1_{nullptr};
+  ScalarFieldType* densityNp1_{nullptr};
   ScalarFieldType* tkeNp1_{nullptr};
   ScalarFieldType* tdrNp1_{nullptr};
-  ScalarFieldType* densityNp1_{nullptr};
-  VectorFieldType* velocityNp1_{nullptr};
-  ScalarFieldType* visc_{nullptr};
-  ScalarFieldType* tvisc_{nullptr};
-  ScalarFieldType* minD_{nullptr};
+  ScalarFieldType* alphaNp1_{nullptr};
+  GenericFieldType* mutij_{nullptr};
   VectorFieldType* coordinates_{nullptr};
+  GenericFieldType* Mij_{nullptr};
 
-  const bool lumpedMass_;
+  VectorFieldType* avgVelocity_{nullptr};
+  ScalarFieldType* avgDensity_{nullptr};
+
+  ScalarFieldType *viscosity_{nullptr};
+
+  // master element
+  const int* lrscv_;
+
+  const double betaStar_;
+  const double CMdeg_;
+
   const bool shiftedGradOp_;
 
-  const int* ipNodeMap_;
-
-  // scratch space
-  AlignedViewType<DoubleType[AlgTraits::numScvIp_][AlgTraits::nodesPerElement_]>
+  // fixed scratch space
+  AlignedViewType<DoubleType[AlgTraits::numScsIp_][AlgTraits::nodesPerElement_]>
     v_shape_function_{"v_shape_function"};
 };
 
 } // namespace nalu
 } // namespace sierra
 
-#endif /* TURBKINETICENERGYCHIENKESRCELEMKERNEL_H */
+#endif /* MOMENTUMTAMSKEDIFFELEMKERNEL_H */

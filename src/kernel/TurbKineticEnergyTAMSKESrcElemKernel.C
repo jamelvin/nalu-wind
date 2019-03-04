@@ -5,13 +5,12 @@
 /*  directory structure                                                   */
 /*------------------------------------------------------------------------*/
 
-#include "kernel/TurbKineticEnergyChienKESrcElemKernel.h"
+#include "kernel/TurbKineticEnergyTAMSKESrcElemKernel.h"
 #include "FieldTypeDef.h"
 #include "SolutionOptions.h"
 
 #include "BuildTemplates.h"
 #include "ScratchViews.h"
-#include "utils/StkHelpers.h"
 
 // stk_mesh/base/fem
 #include <stk_mesh/base/Entity.hpp>
@@ -23,7 +22,7 @@ namespace sierra {
 namespace nalu {
 
 template <typename AlgTraits>
-TurbKineticEnergyChienKESrcElemKernel<AlgTraits>::TurbKineticEnergyChienKESrcElemKernel(
+TurbKineticEnergyTAMSKESrcElemKernel<AlgTraits>::TurbKineticEnergyTAMSKESrcElemKernel(
   const stk::mesh::BulkData& bulkData,
   const SolutionOptions& solnOpts,
   ElemDataRequests& dataPreReqs,
@@ -31,27 +30,31 @@ TurbKineticEnergyChienKESrcElemKernel<AlgTraits>::TurbKineticEnergyChienKESrcEle
   : Kernel(),
     lumpedMass_(lumpedMass),
     shiftedGradOp_(solnOpts.get_shifted_grad_op("velocity")),
+    betaStar_(solnOpts.get_turb_model_constant(TM_betaStar)),
+    tkeProdLimitRatio_(solnOpts.get_turb_model_constant(TM_tkeProdLimitRatio)),
     ipNodeMap_(sierra::nalu::MasterElementRepo::get_volume_master_element(
                  AlgTraits::topo_)
                  ->ipNodeMap())
 {
   const stk::mesh::MetaData& metaData = bulkData.mesh_meta_data();
-
-  ScalarFieldType* tke = metaData.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "turbulent_ke");
-  tkeNp1_ = &tke->field_of_state(stk::mesh::StateNP1);
-
-  ScalarFieldType* tdr = metaData.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "total_dissipation_rate");
-  tdrNp1_ = &tdr->field_of_state(stk::mesh::StateNP1);
-
-  ScalarFieldType* density = metaData.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "density");
-  densityNp1_ = &density->field_of_state(stk::mesh::StateNP1);
-
-  VectorFieldType* velocity = metaData.get_field<VectorFieldType>(stk::topology::NODE_RANK, "velocity");
-  velocityNp1_ = &(velocity->field_of_state(stk::mesh::StateNP1));
-
-  visc_ = metaData.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "viscosity");
-  tvisc_ = metaData.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "turbulent_viscosity");
-  minD_ = metaData.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "minimum_distance_to_wall");
+  tkeNp1_ = metaData.get_field<ScalarFieldType>(
+    stk::topology::NODE_RANK, "turbulent_ke");
+  tdrNp1_ = metaData.get_field<ScalarFieldType>(
+    stk::topology::NODE_RANK, "total_dissipation_rate");
+  densityNp1_ = metaData.get_field<ScalarFieldType>(
+    stk::topology::NODE_RANK, "average_density");
+  velocityNp1_ = metaData.get_field<VectorFieldType>(
+    stk::topology::NODE_RANK, "average_velocity");
+  resStressNp1_ = metaData.get_field<GenericFieldType>(
+    stk::topology::NODE_RANK, "average_resolved_stress");
+  visc_ = metaData.get_field<ScalarFieldType>(
+    stk::topology::NODE_RANK, "viscosity");
+  tvisc_ = metaData.get_field<ScalarFieldType>(
+    stk::topology::NODE_RANK, "turbulent_viscosity");
+  alpha_ = metaData.get_field<ScalarFieldType>(
+    stk::topology::NODE_RANK, "k_ratio");  
+  minD_ = metaData.get_field<ScalarFieldType>(
+    stk::topology::NODE_RANK, "minimum_distance_to_wall");
   coordinates_ = metaData.get_field<VectorFieldType>(
     stk::topology::NODE_RANK, solnOpts.get_coordinates_name());
 
@@ -77,10 +80,11 @@ TurbKineticEnergyChienKESrcElemKernel<AlgTraits>::TurbKineticEnergyChienKESrcEle
   dataPreReqs.add_gathered_nodal_field(*tdrNp1_, 1);
   dataPreReqs.add_gathered_nodal_field(*densityNp1_, 1);
   dataPreReqs.add_gathered_nodal_field(*velocityNp1_, AlgTraits::nDim_);
-  dataPreReqs.add_gathered_nodal_field(*tvisc_, 1);
+  dataPreReqs.add_gathered_nodal_field(*resStressNp1_, AlgTraits::nDim_, AlgTraits::nDim_);
   dataPreReqs.add_gathered_nodal_field(*visc_, 1);
+  dataPreReqs.add_gathered_nodal_field(*tvisc_, 1);
+  dataPreReqs.add_gathered_nodal_field(*alpha_, 1);
   dataPreReqs.add_gathered_nodal_field(*minD_, 1);
-
   dataPreReqs.add_master_element_call(SCV_VOLUME, CURRENT_COORDINATES);
   if (shiftedGradOp_)
     dataPreReqs.add_master_element_call(
@@ -90,20 +94,20 @@ TurbKineticEnergyChienKESrcElemKernel<AlgTraits>::TurbKineticEnergyChienKESrcEle
 }
 
 template <typename AlgTraits>
-TurbKineticEnergyChienKESrcElemKernel<
-  AlgTraits>::~TurbKineticEnergyChienKESrcElemKernel()
+TurbKineticEnergyTAMSKESrcElemKernel<
+  AlgTraits>::~TurbKineticEnergyTAMSKESrcElemKernel()
 {
 }
 
 template <typename AlgTraits>
 void
-TurbKineticEnergyChienKESrcElemKernel<AlgTraits>::execute(
+TurbKineticEnergyTAMSKESrcElemKernel<AlgTraits>::execute(
   SharedMemView<DoubleType**>& lhs,
   SharedMemView<DoubleType*>& rhs,
   ScratchViews<DoubleType>& scratchViews)
 {
   NALU_ALIGNED DoubleType w_dudx[AlgTraits::nDim_][AlgTraits::nDim_];
-  NALU_ALIGNED DoubleType w_coords[AlgTraits::nDim_];
+  NALU_ALIGNED DoubleType w_resStress[AlgTraits::nDim_][AlgTraits::nDim_];
 
   SharedMemView<DoubleType*>& v_tkeNp1 =
     scratchViews.get_scratch_view_1D(*tkeNp1_);
@@ -113,10 +117,14 @@ TurbKineticEnergyChienKESrcElemKernel<AlgTraits>::execute(
     scratchViews.get_scratch_view_1D(*densityNp1_);
   SharedMemView<DoubleType**>& v_velocityNp1 =
     scratchViews.get_scratch_view_2D(*velocityNp1_);
+  SharedMemView<DoubleType***>& v_resStressNp1 =
+    scratchViews.get_scratch_view_3D(*resStressNp1_);
   SharedMemView<DoubleType*>& v_visc =
     scratchViews.get_scratch_view_1D(*visc_);
   SharedMemView<DoubleType*>& v_tvisc =
     scratchViews.get_scratch_view_1D(*tvisc_);
+  SharedMemView<DoubleType*>& v_alpha =
+    scratchViews.get_scratch_view_1D(*alpha_);
   SharedMemView<DoubleType*>& v_minD =
     scratchViews.get_scratch_view_1D(*minD_);
   SharedMemView<DoubleType***>& v_dndx =
@@ -125,10 +133,6 @@ TurbKineticEnergyChienKESrcElemKernel<AlgTraits>::execute(
       : scratchViews.get_me_views(CURRENT_COORDINATES).dndx_scv;
   SharedMemView<DoubleType*>& v_scv_volume =
     scratchViews.get_me_views(CURRENT_COORDINATES).scv_volume;
-
-
-  SharedMemView<DoubleType**>& v_coords =
-    scratchViews.get_scratch_view_2D(*coordinates_);
 
   for (int ip = 0; ip < AlgTraits::numScvIp_; ++ip) {
 
@@ -143,11 +147,12 @@ TurbKineticEnergyChienKESrcElemKernel<AlgTraits>::execute(
     DoubleType tdr = 0.0;
     DoubleType visc = 0.0;
     DoubleType tvisc = 0.0;
+    DoubleType alpha = 0.0;
     DoubleType minD = 0.0;
     for (int i = 0; i < AlgTraits::nDim_; ++i) {
-      w_coords[i] = 0.0;
       for (int j = 0; j < AlgTraits::nDim_; ++j) {
         w_dudx[i][j] = 0.0;
+        w_resStress[i][j] = 0.0;
       }
     }
 
@@ -160,24 +165,32 @@ TurbKineticEnergyChienKESrcElemKernel<AlgTraits>::execute(
       tdr += r * v_tdrNp1(ic);
       visc += r * v_visc(ic);
       tvisc += r * v_tvisc(ic);
+      alpha += r * v_alpha(ic);
       minD += r * v_minD(ic);
 
       for (int i = 0; i < AlgTraits::nDim_; ++i) {
         const DoubleType ui = v_velocityNp1(ic, i);
-        w_coords[i] += r*v_coords(ic,i);
         for (int j = 0; j < AlgTraits::nDim_; ++j) {
+          const DoubleType resStressij = v_resStressNp1(ic, i, j);
           w_dudx[i][j] += v_dndx(ip, ic, j) * ui;
+          w_resStress[i][j] += r * resStressij;
         }
       }
     }
 
     DoubleType Pk = 0.0;
+    DoubleType Pk_imp = 0.0;
     for (int i = 0; i < AlgTraits::nDim_; ++i) {
       for (int j = 0; j < AlgTraits::nDim_; ++j) {
+        // The changes to the standard SST RANS approach in TAMS result in two changes:
         Pk += w_dudx[i][j] * (w_dudx[i][j] + w_dudx[j][i]);
+        // 1) improvements to the production based on the resolved fluctuations
+        Pk_imp += (w_dudx[i][j] + w_dudx[j][i]) * w_resStress[i][j];
       }
     }
-    Pk *= tvisc;
+    // 2) the addition of alpha to modify the production
+    Pk *= alpha*tvisc;
+    Pk = Pk - Pk_imp;
 
     // dissipation 
     const DoubleType Dk = rho * tdr;
@@ -185,8 +198,6 @@ TurbKineticEnergyChienKESrcElemKernel<AlgTraits>::execute(
     // wall distance source term (rho's cancel out...)
     const DoubleType lFac = 2.0 * visc / minD / minD;
     DoubleType Lk = -lFac * tke;
-
-    //std::cout << " (" << w_coords[0] << ", "<< w_coords[1] << ", " << w_coords[2] << ") " << tdr <<" " << tke << " " << Pk << " " << Dk << " " << Lk << " " << minD << " " << " " << tvisc << std::endl;
 
     // assemble RHS and LHS
     rhs(nearestNode) += (Pk - Dk + Lk) * scV;
@@ -196,7 +207,7 @@ TurbKineticEnergyChienKESrcElemKernel<AlgTraits>::execute(
   }
 }
 
-INSTANTIATE_KERNEL(TurbKineticEnergyChienKESrcElemKernel)
+INSTANTIATE_KERNEL(TurbKineticEnergyTAMSKESrcElemKernel);
 
 } // namespace nalu
 } // namespace sierra

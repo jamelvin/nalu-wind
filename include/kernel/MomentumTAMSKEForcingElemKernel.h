@@ -5,8 +5,8 @@
 /*  directory structure                                                   */
 /*------------------------------------------------------------------------*/
 
-#ifndef MOMENTUMTAMSDIFFELEMKERNEL_H
-#define MOMENTUMTAMSDIFFELEMKERNEL_H
+#ifndef MOMENTUMTAMSKEFORCINGELEMKERNEL_H
+#define MOMENTUMTAMSKEFORCINGELEMKERNEL_H
 
 #include "kernel/Kernel.h"
 #include "FieldTypeDef.h"
@@ -19,6 +19,7 @@
 namespace sierra {
 namespace nalu {
 
+class TimeIntegrator;
 class SolutionOptions;
 class MasterElement;
 class ElemDataRequests;
@@ -27,16 +28,20 @@ class ElemDataRequests;
  *
  */
 template <typename AlgTraits>
-class MomentumTAMSDiffElemKernel : public Kernel
+class MomentumTAMSKEForcingElemKernel : public Kernel
 {
 public:
-  MomentumTAMSDiffElemKernel(
+  MomentumTAMSKEForcingElemKernel(
     const stk::mesh::BulkData&,
     const SolutionOptions&,
     ScalarFieldType*,
+    ScalarFieldType*,
     ElemDataRequests&);
 
-  virtual ~MomentumTAMSDiffElemKernel() {}
+  virtual ~MomentumTAMSKEForcingElemKernel() {}
+
+  // Perform pre-timestep work for the computational kernel
+  virtual void setup(const TimeIntegrator&);
 
   using Kernel::execute;
   virtual void execute(
@@ -44,41 +49,42 @@ public:
     SharedMemView<DoubleType*>&,
     ScratchViews<DoubleType>&);
 
-  DoubleType get_M43_constant(DoubleType D[AlgTraits::nDim_][AlgTraits::nDim_]);
-
 private:
-  MomentumTAMSDiffElemKernel() = delete;
 
-  const double includeDivU_;
+  double time_{0.0};
+  double dt_{0.0};
+
+  DoubleType pi_;
+
+  MomentumTAMSKEForcingElemKernel() = delete;
 
   VectorFieldType* velocityNp1_{nullptr};
   ScalarFieldType* densityNp1_{nullptr};
   ScalarFieldType* tkeNp1_{nullptr};
-  ScalarFieldType* sdrNp1_{nullptr};
+  ScalarFieldType* tdrNp1_{nullptr};
   ScalarFieldType* alphaNp1_{nullptr};
-  GenericFieldType* mutij_{nullptr};
   VectorFieldType* coordinates_{nullptr};
   GenericFieldType* Mij_{nullptr};
-
+  ScalarFieldType* avgResAdeq_{nullptr};
+  ScalarFieldType* minDist_{nullptr};
   VectorFieldType* avgVelocity_{nullptr};
   ScalarFieldType* avgDensity_{nullptr};
 
   ScalarFieldType *viscosity_{nullptr};
+  ScalarFieldType *turbViscosity_{nullptr};
 
   // master element
-  const int* lrscv_;
-
   const double betaStar_;
-  const double CMdeg_;
 
-  const bool shiftedGradOp_;
+  const int* ipNodeMap_;
 
-  // fixed scratch space
-  AlignedViewType<DoubleType[AlgTraits::numScsIp_][AlgTraits::nodesPerElement_]>
-    v_shape_function_{"v_shape_function"};
+  // scratch space
+  AlignedViewType<DoubleType[AlgTraits::numScvIp_]
+        [AlgTraits::nodesPerElement_]> v_shape_function_ { "v_shape_func" };
+  
 };
 
 } // namespace nalu
 } // namespace sierra
 
-#endif /* MOMENTUMTAMSDIFFELEMKERNEL_H */
+#endif /* MOMENTUMTAMSKEFORCINGELEMKERNEL_H */

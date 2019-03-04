@@ -402,11 +402,11 @@ SpecificDissipationRateEquationSystem::register_interior_algorithm(
 
       // UT Austin Hybrid TAMS model implementations for SDR source terms
       build_topo_kernel_if_requested<SpecificDissipationRateSSTTAMSSrcElemKernel>
-        (partTopo, *this, activeKernels, "tams",
+        (partTopo, *this, activeKernels, "tams_sst",
          realm_.bulk_data(), *realm_.solutionOptions_, dataPreReqs, false);
 
       build_topo_kernel_if_requested<SpecificDissipationRateSSTTAMSSrcElemKernel>
-        (partTopo, *this, activeKernels, "lumped_tams",
+        (partTopo, *this, activeKernels, "lumped_tams_sst",
          realm_.bulk_data(), *realm_.solutionOptions_, dataPreReqs, true);
 
       report_invalid_supp_alg_names();
