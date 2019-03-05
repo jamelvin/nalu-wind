@@ -36,6 +36,9 @@ public:
   ScalarFieldType *avgDensity_{nullptr};
   GenericFieldType *avgResolvedStress_{nullptr};
   GenericFieldType *avgDudx_{nullptr};
+  ScalarFieldType *avgProd_{nullptr};
+  ScalarFieldType *tvisc_{nullptr};
+  ScalarFieldType *alpha_{nullptr};
 };
 
 } // namespace nalu

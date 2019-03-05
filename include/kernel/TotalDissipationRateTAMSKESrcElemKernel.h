@@ -56,6 +56,7 @@ private:
   ScalarFieldType* alpha_{nullptr};
   ScalarFieldType* dplus_{nullptr};
   ScalarFieldType* minD_{nullptr};
+  ScalarFieldType* prod_{nullptr};
   VectorFieldType* coordinates_{nullptr};
 
 

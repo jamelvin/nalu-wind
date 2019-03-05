@@ -58,6 +58,11 @@ ComputeTAMSKEAveragesElemAlgorithm::ComputeTAMSKEAveragesElemAlgorithm(
   avgDensity_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "average_density");
   avgDudx_ = meta_data.get_field<GenericFieldType>(stk::topology::NODE_RANK, "average_dudx");
   avgResolvedStress_ = meta_data.get_field<GenericFieldType>(stk::topology::NODE_RANK, "average_resolved_stress");
+  avgProd_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "average_production");
+
+  // Other quantities
+  tvisc_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "turbulent_viscosity");
+  alpha_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "k_ratio");
 }
 
 
@@ -93,9 +98,14 @@ void ComputeTAMSKEAveragesElemAlgorithm::execute() {
     const double * tke = stk::mesh::field_data(*turbKineticEnergy_, b);
     const double * tdr = stk::mesh::field_data(*totDissipationRate_, b);
 
+    // get other field data
+    const double * tvisc = stk::mesh::field_data(*tvisc_, b);
+    const double * alpha = stk::mesh::field_data(*alpha_, b);
+
     // get average field data
     double * avgPres = stk::mesh::field_data(*avgPress_, b);
     double * avgRho = stk::mesh::field_data(*avgDensity_, b);
+    double * avgProd = stk::mesh::field_data(*avgProd_, b);
       
     for (stk::mesh::Bucket::size_type k = 0; k < length; ++k) {
       // get velocity field data
@@ -119,12 +129,50 @@ void ComputeTAMSKEAveragesElemAlgorithm::execute() {
           avgResStress[i*nDim + j] = weightAvg * avgResStress[i*nDim + j] + weightInst * 
                 (vel[i]*vel[j] - vel[i]*avgVel[j] - vel[j]*avgVel[i] + avgVel[i]*avgVel[j]);
           avgDudx[i*nDim + j] = weightAvg * avgDudx[i*nDim + j] + weightInst * dudx[i*nDim + j];
+          // Average strain rate tensor, used for production averaging
         }
       }
       
       // FIXME: Should I be doing Favre averaging?????
       avgPres[k] = weightAvg * avgPres[k] + weightInst * pres[k];
       avgRho[k]  = weightAvg * avgRho[k]  + weightInst * rho[k];
+
+      // Production averaging
+      double tij[nDim][nDim];
+      for (int i = 0; i < nDim; ++i) {
+        for (int j = 0; j < nDim; ++j) {
+          const double avgSij = 0.5*(avgDudx[i*nDim+j] + avgDudx[j*nDim+i]);
+          tij[i][j] = 2.0*alpha[k]*tvisc[k]*avgSij;
+        }
+        tij[i][i] -= 2.0/3.0 * alpha[k] * tke[k];
+      }
+
+      double Pij[nDim][nDim];
+      for (int i = 0; i < nDim; ++i) {
+        for (int j = 0; j < nDim; ++j) {
+          Pij[i][j] = 0.0;
+          for (int m = 0; m < nDim; ++m) {
+             Pij[i][j] += avgDudx[i*nDim + m] * tij[j][m] + avgDudx[j*nDim + m] * tij[i][m];
+          }
+          Pij[i][j] *= 0.5;
+        }
+      }
+
+      double P_res = 0.0;
+      for (int i = 0; i < nDim; ++i) {
+        for (int j = 0; j < nDim; ++j) {
+          P_res += avgDudx[i*nDim + j] * ((avgVel[i] - vel[i])*(avgVel[j] - vel[j]));
+        }
+      }
+
+      double instProd = 0.0;
+      for (int i = 0; i < nDim; ++i) 
+        instProd += Pij[i][i];
+
+      instProd -= P_res;
+
+      // FIXME: Need a different averaging timescale for production...
+      avgProd[k] = weightAvg * avgProd[k] + weightInst * instProd;
     }
   }
 }

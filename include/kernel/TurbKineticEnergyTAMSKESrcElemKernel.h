@@ -55,6 +55,7 @@ private:
   ScalarFieldType* tvisc_{nullptr};
   ScalarFieldType* alpha_{nullptr};
   ScalarFieldType* minD_{nullptr};
+  ScalarFieldType* prod_{nullptr};
   VectorFieldType* coordinates_{nullptr};
 
   const bool lumpedMass_;

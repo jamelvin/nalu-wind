@@ -86,11 +86,14 @@ public:
   ScalarFieldType *avgDensity_; 
   GenericFieldType *avgResolvedStress_;
   GenericFieldType *avgDudx_;
+  ScalarFieldType *avgProduciton_;
   GenericFieldType *metric_;
 
   ScalarFieldType *resAdequacy_;
   ScalarFieldType *avgResAdequacy_;
   VectorFieldType *gTmp_;
+
+  ScalarFieldType *avgProduction_;
  
   AssembleNodalGradAlgorithmDriver *assembleNodalGradAlgDriver_;
   AlgorithmDriver *resolutionAdequacyAlgDriver_;

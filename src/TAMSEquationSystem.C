@@ -118,6 +118,7 @@ TAMSEquationSystem::TAMSEquationSystem(
     alpha_(NULL),
     resAdequacy_(NULL),
     avgResAdequacy_(NULL),
+    avgProduction_(NULL),
     gTmp_(NULL),
     metricTensorAlgDriver_(new AlgorithmDriver(realm_)),
     resolutionAdequacyAlgDriver_(new AlgorithmDriver(realm_)),
@@ -182,6 +183,10 @@ TAMSEquationSystem::register_nodal_fields(
   avgDensity_ = &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "average_density"));
   stk::mesh::put_field_on_mesh(*avgDensity_, *part, nullptr);
   realm_.augment_restart_variable_list("average_density");
+
+  avgProduction_ = &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "average_production"));
+  stk::mesh::put_field_on_mesh(*avgProduction_, *part, nullptr);
+  realm_.augment_restart_variable_list("average_production");
 
   avgDudx_ = &(meta_data.declare_field<GenericFieldType>(stk::topology::NODE_RANK, "average_dudx"));
   stk::mesh::put_field_on_mesh(*avgDudx_, *part, nDim*nDim, nullptr);
@@ -501,6 +506,10 @@ TAMSEquationSystem::initial_work()
   const int nDim = meta_data.spatial_dimension();
 
   GenericFieldType *dudx_ = meta_data.get_field<GenericFieldType>(stk::topology::NODE_RANK, "dudx");
+  ScalarFieldType *turbKinEne_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "turbulent_ke");
+  ScalarFieldType *tvisc_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "turbulent_viscosity");
+  
+  ScalarFieldType &tkeNp1 = turbKinEne_->field_of_state(stk::mesh::StateNP1);
 
   // define some common selectors
   stk::mesh::Selector s_all_nodes
@@ -518,14 +527,47 @@ TAMSEquationSystem::initial_work()
     stk::mesh::Bucket &b = **ib;
     const stk::mesh::Bucket::size_type length = b.size();
 
+    double * tke = stk::mesh::field_data(tkeNp1, b);
+    double * tvisc = stk::mesh::field_data(*tvisc_, b);
+    double * avgProd = stk::mesh::field_data(*avgProduction_, b);
+ 
     for (stk::mesh::Bucket::size_type k = 0; k < length; ++k) {
       // get velocity field data
       const double * dudx = stk::mesh::field_data(*dudx_, b[k]);
       double * avgDudx = stk::mesh::field_data(*avgDudx_, b[k]);
 
-      for (int i = 0; i < nDim; ++i) 
-        for (int j = 0; j < nDim; ++j) 
+      // FIXME: Want to turn this off if restarting...
+      for (int i = 0; i < nDim; ++i)
+        for (int j = 0; j < nDim; ++j)
           avgDudx[i*nDim + j] = dudx[i*nDim + j];
+    
+      // Initialize average production to mean production
+      // FIXME: Want to turn this off if restarting...
+      double tij[nDim][nDim];
+      for (int i = 0; i < nDim; ++i) {
+        for (int j = 0; j < nDim; ++j) {
+          const double avgSij = 0.5*(avgDudx[i*nDim+j] + avgDudx[j*nDim+i]);
+          tij[i][j] = 2.0 * tvisc[k] * avgSij;
+        }
+        tij[i][i] -= 2.0/3.0 * tke[k];
+      }
+
+      double Pij[nDim][nDim];
+      for (int i = 0; i < nDim; ++i) {
+        for (int j = 0; j < nDim; ++j) {
+          Pij[i][j] = 0.0;
+          for (int m = 0; m < nDim; ++m) {
+             Pij[i][j] += avgDudx[i*nDim + m] * tij[j][m] + avgDudx[j*nDim + m] * tij[i][m];
+          }
+          Pij[i][j] *= 0.5;
+        }
+      }
+
+      double instProd = 0.0;
+      for (int i = 0; i < nDim; ++i)
+        instProd += Pij[i][i];
+
+      avgProd[k] = instProd;
     }
   }
 
