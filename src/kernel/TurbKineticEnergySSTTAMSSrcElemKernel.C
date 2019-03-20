@@ -45,8 +45,6 @@ TurbKineticEnergySSTTAMSSrcElemKernel<AlgTraits>::TurbKineticEnergySSTTAMSSrcEle
     stk::topology::NODE_RANK, "average_density");
   velocityNp1_ = metaData.get_field<VectorFieldType>(
     stk::topology::NODE_RANK, "average_velocity");
-  resStressNp1_ = metaData.get_field<GenericFieldType>(
-    stk::topology::NODE_RANK, "average_resolved_stress");
   tvisc_ = metaData.get_field<ScalarFieldType>(
     stk::topology::NODE_RANK, "turbulent_viscosity");
   alpha_ = metaData.get_field<ScalarFieldType>(
@@ -76,7 +74,6 @@ TurbKineticEnergySSTTAMSSrcElemKernel<AlgTraits>::TurbKineticEnergySSTTAMSSrcEle
   dataPreReqs.add_gathered_nodal_field(*sdrNp1_, 1);
   dataPreReqs.add_gathered_nodal_field(*densityNp1_, 1);
   dataPreReqs.add_gathered_nodal_field(*velocityNp1_, AlgTraits::nDim_);
-  dataPreReqs.add_gathered_nodal_field(*resStressNp1_, AlgTraits::nDim_, AlgTraits::nDim_);
   dataPreReqs.add_gathered_nodal_field(*tvisc_, 1);
   dataPreReqs.add_gathered_nodal_field(*alpha_, 1);
   dataPreReqs.add_master_element_call(SCV_VOLUME, CURRENT_COORDINATES);
@@ -101,7 +98,6 @@ TurbKineticEnergySSTTAMSSrcElemKernel<AlgTraits>::execute(
   ScratchViews<DoubleType>& scratchViews)
 {
   NALU_ALIGNED DoubleType w_dudx[AlgTraits::nDim_][AlgTraits::nDim_];
-  NALU_ALIGNED DoubleType w_resStress[AlgTraits::nDim_][AlgTraits::nDim_];
 
   SharedMemView<DoubleType*>& v_tkeNp1 =
     scratchViews.get_scratch_view_1D(*tkeNp1_);
@@ -111,8 +107,6 @@ TurbKineticEnergySSTTAMSSrcElemKernel<AlgTraits>::execute(
     scratchViews.get_scratch_view_1D(*densityNp1_);
   SharedMemView<DoubleType**>& v_velocityNp1 =
     scratchViews.get_scratch_view_2D(*velocityNp1_);
-  SharedMemView<DoubleType***>& v_resStressNp1 =
-    scratchViews.get_scratch_view_3D(*resStressNp1_);
   SharedMemView<DoubleType*>& v_tvisc =
     scratchViews.get_scratch_view_1D(*tvisc_);
   SharedMemView<DoubleType*>& v_alpha =
@@ -140,7 +134,6 @@ TurbKineticEnergySSTTAMSSrcElemKernel<AlgTraits>::execute(
     for (int i = 0; i < AlgTraits::nDim_; ++i) {
       for (int j = 0; j < AlgTraits::nDim_; ++j) {
         w_dudx[i][j] = 0.0;
-        w_resStress[i][j] = 0.0;
       }
     }
 
@@ -157,9 +150,7 @@ TurbKineticEnergySSTTAMSSrcElemKernel<AlgTraits>::execute(
       for (int i = 0; i < AlgTraits::nDim_; ++i) {
         const DoubleType ui = v_velocityNp1(ic, i);
         for (int j = 0; j < AlgTraits::nDim_; ++j) {
-          const DoubleType resStressij = v_resStressNp1(ic, i, j);
           w_dudx[i][j] += v_dndx(ip, ic, j) * ui;
-          w_resStress[i][j] += r * resStressij;
         }
       }
     }
@@ -171,7 +162,8 @@ TurbKineticEnergySSTTAMSSrcElemKernel<AlgTraits>::execute(
         // The changes to the standard SST RANS approach in TAMS result in two changes:
         Pk += w_dudx[i][j] * (w_dudx[i][j] + w_dudx[j][i]);
         // 1) improvements to the production based on the resolved fluctuations
-        Pk_imp += (w_dudx[i][j] + w_dudx[j][i]) * w_resStress[i][j];
+        // FIXME: See KE Implementation
+        //Pk_imp += (w_dudx[i][j] + w_dudx[j][i]) * w_resStress[i][j];
       }
     }
     // 2) the addition of alpha to modify the production

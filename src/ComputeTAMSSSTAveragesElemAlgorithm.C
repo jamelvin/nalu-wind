@@ -57,7 +57,8 @@ ComputeTAMSSSTAveragesElemAlgorithm::ComputeTAMSSSTAveragesElemAlgorithm(
   avgPress_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "average_pressure");
   avgDensity_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "average_density");
   avgDudx_ = meta_data.get_field<GenericFieldType>(stk::topology::NODE_RANK, "average_dudx");
-  avgResolvedStress_ = meta_data.get_field<GenericFieldType>(stk::topology::NODE_RANK, "average_resolved_stress");
+  //FIXME: changed to avgTkeRes
+  //  avgResolvedStress_ = meta_data.get_field<GenericFieldType>(stk::topology::NODE_RANK, "average_resolved_stress");
 }
 
 
@@ -102,7 +103,7 @@ void ComputeTAMSSSTAveragesElemAlgorithm::execute() {
       const double * vel = stk::mesh::field_data(velocityNp1, b[k]);
       const double * dudx = stk::mesh::field_data(*dudx_, b[k]);
       double * avgVel = stk::mesh::field_data(*avgVelocity_, b[k]);
-      double * avgResStress = stk::mesh::field_data(*avgResolvedStress_, b[k]);
+      //double * avgResStress = stk::mesh::field_data(*avgResolvedStress_, b[k]);
       double * avgDudx = stk::mesh::field_data(*avgDudx_, b[k]);
       // FIXME: Verify this is correct for T_ave... this is from slides, 
       //        but CDP has something different
@@ -115,8 +116,8 @@ void ComputeTAMSSSTAveragesElemAlgorithm::execute() {
       for (int i = 0; i < nDim; ++i) {
         avgVel[i] = weightAvg * avgVel[i] + weightInst * vel[i];
         for (int j = 0; j < nDim; ++j) {
-          avgResStress[i*nDim + j] = weightAvg * avgResStress[i*nDim + j] + weightInst * 
-                (vel[i]*vel[j] - vel[i]*avgVel[j] - vel[j]*avgVel[i] + avgVel[i]*avgVel[j]);
+          //avgResStress[i*nDim + j] = weightAvg * avgResStress[i*nDim + j] + weightInst * 
+          //      (vel[i]*vel[j] - vel[i]*avgVel[j] - vel[j]*avgVel[i] + avgVel[i]*avgVel[j]);
           avgDudx[i*nDim + j] = weightAvg * avgDudx[i*nDim + j] + weightInst * dudx[i*nDim + j];
         }
       }

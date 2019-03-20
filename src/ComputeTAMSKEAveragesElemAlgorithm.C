@@ -57,7 +57,7 @@ ComputeTAMSKEAveragesElemAlgorithm::ComputeTAMSKEAveragesElemAlgorithm(
   avgPress_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "average_pressure");
   avgDensity_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "average_density");
   avgDudx_ = meta_data.get_field<GenericFieldType>(stk::topology::NODE_RANK, "average_dudx");
-  avgResolvedStress_ = meta_data.get_field<GenericFieldType>(stk::topology::NODE_RANK, "average_resolved_stress");
+  avgTkeRes_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "average_tke_resolved");
   avgProd_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "average_production");
 
   // Other quantities
@@ -106,13 +106,13 @@ void ComputeTAMSKEAveragesElemAlgorithm::execute() {
     double * avgPres = stk::mesh::field_data(*avgPress_, b);
     double * avgRho = stk::mesh::field_data(*avgDensity_, b);
     double * avgProd = stk::mesh::field_data(*avgProd_, b);
-      
+    double * avgTkeRes = stk::mesh::field_data(*avgTkeRes_, b);
+
     for (stk::mesh::Bucket::size_type k = 0; k < length; ++k) {
       // get velocity field data
       const double * vel = stk::mesh::field_data(velocityNp1, b[k]);
       const double * dudx = stk::mesh::field_data(*dudx_, b[k]);
       double * avgVel = stk::mesh::field_data(*avgVelocity_, b[k]);
-      double * avgResStress = stk::mesh::field_data(*avgResolvedStress_, b[k]);
       double * avgDudx = stk::mesh::field_data(*avgDudx_, b[k]);
       // FIXME: Verify this is correct for T_ave... this is from slides, 
       //        but CDP has something different
@@ -123,11 +123,13 @@ void ComputeTAMSKEAveragesElemAlgorithm::execute() {
       const double weightAvg = std::max(1.0 - dt/T_ave, 0.0);
       const double weightInst = std::min(dt/T_ave, 1.0);
 
-      for (int i = 0; i < nDim; ++i) {
+      for (int i = 0; i < nDim; ++i)
         avgVel[i] = weightAvg * avgVel[i] + weightInst * vel[i];
+
+      double tkeRes = 0.0;
+      for (int i = 0; i < nDim; ++i) {
+        tkeRes += (vel[i] - avgVel[i])*(vel[i] - avgVel[i]);
         for (int j = 0; j < nDim; ++j) {
-          avgResStress[i*nDim + j] = weightAvg * avgResStress[i*nDim + j] + weightInst * 
-                (vel[i]*vel[j] - vel[i]*avgVel[j] - vel[j]*avgVel[i] + avgVel[i]*avgVel[j]);
           avgDudx[i*nDim + j] = weightAvg * avgDudx[i*nDim + j] + weightInst * dudx[i*nDim + j];
           // Average strain rate tensor, used for production averaging
         }
@@ -136,6 +138,7 @@ void ComputeTAMSKEAveragesElemAlgorithm::execute() {
       // FIXME: Should I be doing Favre averaging?????
       avgPres[k] = weightAvg * avgPres[k] + weightInst * pres[k];
       avgRho[k]  = weightAvg * avgRho[k]  + weightInst * rho[k];
+      avgTkeRes[k] = weightAvg * avgTkeRes[k] + weightInst * 0.5*tkeRes;
 
       // Production averaging
       double tij[nDim][nDim];

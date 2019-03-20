@@ -208,10 +208,14 @@ TotalDissipationRateChienKESrcElemKernel<AlgTraits>::execute(
     const DoubleType LeFac = 2.0 * visc * stk::math::exp(-0.5*dplus) / minD / minD;
     const DoubleType Le = -LeFac * tdr;
 
+    //ofstream tmpFile;
+    //tmpFile.open("TDRsrc.txt");
     
-    //std::cout << " (" << w_coords[0] << ", "<< w_coords[1] << ", " << w_coords[2] << ") " << tdr <<" " << tke << " " << Pe << " " << De << " " << Le << " " << minD << " " << dplus << " " << tvisc << std::endl;
+    //tmpFile << " (" << w_coords[0] << ", "<< w_coords[1] << ", " << w_coords[2] << ") " << tdr <<" " << tke << " " << Pe << " " << De << " " << Le << " " << minD << " " << dplus << " " << tvisc << std::endl;
     
     //const DoubleType extraFac = -cEpsTwo_ * stk::math::exp(-Re_t*Re_t / 36.0) * rho * rho * rho * tke * tke * tke / 81.0 / visc / visc / stk::math::max(tdr, 1.0e-16);
+
+    //tmpFile.close();
 
     // assemble RHS and LHS
     rhs(nearestNode) += (Pe - De + Le) * scV;

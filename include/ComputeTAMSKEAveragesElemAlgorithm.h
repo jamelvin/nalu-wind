@@ -34,7 +34,7 @@ public:
   VectorFieldType *avgVelocity_{nullptr};
   ScalarFieldType *avgPress_{nullptr};
   ScalarFieldType *avgDensity_{nullptr};
-  GenericFieldType *avgResolvedStress_{nullptr};
+  ScalarFieldType *avgTkeRes_{nullptr};
   GenericFieldType *avgDudx_{nullptr};
   ScalarFieldType *avgProd_{nullptr};
   ScalarFieldType *tvisc_{nullptr};

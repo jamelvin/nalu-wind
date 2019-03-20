@@ -112,7 +112,7 @@ TAMSEquationSystem::TAMSEquationSystem(
     avgVelocity_(NULL),
     avgPressure_(NULL),
     avgDensity_(NULL),
-    avgResolvedStress_(NULL),
+    avgTkeResolved_(NULL),
     avgDudx_(NULL),
     metric_(NULL),
     alpha_(NULL),
@@ -192,9 +192,9 @@ TAMSEquationSystem::register_nodal_fields(
   stk::mesh::put_field_on_mesh(*avgDudx_, *part, nDim*nDim, nullptr);
   realm_.augment_restart_variable_list("average_dudx");
 
-  avgResolvedStress_ = &(meta_data.declare_field<GenericFieldType>(stk::topology::NODE_RANK, "average_resolved_stress"));
-  stk::mesh::put_field_on_mesh(*avgResolvedStress_, *part, nDim*nDim, nullptr);
-  realm_.augment_restart_variable_list("average_resolved_stress");
+  avgTkeResolved_ = &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "average_tke_resolved"));
+  stk::mesh::put_field_on_mesh(*avgTkeResolved_, *part, nullptr);
+  realm_.augment_restart_variable_list("average_tke_resolved");
 
   metric_ = &(meta_data.declare_field<GenericFieldType>(stk::topology::ELEMENT_RANK, "metric_tensor"));
   stk::mesh::put_field_on_mesh(*metric_, *part, nDim*nDim, nullptr);
@@ -515,11 +515,6 @@ TAMSEquationSystem::initial_work()
   stk::mesh::Selector s_all_nodes
     = (meta_data.locally_owned_part() | meta_data.globally_shared_part())
     &stk::mesh::selectField(*avgDudx_);
-
-  // FIXME: I need to initialize the computed quantities... avg_dudx
-  // since they will be weighted
-  s_all_nodes = (meta_data.locally_owned_part() | meta_data.globally_shared_part()) 
-    &stk::mesh::selectField(*avgResolvedStress_);
 
   stk::mesh::BucketVector const& buckets = realm_.get_buckets(stk::topology::NODE_RANK, s_all_nodes);
   for (stk::mesh::BucketVector::const_iterator ib = buckets.begin();

@@ -40,8 +40,11 @@ ComputeTAMSKratioElemAlgorithm::ComputeTAMSKratioElemAlgorithm(
 
   alpha_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "k_ratio");
   turbKineticEnergy_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "turbulent_ke");
-  avgResolvedStress_ = meta_data.get_field<GenericFieldType>(stk::topology::NODE_RANK, "average_resolved_stress");
-}
+  totalDissRate_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "total_dissipation_rate");
+  viscosity_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "viscosity");
+  turbVisc_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "turbulent_viscosity");
+  avgTkeRes_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK,"average_tke_resolved");
+    }
 
 //--------------------------------------------------------------------------
 //-------- execute ---------------------------------------------------------
@@ -65,19 +68,26 @@ void ComputeTAMSKratioElemAlgorithm::execute() {
     // get field data
     double * tke = stk::mesh::field_data(*turbKineticEnergy_, b);
     double * alpha = stk::mesh::field_data(*alpha_, b);
-      
-    for (stk::mesh::Bucket::size_type k = 0; k < length; ++k) {
-      double * avgResStress = stk::mesh::field_data(*avgResolvedStress_, b[k]);
-      double kResolved = 0.0;
-      for (int i = 0; i < nDim; ++i) {
-        kResolved += avgResStress[i * nDim + i];
-      }
-      kResolved *= 0.5;
+    double * tdr = stk::mesh::field_data(*totalDissRate_, b);
+    double * visc = stk::mesh::field_data(*viscosity_, b);
+    double * tvisc = stk::mesh::field_data(*turbVisc_, b);
+    double * tkeRes = stk::mesh::field_data(*avgTkeRes_, b);
 
+    for (stk::mesh::Bucket::size_type k = 0; k < length; ++k) {
       if (tke[k] == 0.0)
          alpha[k] = 1.0;
-      else
-         alpha[k] = 1.0 - kResolved/tke[k];
+      else {
+         alpha[k] = 1.0 - tkeRes[k]/tke[k];
+      
+         // limiters
+         alpha[k] = std::min(alpha[k],1.0);
+
+         const double T_ke = tke[k] / std::max(tdr[k],1e-16);
+         const double v2 = 1.0/0.22 * (tvisc[k] / T_ke);
+         const double a_kol = std::min(1.5*v2/tke[k]*std::sqrt(visc[k]*tdr[k])/tke[k],1.0);
+
+         alpha[k] = std::max(alpha[k], a_kol);
+      }
     }
   }
 }

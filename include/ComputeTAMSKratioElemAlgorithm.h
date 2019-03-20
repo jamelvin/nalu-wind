@@ -24,7 +24,10 @@ public:
 
   ScalarFieldType *alpha_{nullptr};
   ScalarFieldType *turbKineticEnergy_{nullptr};
-  GenericFieldType *avgResolvedStress_{nullptr};
+  ScalarFieldType *totalDissRate_{nullptr};
+  ScalarFieldType *viscosity_{nullptr};
+  ScalarFieldType *turbVisc_{nullptr};
+  ScalarFieldType *avgTkeRes_{nullptr};
 };
 
 } // namespace nalu

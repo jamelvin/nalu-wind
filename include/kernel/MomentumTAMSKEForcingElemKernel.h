@@ -38,7 +38,7 @@ public:
     ScalarFieldType*,
     ElemDataRequests&);
 
-  virtual ~MomentumTAMSKEForcingElemKernel() {}
+  virtual ~MomentumTAMSKEForcingElemKernel();
 
   // Perform pre-timestep work for the computational kernel
   virtual void setup(const TimeIntegrator&);
@@ -55,6 +55,8 @@ private:
   double dt_{0.0};
 
   DoubleType pi_;
+
+  std::ofstream tmpFile;
 
   MomentumTAMSKEForcingElemKernel() = delete;
 

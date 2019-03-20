@@ -312,7 +312,12 @@ MomentumTAMSSSTForcingElemKernel<AlgTraits>::execute(
     DoubleType gX = norm * hX; 
     DoubleType gY = norm * hY;
     DoubleType gZ = norm * hZ;
-   
+
+    std::ofstream tmpFile;
+    tmpFile.open("forcingField.txt");
+    tmpFile << w_coordScs[0] << w_coordScs[1] << w_coordScs[2] << gX << gY << gZ << std::endl;
+    tmpFile.close();
+
     // g_i is not divergence free, so we must solve a Poisson equation
     //rhs = G * normal * area;
     //lhs = grad operator * normal * area;

@@ -86,13 +86,22 @@ MomentumTAMSKEForcingElemKernel<AlgTraits>::MomentumTAMSKEForcingElemKernel(
 
   // master element data
   dataPreReqs.add_master_element_call(SCV_VOLUME, CURRENT_COORDINATES);
+
+  tmpFile.open("forcingField.txt", std::fstream::app);
+}
+
+template<typename AlgTraits>
+MomentumTAMSKEForcingElemKernel<AlgTraits>::~MomentumTAMSKEForcingElemKernel()
+{
+  tmpFile.close();
 }
 
 template<typename AlgTraits>
 void
 MomentumTAMSKEForcingElemKernel<AlgTraits>::setup(const TimeIntegrator& timeIntegrator)
 {
-  time_ = timeIntegrator.get_current_time();
+  //FIXME: Hack to match CDP time
+  time_ = timeIntegrator.get_current_time() - 440.0;
   dt_   = timeIntegrator.get_time_step();
 }
 
@@ -310,7 +319,10 @@ MomentumTAMSKEForcingElemKernel<AlgTraits>::execute(
     DoubleType gX = norm * hX; 
     DoubleType gY = norm * hY;
     DoubleType gZ = norm * hZ;
-   
+
+    if (time_ < 101.00)
+      tmpFile << w_coordScs[0] << w_coordScs[1] << w_coordScs[2] << gX << gY << gZ << norm << prod_r << F_target << Sa << std::endl;
+
     // g_i is not divergence free, so we must solve a Poisson equation
     //rhs = G * normal * area;
     //lhs = grad operator * normal * area;

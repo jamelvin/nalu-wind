@@ -84,7 +84,7 @@ public:
   VectorFieldType *avgVelocity_;
   ScalarFieldType *avgPressure_; 
   ScalarFieldType *avgDensity_; 
-  GenericFieldType *avgResolvedStress_;
+  ScalarFieldType *avgTkeResolved_;
   GenericFieldType *avgDudx_;
   ScalarFieldType *avgProduciton_;
   GenericFieldType *metric_;

@@ -52,8 +52,6 @@ TotalDissipationRateTAMSKESrcElemKernel<AlgTraits>::
   VectorFieldType* velocity =
     metaData.get_field<VectorFieldType>(stk::topology::NODE_RANK, "velocity");
   velocityNp1_ = &(velocity->field_of_state(stk::mesh::StateNP1));
-  resStressNp1_ = metaData.get_field<GenericFieldType>(
-    stk::topology::NODE_RANK, "average_resolved_stress");
   visc_ = metaData.get_field<ScalarFieldType>(
     stk::topology::NODE_RANK, "viscosity");
   tvisc_ = metaData.get_field<ScalarFieldType>(
@@ -91,7 +89,6 @@ TotalDissipationRateTAMSKESrcElemKernel<AlgTraits>::
   dataPreReqs.add_gathered_nodal_field(*tdrNp1_, 1);
   dataPreReqs.add_gathered_nodal_field(*densityNp1_, 1);
   dataPreReqs.add_gathered_nodal_field(*velocityNp1_, AlgTraits::nDim_);
-  dataPreReqs.add_gathered_nodal_field(*resStressNp1_, AlgTraits::nDim_, AlgTraits::nDim_);
   dataPreReqs.add_gathered_nodal_field(*visc_, 1);
   dataPreReqs.add_gathered_nodal_field(*tvisc_, 1);
   dataPreReqs.add_gathered_nodal_field(*alpha_, 1);
@@ -121,7 +118,6 @@ TotalDissipationRateTAMSKESrcElemKernel<AlgTraits>::execute(
 {
   NALU_ALIGNED DoubleType w_dudx[AlgTraits::nDim_][AlgTraits::nDim_];
   NALU_ALIGNED DoubleType w_coords[AlgTraits::nDim_];
-  NALU_ALIGNED DoubleType w_resStress[AlgTraits::nDim_][AlgTraits::nDim_];
 
   SharedMemView<DoubleType*>& v_tkeNp1 =
     scratchViews.get_scratch_view_1D(*tkeNp1_);
@@ -131,8 +127,6 @@ TotalDissipationRateTAMSKESrcElemKernel<AlgTraits>::execute(
     scratchViews.get_scratch_view_1D(*densityNp1_);
   SharedMemView<DoubleType**>& v_velocityNp1 =
     scratchViews.get_scratch_view_2D(*velocityNp1_);
-  SharedMemView<DoubleType***>& v_resStressNp1 =
-    scratchViews.get_scratch_view_3D(*resStressNp1_);
   SharedMemView<DoubleType*>& v_visc =
     scratchViews.get_scratch_view_1D(*visc_);
   SharedMemView<DoubleType*>& v_tvisc =
@@ -176,7 +170,6 @@ TotalDissipationRateTAMSKESrcElemKernel<AlgTraits>::execute(
     for (int i = 0; i < AlgTraits::nDim_; ++i) {
       w_coords[i] = 0.0;
       for (int j = 0; j < AlgTraits::nDim_; ++j) {
-        w_resStress[i][j] = 0.0;
         w_dudx[i][j] = 0.0; 
       }
     }
@@ -200,9 +193,7 @@ TotalDissipationRateTAMSKESrcElemKernel<AlgTraits>::execute(
         const DoubleType dni = v_dndx(ip, ic, i);
         const DoubleType ui = v_velocityNp1(ic, i);
         for (int j = 0; j < AlgTraits::nDim_; ++j) {
-          const DoubleType resStressij = v_resStressNp1(ic, i, j);
           w_dudx[i][j] += v_dndx(ip, ic, j) * ui;
-          w_resStress[i][j] += r * resStressij; 
         }
       }
     }
@@ -229,9 +220,13 @@ TotalDissipationRateTAMSKESrcElemKernel<AlgTraits>::execute(
     const DoubleType LeFac = 2.0 * visc * stk::math::exp(-0.5*dplus) / minD / minD;
     const DoubleType Le = -LeFac * tdr;
 
+    //std::ofstream tmpFile;
+    //tmpFile.open("TDRsrc.txt");
     
-    //std::cout << " (" << w_coords[0] << ", "<< w_coords[1] << ", " << w_coords[2] << ") " << tdr <<" " << tke << " " << Pe << " " << De << " " << Le << " " << minD << " " << dplus << " " << tvisc << std::endl;
+    //tmpFile << " (" << w_coords[0] << ", "<< w_coords[1] << ", " << w_coords[2] << ") " << tdr <<" " << tke << " " << Pe << " " << De << " " << Le << " " << minD << " " << dplus << " " << tvisc << std::endl;
     
+    //tmpFile.close();
+
     //const DoubleType extraFac = -cEpsTwo_ * stk::math::exp(-Re_t*Re_t / 36.0) * rho * rho * rho * tke * tke * tke / 81.0 / visc / visc / stk::math::max(tdr, 1.0e-16);
 
     // assemble RHS and LHS
