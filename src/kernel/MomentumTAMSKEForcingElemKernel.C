@@ -51,6 +51,8 @@ MomentumTAMSKEForcingElemKernel<AlgTraits>::MomentumTAMSKEForcingElemKernel(
     metaData.get_field<VectorFieldType>(stk::topology::NODE_RANK, "average_velocity");
   avgDensity_ =
     metaData.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "average_density");
+  avgTime_ = 
+    metaData.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "average_time");
 
   avgResAdeq_ = metaData.get_field<ScalarFieldType>(
     stk::topology::ELEMENT_RANK, "average_resolution_adequacy_parameter");
@@ -80,6 +82,7 @@ MomentumTAMSKEForcingElemKernel<AlgTraits>::MomentumTAMSKEForcingElemKernel(
   dataPreReqs.add_gathered_nodal_field(*avgVelocity_, AlgTraits::nDim_);
   dataPreReqs.add_gathered_nodal_field(*avgDensity_, 1);
   dataPreReqs.add_gathered_nodal_field(*alphaNp1_, 1);
+  dataPreReqs.add_gathered_nodal_field(*avgTime_, 1);
   dataPreReqs.add_gathered_nodal_field(*minDist_, 1);
   dataPreReqs.add_element_field(*avgResAdeq_, 1);
   dataPreReqs.add_element_field(*Mij_, AlgTraits::nDim_, AlgTraits::nDim_);
@@ -134,6 +137,8 @@ MomentumTAMSKEForcingElemKernel<AlgTraits>::execute(
     scratchViews.get_scratch_view_2D(*avgVelocity_);
   SharedMemView<DoubleType*>& v_alphaNp1 =
     scratchViews.get_scratch_view_1D(*alphaNp1_);
+  SharedMemView<DoubleType*>& v_avgTime =
+    scratchViews.get_scratch_view_1D(*avgTime_);
   SharedMemView<DoubleType*>& v_minDist =
     scratchViews.get_scratch_view_1D(*minDist_);
   SharedMemView<DoubleType*>& v_avgResAdeq =
@@ -161,6 +166,7 @@ MomentumTAMSKEForcingElemKernel<AlgTraits>::execute(
     DoubleType rhoScs = 0.0;
     DoubleType tkeScs = 0.0;
     DoubleType tdrScs = 0.0;
+    DoubleType avgTimeScs = 0.0;
     DoubleType alphaScs = 0.0;
     DoubleType wallDistScs = 0.0;
 
@@ -175,6 +181,7 @@ MomentumTAMSKEForcingElemKernel<AlgTraits>::execute(
       rhoScs      += r * v_rhoNp1(ic);
       tkeScs      += r * v_tkeNp1(ic);
       tdrScs      += r * v_tdrNp1(ic);
+      avgTimeScs  += r * v_avgTime(ic);
       alphaScs    += r * v_alphaNp1(ic);
       wallDistScs += r * v_minDist(ic);
 
@@ -305,9 +312,9 @@ MomentumTAMSKEForcingElemKernel<AlgTraits>::execute(
       double tmp_Sa = stk::simd::get_data(Sa, simdIndex);
 
       if ((tmp_fd < 1.0) && (tmp_prodr >= 0.0))
-        C_F = -1.0 * tmp_Ftarget * tmp_Sa;
+        tmp_CF = -1.0 * tmp_Ftarget * tmp_Sa;
       else 
-        C_F = 0.0;
+        tmp_CF = 0.0;
       stk::simd::set_data(C_F, simdIndex, tmp_CF);
     }
     //stk::math::if_then_else((fd_temp < 1.0) && (prod_r >= 0.0), C_F = -1.0 * F_target * Sa, C_F = 0.0);
@@ -316,12 +323,13 @@ MomentumTAMSKEForcingElemKernel<AlgTraits>::execute(
     const DoubleType norm = C_F; //* dt_;
   
     // Now we determine the actual forcing field
-    DoubleType gX = norm * hX; 
-    DoubleType gY = norm * hY;
-    DoubleType gZ = norm * hZ;
+    // FIXME: DEBUG HACK! Remove dt, only for testing
+    DoubleType gX = norm * hX;// / dt_; 
+    DoubleType gY = norm * hY;// / dt_;
+    DoubleType gZ = norm * hZ;// / dt_;
 
-    if (time_ < 101.00)
-      tmpFile << w_coordScs[0] << w_coordScs[1] << w_coordScs[2] << gX << gY << gZ << norm << prod_r << F_target << Sa << std::endl;
+    //if (time_ < 101.00)
+    //  tmpFile << w_coordScs[0] << w_coordScs[1] << w_coordScs[2] << gX << gY << gZ << norm << prod_r << F_target << Sa << std::endl;
 
     // g_i is not divergence free, so we must solve a Poisson equation
     //rhs = G * normal * area;

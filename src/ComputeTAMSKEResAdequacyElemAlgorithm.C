@@ -64,6 +64,8 @@ ComputeTAMSKEResAdequacyElemAlgorithm::ComputeTAMSKEResAdequacyElemAlgorithm(
     stk::topology::NODE_RANK, "average_velocity");
   avgDensity_ = metaData.get_field<ScalarFieldType>(
     stk::topology::NODE_RANK, "average_density");
+  avgTime_ = metaData.get_field<ScalarFieldType>(
+    stk::topology::NODE_RANK, "average_time");
 
   resAdeq_ = metaData.get_field<ScalarFieldType>(
     stk::topology::ELEMENT_RANK, "resolution_adequacy_parameter");
@@ -114,6 +116,7 @@ void ComputeTAMSKEResAdequacyElemAlgorithm::execute() {
     ws_uNp1.resize(nDim_ * nodesPerElement);
     ws_rhoNp1.resize(nodesPerElement);
     ws_tke.resize(nodesPerElement);
+    ws_avgTime.resize(nodesPerElement);
     ws_tdr.resize(nodesPerElement);
     ws_alpha.resize(nodesPerElement);
 
@@ -143,6 +146,7 @@ void ComputeTAMSKEResAdequacyElemAlgorithm::execute() {
 
     double *p_uNp1 = &ws_uNp1[0];
     double *p_rhoNp1 = &ws_rhoNp1[0];
+    double *p_avgTime = &ws_avgTime[0];
     double *p_tke = &ws_tke[0];
     double *p_tdr = &ws_tdr[0];
     double *p_alpha = &ws_alpha[0];
@@ -225,10 +229,11 @@ void ComputeTAMSKEResAdequacyElemAlgorithm::execute() {
         const double * avgVel = stk::mesh::field_data(*avgVelocity_, node);  
 
         // gather scalars
-        p_mut[ni]      = *stk::mesh::field_data(*turbVisc_, node);
+        p_mut[ni]     = *stk::mesh::field_data(*turbVisc_, node);
         p_rhoNp1[ni]  = *stk::mesh::field_data(*densityNp1_, node);
         p_tke[ni]     = *stk::mesh::field_data(*tkeNp1_, node); 
         p_tdr[ni]     = *stk::mesh::field_data(*tdrNp1_, node);
+        p_avgTime[ni] = *stk::mesh::field_data(*avgTime_, node);
         p_alpha[ni]   = *stk::mesh::field_data(*alphaNp1_, node);
 
         p_avgRho[ni]  = *stk::mesh::field_data(*avgDensity_, node);
@@ -255,6 +260,7 @@ void ComputeTAMSKEResAdequacyElemAlgorithm::execute() {
         // zero out; instantaneous quantities
         double tkeScs = 0.0;
         double tdrScs = 0.0;
+        double avgTime = 0.0;
         double alphaScs = 0.0;
         double mutScs = 0.0;
 
@@ -288,6 +294,7 @@ void ComputeTAMSKEResAdequacyElemAlgorithm::execute() {
           // scalars 
           tkeScs += r*p_tke[ic];
           tdrScs += r*p_tdr[ic];
+          avgTime += r*p_avgTime[ic];
           alphaScs += r*p_alpha[ic];
           mutScs += r*p_mut[ic];
 
@@ -384,20 +391,17 @@ void ComputeTAMSKEResAdequacyElemAlgorithm::execute() {
   
       // Update the average field here as well since it is an element quantity
       // and the averaging algorithm operates on the nodes
-      double elemTke = 0.0;
-      double elemTdr = 0.0;
+      double elemAvgTime = 0.0;
       double elemAlpha = 0.0;
       for ( int ic = 0; ic < nodesPerElement; ++ic ) {
-        elemTke += p_tke[ic];
-        elemTdr += p_tdr[ic];
+        elemAvgTime += p_avgTime[ic];
         elemAlpha += p_alpha[ic];
       }
 
       if (elemAlpha >= (double)nodesPerElement)
         resAdeq[k] = std::min(resAdeq[k],1.0);
 
-      // The division by number of nodes cancels out here
-      const double T_ave = elemTke/elemTdr;
+      const double T_ave = elemAvgTime/(double)nodesPerElement;
 
       const double weightAvg = std::max(1.0 - dt/T_ave, 0.0);
       const double weightInst = std::min(dt/T_ave, 1.0);

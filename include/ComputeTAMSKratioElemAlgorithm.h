@@ -28,6 +28,7 @@ public:
   ScalarFieldType *viscosity_{nullptr};
   ScalarFieldType *turbVisc_{nullptr};
   ScalarFieldType *avgTkeRes_{nullptr};
+  ScalarFieldType *avgTime_{nullptr};
 };
 
 } // namespace nalu

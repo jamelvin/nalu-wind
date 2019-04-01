@@ -59,8 +59,10 @@ ComputeTAMSKEAveragesElemAlgorithm::ComputeTAMSKEAveragesElemAlgorithm(
   avgDudx_ = meta_data.get_field<GenericFieldType>(stk::topology::NODE_RANK, "average_dudx");
   avgTkeRes_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "average_tke_resolved");
   avgProd_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "average_production");
+  avgTime_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "average_time");
 
   // Other quantities
+  visc_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "viscosity");
   tvisc_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "turbulent_viscosity");
   alpha_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "k_ratio");
 }
@@ -100,6 +102,7 @@ void ComputeTAMSKEAveragesElemAlgorithm::execute() {
 
     // get other field data
     const double * tvisc = stk::mesh::field_data(*tvisc_, b);
+    const double * visc = stk::mesh::field_data(*visc_, b);
     const double * alpha = stk::mesh::field_data(*alpha_, b);
 
     // get average field data
@@ -107,6 +110,7 @@ void ComputeTAMSKEAveragesElemAlgorithm::execute() {
     double * avgRho = stk::mesh::field_data(*avgDensity_, b);
     double * avgProd = stk::mesh::field_data(*avgProd_, b);
     double * avgTkeRes = stk::mesh::field_data(*avgTkeRes_, b);
+    double * avgTime = stk::mesh::field_data(*avgTime_,b);
 
     for (stk::mesh::Bucket::size_type k = 0; k < length; ++k) {
       // get velocity field data
@@ -118,7 +122,23 @@ void ComputeTAMSKEAveragesElemAlgorithm::execute() {
       //        but CDP has something different
 
       // At the wall, tdr can be 0.0, so clip it
-      const double T_ave = tke[k]/std::max(tdr[k],1.0e-16);
+      double T_ave = tke[k]/std::max(tdr[k],1.0e-16);
+
+      // compute strain rate magnitude; pull pointer within the loop to make it managable
+      double sijMag = 0.0;
+      for ( int i = 0; i < nDim; ++i ) {
+        const int offSet = nDim*i;
+        for ( int j = 0; j < nDim; ++j ) {
+          const double rateOfStrain = 0.5*(avgDudx[offSet+j] + avgDudx[nDim*j+i]);
+          sijMag += rateOfStrain*rateOfStrain;
+        }
+      }
+      sijMag = std::sqrt(2.0*sijMag);
+
+      const double v2 = 1.0/0.22 * (tvisc[k] * tdr[k]) / std::max(tke[k], 1.0e-16); 
+
+      T_ave = std::max(T_ave, 6.0*std::sqrt(visc[k]/tdr[k]));
+      T_ave = std::min(T_ave, 0.6*tke[k]/std::max(std::sqrt(6.0)*0.22*v2*sijMag,1.0e-12));
 
       const double weightAvg = std::max(1.0 - dt/T_ave, 0.0);
       const double weightInst = std::min(dt/T_ave, 1.0);
@@ -139,6 +159,7 @@ void ComputeTAMSKEAveragesElemAlgorithm::execute() {
       avgPres[k] = weightAvg * avgPres[k] + weightInst * pres[k];
       avgRho[k]  = weightAvg * avgRho[k]  + weightInst * rho[k];
       avgTkeRes[k] = weightAvg * avgTkeRes[k] + weightInst * 0.5*tkeRes;
+      avgTime[k] = T_ave;
 
       // Production averaging
       double tij[nDim][nDim];

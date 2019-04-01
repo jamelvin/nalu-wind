@@ -44,7 +44,8 @@ ComputeTAMSKratioElemAlgorithm::ComputeTAMSKratioElemAlgorithm(
   viscosity_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "viscosity");
   turbVisc_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "turbulent_viscosity");
   avgTkeRes_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK,"average_tke_resolved");
-    }
+  avgTime_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK,"average_time");
+}
 
 //--------------------------------------------------------------------------
 //-------- execute ---------------------------------------------------------
@@ -69,6 +70,7 @@ void ComputeTAMSKratioElemAlgorithm::execute() {
     double * tke = stk::mesh::field_data(*turbKineticEnergy_, b);
     double * alpha = stk::mesh::field_data(*alpha_, b);
     double * tdr = stk::mesh::field_data(*totalDissRate_, b);
+    double * avgTime = stk::mesh::field_data(*avgTime_, b);
     double * visc = stk::mesh::field_data(*viscosity_, b);
     double * tvisc = stk::mesh::field_data(*turbVisc_, b);
     double * tkeRes = stk::mesh::field_data(*avgTkeRes_, b);
@@ -82,8 +84,7 @@ void ComputeTAMSKratioElemAlgorithm::execute() {
          // limiters
          alpha[k] = std::min(alpha[k],1.0);
 
-         const double T_ke = tke[k] / std::max(tdr[k],1e-16);
-         const double v2 = 1.0/0.22 * (tvisc[k] / T_ke);
+         const double v2 = 1.0/0.22 * (tvisc[k] * tdr[k]) / std::max(tke[k], 1.0e-16);
          const double a_kol = std::min(1.5*v2/tke[k]*std::sqrt(visc[k]*tdr[k])/tke[k],1.0);
 
          alpha[k] = std::max(alpha[k], a_kol);

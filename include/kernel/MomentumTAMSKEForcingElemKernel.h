@@ -71,6 +71,7 @@ private:
   ScalarFieldType* minDist_{nullptr};
   VectorFieldType* avgVelocity_{nullptr};
   ScalarFieldType* avgDensity_{nullptr};
+  ScalarFieldType *avgTime_{nullptr};
 
   ScalarFieldType *viscosity_{nullptr};
   ScalarFieldType *turbViscosity_{nullptr};

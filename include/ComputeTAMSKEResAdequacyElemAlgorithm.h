@@ -35,6 +35,7 @@ public:
   ScalarFieldType *alphaNp1_{nullptr};
   VectorFieldType *avgVelocity_{nullptr};
   ScalarFieldType *avgDensity_{nullptr};
+  ScalarFieldType *avgTime_{nullptr};
   ScalarFieldType *resAdeq_{nullptr};
   ScalarFieldType *avgResAdeq_{nullptr};
   GenericFieldType *Mij_{nullptr};
@@ -52,7 +53,7 @@ public:
   std::vector<double> ws_tke;
   std::vector<double> ws_tdr;
   std::vector<double> ws_alpha;
-
+  std::vector<double> ws_avgTime;
   std::vector<double> ws_avgU;
   std::vector<double> ws_avgRho;
 

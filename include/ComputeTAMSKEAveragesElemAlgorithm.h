@@ -35,8 +35,10 @@ public:
   ScalarFieldType *avgPress_{nullptr};
   ScalarFieldType *avgDensity_{nullptr};
   ScalarFieldType *avgTkeRes_{nullptr};
+  ScalarFieldType *avgTime_{nullptr};
   GenericFieldType *avgDudx_{nullptr};
   ScalarFieldType *avgProd_{nullptr};
+  ScalarFieldType *visc_{nullptr};
   ScalarFieldType *tvisc_{nullptr};
   ScalarFieldType *alpha_{nullptr};
 };

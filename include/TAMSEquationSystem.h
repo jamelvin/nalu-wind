@@ -85,6 +85,7 @@ public:
   ScalarFieldType *avgPressure_; 
   ScalarFieldType *avgDensity_; 
   ScalarFieldType *avgTkeResolved_;
+  ScalarFieldType *avgTime_;
   GenericFieldType *avgDudx_;
   ScalarFieldType *avgProduciton_;
   GenericFieldType *metric_;

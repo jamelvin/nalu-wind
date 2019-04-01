@@ -119,6 +119,7 @@ TAMSEquationSystem::TAMSEquationSystem(
     resAdequacy_(NULL),
     avgResAdequacy_(NULL),
     avgProduction_(NULL),
+    avgTime_(NULL),
     gTmp_(NULL),
     metricTensorAlgDriver_(new AlgorithmDriver(realm_)),
     resolutionAdequacyAlgDriver_(new AlgorithmDriver(realm_)),
@@ -195,6 +196,9 @@ TAMSEquationSystem::register_nodal_fields(
   avgTkeResolved_ = &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "average_tke_resolved"));
   stk::mesh::put_field_on_mesh(*avgTkeResolved_, *part, nullptr);
   realm_.augment_restart_variable_list("average_tke_resolved");
+
+  avgTime_ = &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK,"average_time"));
+  stk::mesh::put_field_on_mesh(*avgTime_, *part, nullptr);
 
   metric_ = &(meta_data.declare_field<GenericFieldType>(stk::topology::ELEMENT_RANK, "metric_tensor"));
   stk::mesh::put_field_on_mesh(*metric_, *part, nDim*nDim, nullptr);
