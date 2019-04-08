@@ -137,8 +137,8 @@ void ComputeTAMSKEAveragesElemAlgorithm::execute() {
 
       const double v2 = 1.0/0.22 * (tvisc[k] * tdr[k]) / std::max(tke[k], 1.0e-16); 
 
-      T_ave = std::max(T_ave, 6.0*std::sqrt(visc[k]/tdr[k]));
-      T_ave = std::min(T_ave, 0.6*tke[k]/std::max(std::sqrt(6.0)*0.22*v2*sijMag,1.0e-12));
+      //T_ave = std::max(T_ave, 6.0*std::sqrt(visc[k]/tdr[k]));
+      //T_ave = std::min(T_ave, 0.6*tke[k]/std::max(std::sqrt(6.0)*0.22*v2*sijMag,1.0e-12));
 
       const double weightAvg = std::max(1.0 - dt/T_ave, 0.0);
       const double weightInst = std::min(dt/T_ave, 1.0);

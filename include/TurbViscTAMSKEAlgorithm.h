@@ -36,7 +36,8 @@ public:
   ScalarFieldType *tdr_;
   ScalarFieldType *dplus_;
   ScalarFieldType *tvisc_;
-  
+  ScalarFieldType *visc_;
+  GenericFieldType *avgDudx_;  
 };
 
 } // namespace nalu

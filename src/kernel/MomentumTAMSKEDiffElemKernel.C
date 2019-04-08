@@ -279,16 +279,16 @@ MomentumTAMSKEDiffElemKernel<AlgTraits>::execute(
 
 
           // lhs; il then ir
-          lhs(indexL, icNdim + j) += lhsfacDiff_j + lhsfacDiffSGRS_j;
-          lhs(indexR, icNdim + j) -= lhsfacDiff_j + lhsfacDiffSGRS_j;
+          //lhs(indexL, icNdim + j) += lhsfacDiff_j + lhsfacDiffSGRS_j;
+          //lhs(indexR, icNdim + j) -= lhsfacDiff_j + lhsfacDiffSGRS_j;
           // rhs; il then ir
           rhs(indexL) -= lhsfacDiff_j * fluctUj + lhsfacDiffSGRS_j * avgUj;
           rhs(indexR) += lhsfacDiff_j * fluctUj + lhsfacDiffSGRS_j * avgUj;
         }
 
         // deal with accumulated lhs and flux for -mut^jk*dui/dxk*Aj
-        lhs(indexL, icNdim + i) += lhs_riC_i + lhs_riCSGRS_i;
-        lhs(indexR, icNdim + i) -= lhs_riC_i + lhs_riCSGRS_i;
+        //lhs(indexL, icNdim + i) += lhs_riC_i + lhs_riCSGRS_i;
+        //lhs(indexR, icNdim + i) -= lhs_riC_i + lhs_riCSGRS_i;
         const DoubleType fluctUi = v_uNp1(ic, i) - v_avgU(ic, i);
         const DoubleType avgUi = v_avgU(ic, i);
 

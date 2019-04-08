@@ -84,7 +84,9 @@ void ComputeTAMSKratioElemAlgorithm::execute() {
          // limiters
          alpha[k] = std::min(alpha[k],1.0);
 
-         const double v2 = 1.0/0.22 * (tvisc[k] * tdr[k]) / std::max(tke[k], 1.0e-16);
+         const double T_ke = tke[k] / std::max(tdr[k],1e-16);
+	 const double v2 = 1.0/0.22 * (tvisc[k] / T_ke);
+         //const double v2 = 1.0/0.22 * (tvisc[k] * tdr[k]) / std::max(tke[k], 1.0e-16);
          const double a_kol = std::min(1.5*v2/tke[k]*std::sqrt(visc[k]*tdr[k])/tke[k],1.0);
 
          alpha[k] = std::max(alpha[k], a_kol);

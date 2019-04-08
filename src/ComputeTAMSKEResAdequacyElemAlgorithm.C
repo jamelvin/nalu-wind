@@ -391,9 +391,13 @@ void ComputeTAMSKEResAdequacyElemAlgorithm::execute() {
   
       // Update the average field here as well since it is an element quantity
       // and the averaging algorithm operates on the nodes
+      double elemTke = 0.0;
+      double elemTdr = 0.0;
       double elemAvgTime = 0.0;
       double elemAlpha = 0.0;
       for ( int ic = 0; ic < nodesPerElement; ++ic ) {
+        elemTke += p_tke[ic];
+	elemTdr += p_tdr[ic];
         elemAvgTime += p_avgTime[ic];
         elemAlpha += p_alpha[ic];
       }
@@ -401,8 +405,9 @@ void ComputeTAMSKEResAdequacyElemAlgorithm::execute() {
       if (elemAlpha >= (double)nodesPerElement)
         resAdeq[k] = std::min(resAdeq[k],1.0);
 
-      const double T_ave = elemAvgTime/(double)nodesPerElement;
-
+      const double T_ave = elemTke/elemTdr;
+      //const double T_ave = elemAvgTime/(double)nodesPerElement;
+      
       const double weightAvg = std::max(1.0 - dt/T_ave, 0.0);
       const double weightInst = std::min(dt/T_ave, 1.0);
 
