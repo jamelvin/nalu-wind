@@ -33,9 +33,11 @@ public:
   ScalarFieldType *tdrNp1_{nullptr};
   ScalarFieldType *tkeNp1_{nullptr};
   ScalarFieldType *alphaNp1_{nullptr};
+  GenericFieldType *massFlowRate_{nullptr};
   VectorFieldType *avgVelocity_{nullptr};
   ScalarFieldType *avgDensity_{nullptr};
   ScalarFieldType *avgTime_{nullptr};
+  GenericFieldType *avgMdot_{nullptr};
   ScalarFieldType *resAdeq_{nullptr};
   ScalarFieldType *avgResAdeq_{nullptr};
   GenericFieldType *Mij_{nullptr};

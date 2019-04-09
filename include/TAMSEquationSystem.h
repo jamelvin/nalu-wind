@@ -37,6 +37,10 @@ public:
   virtual void register_nodal_fields(
     stk::mesh::Part *part);
 
+  virtual void register_element_fields(
+    stk::mesh::Part *part,
+    const stk::topology &theTopo);
+
   void register_interior_algorithm(
     stk::mesh::Part *part);
   
@@ -71,7 +75,7 @@ public:
   
   void solve_and_update();
   void initial_work();
-
+  void initialize_mdot();
   void compute_resolution_adequacy_parameters();
   void compute_metric_tensor();
   void compute_averages();
@@ -92,6 +96,7 @@ public:
 
   ScalarFieldType *resAdequacy_;
   ScalarFieldType *avgResAdequacy_;
+  GenericFieldType *avgMdot_;
   VectorFieldType *gTmp_;
 
   ScalarFieldType *avgProduction_;

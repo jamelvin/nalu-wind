@@ -61,6 +61,8 @@
 #include <kernel/ScalarMassElemKernel.h>
 #include <kernel/ScalarAdvDiffElemKernel.h>
 #include <kernel/ScalarUpwAdvDiffElemKernel.h>
+#include <kernel/ScalarTAMSAdvDiffElemKernel.h>
+#include <kernel/ScalarTAMSUpwAdvDiffElemKernel.h>
 
 // nso
 #include <nso/ScalarNSOElemKernel.h>
@@ -120,6 +122,7 @@ TAMSEquationSystem::TAMSEquationSystem(
     avgResAdequacy_(NULL),
     avgProduction_(NULL),
     avgTime_(NULL),
+    avgMdot_(NULL),
     gTmp_(NULL),
     metricTensorAlgDriver_(new AlgorithmDriver(realm_)),
     resolutionAdequacyAlgDriver_(new AlgorithmDriver(realm_)),
@@ -200,20 +203,61 @@ TAMSEquationSystem::register_nodal_fields(
   avgTime_ = &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK,"average_time"));
   stk::mesh::put_field_on_mesh(*avgTime_, *part, nullptr);
 
-  metric_ = &(meta_data.declare_field<GenericFieldType>(stk::topology::ELEMENT_RANK, "metric_tensor"));
-  stk::mesh::put_field_on_mesh(*metric_, *part, nDim*nDim, nullptr);
+//  metric_ = &(meta_data.declare_field<GenericFieldType>(stk::topology::ELEMENT_RANK, "metric_tensor"));
+//  stk::mesh::put_field_on_mesh(*metric_, *part, nDim*nDim, nullptr);
 
-  resAdequacy_ = &(meta_data.declare_field<ScalarFieldType>(stk::topology::ELEMENT_RANK, "resolution_adequacy_parameter"));
-  stk::mesh::put_field_on_mesh(*resAdequacy_, *part, nullptr);
+//  resAdequacy_ = &(meta_data.declare_field<ScalarFieldType>(stk::topology::ELEMENT_RANK, "resolution_adequacy_parameter"));
+//  stk::mesh::put_field_on_mesh(*resAdequacy_, *part, nullptr);
 
-  avgResAdequacy_ = &(meta_data.declare_field<ScalarFieldType>(stk::topology::ELEMENT_RANK, "average_resolution_adequacy_parameter"));
-  stk::mesh::put_field_on_mesh(*avgResAdequacy_, *part, nullptr);
-  realm_.augment_restart_variable_list("average_resolution_adequacy_parameter");
+//  avgResAdequacy_ = &(meta_data.declare_field<ScalarFieldType>(stk::topology::ELEMENT_RANK, "average_resolution_adequacy_parameter"));
+//  stk::mesh::put_field_on_mesh(*avgResAdequacy_, *part, nullptr);
+//  realm_.augment_restart_variable_list("average_resolution_adequacy_parameter");
+
+//  MasterElement *meSCS = sierra::nalu::MasterElementRepo::get_surface_master_element(theTopo);
+//  const int numScsIp = meSCS->numIntPoints_;
+
+//  avgMdot_ = &(meta_data.declare_field<GenericFieldType>(stk::topology::ELEMENT_RANK, "average_mass_flow_rate"));
+//  stk::mesh::put_field_on_mesh(*avgMdot_, *part, numScsIp, nullptr);
+//  realm_.augment_restart_variable_list("average_mass_flow_rate");
 
   // delta solution for linear solver; share delta with other split systems
   gTmp_ =  &(meta_data.declare_field<VectorFieldType>(stk::topology::NODE_RANK, "gTmp"));
   stk::mesh::put_field_on_mesh(*gTmp_, *part, nDim, nullptr);
 
+}
+
+//--------------------------------------------------------------------------
+//-------- register_element_fields -----------------------------------------
+//--------------------------------------------------------------------------
+void
+TAMSEquationSystem::register_element_fields(
+  stk::mesh::Part *part,
+  const stk::topology &theTopo)
+{
+  stk::mesh::MetaData &meta_data = realm_.meta_data();
+
+  const int nDim = meta_data.spatial_dimension();
+
+  metric_ = &(meta_data.declare_field<GenericFieldType>(stk::topology::ELEMENT_RANK,           
+"metric_tensor"));
+  stk::mesh::put_field_on_mesh(*metric_, *part, nDim*nDim, nullptr);
+
+  resAdequacy_ = &(meta_data.declare_field<ScalarFieldType>(stk::topology::ELEMENT_RANK,       
+"resolution_adequacy_parameter"));
+  stk::mesh::put_field_on_mesh(*resAdequacy_, *part, nullptr);
+
+  avgResAdequacy_ = &(meta_data.declare_field<ScalarFieldType>(stk::topology::ELEMENT_RANK,    
+"average_resolution_adequacy_parameter"));
+  stk::mesh::put_field_on_mesh(*avgResAdequacy_, *part, nullptr);
+  realm_.augment_restart_variable_list("average_resolution_adequacy_parameter");
+
+  MasterElement *meSCS = sierra::nalu::MasterElementRepo::get_surface_master_element(theTopo);
+  const int numScsIp = meSCS->numIntPoints_;
+
+  avgMdot_ = &(meta_data.declare_field<GenericFieldType>(stk::topology::ELEMENT_RANK,          
+"average_mass_flow_rate"));
+  stk::mesh::put_field_on_mesh(*avgMdot_, *part, numScsIp, nullptr);
+  realm_.augment_restart_variable_list("average_mass_flow_rate");
 }
 
 //--------------------------------------------------------------------------
@@ -439,6 +483,7 @@ TAMSEquationSystem::solve_and_update()
   if ( isInit_ ) {
     //compute_projected_nodal_gradient();
     //compute_metric_tensor();
+    initialize_mdot();
     isInit_ = false;
   }
 
@@ -573,6 +618,51 @@ TAMSEquationSystem::initial_work()
   compute_averages();
   compute_alpha();
   compute_resolution_adequacy_parameters();
+}
+
+//--------------------------------------------------------------------------
+//-------- initial_work ----------------------------------------------------
+//--------------------------------------------------------------------------
+void
+TAMSEquationSystem::initialize_mdot()
+{
+  //FIXME: Don't do this if it's a restart and average_mdot has been defined...
+
+  stk::mesh::MetaData & meta_data = realm_.meta_data();
+
+  GenericFieldType *massFlowRate_ = meta_data.get_field<GenericFieldType>(stk::topology::ELEMENT_RANK, "mass_flow_rate_scs");
+
+  // FIXME: Hack since setting an element field to a constant using Aux doesn't seem to work...
+  // required fields
+
+  // define some common selectors
+  stk::mesh::Selector s_all_elem
+    = (meta_data.locally_owned_part() | meta_data.globally_shared_part())
+    &stk::mesh::selectField(*avgMdot_);
+
+  stk::mesh::BucketVector const& elem_buckets =
+    realm_.get_buckets( stk::topology::ELEMENT_RANK, s_all_elem );
+  for ( stk::mesh::BucketVector::const_iterator ib = elem_buckets.begin();
+        ib != elem_buckets.end() ; ++ib ) {
+    stk::mesh::Bucket & b = **ib ;
+    const stk::mesh::Bucket::size_type length = b.size();
+
+    // extract master element
+    MasterElement *meSCS = sierra::nalu::MasterElementRepo::get_surface_master_element(b. 
+topology());
+
+    // extract master element specifics
+    const int nodesPerElement = meSCS->nodesPerElement_;
+    const int numScsIp = meSCS->numIntPoints_;
+
+    for ( stk::mesh::Bucket::size_type k = 0 ; k < length ; ++k ) {
+       double *avgMdot = stk::mesh::field_data(*avgMdot_, b, k);
+       const double *mdot = stk::mesh::field_data(*massFlowRate_, b, k);
+
+       for (int ip = 0; ip < numScsIp; ip++)
+         avgMdot[ip] = mdot[ip];
+    }
+  }
 }
 
 //--------------------------------------------------------------------------

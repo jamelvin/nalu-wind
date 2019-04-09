@@ -62,6 +62,8 @@
 #include <kernel/ScalarMassElemKernel.h>
 #include <kernel/ScalarAdvDiffElemKernel.h>
 #include <kernel/ScalarUpwAdvDiffElemKernel.h>
+#include <kernel/ScalarTAMSAdvDiffElemKernel.h>
+#include <kernel/ScalarTAMSUpwAdvDiffElemKernel.h>
 #include <kernel/TurbKineticEnergyKsgsSrcElemKernel.h>
 #include <kernel/TurbKineticEnergyKsgsDesignOrderSrcElemKernel.h>
 #include <kernel/TurbKineticEnergySSTSrcElemKernel.h>
@@ -432,9 +434,17 @@ TurbKineticEnergyEquationSystem::register_interior_algorithm(
       build_topo_kernel_if_requested<ScalarAdvDiffElemKernel>
         (partTopo, *this, activeKernels, "advection_diffusion",
          realm_.bulk_data(), *realm_.solutionOptions_, tke_, evisc_, dataPreReqs);
+
+      build_topo_kernel_if_requested<ScalarTAMSAdvDiffElemKernel>
+        (partTopo, *this, activeKernels, "TAMS_advection_diffusion",
+         realm_.bulk_data(), *realm_.solutionOptions_, tke_, evisc_, dataPreReqs);
       
       build_topo_kernel_if_requested<ScalarUpwAdvDiffElemKernel>
         (partTopo, *this, activeKernels, "upw_advection_diffusion",
+         realm_.bulk_data(), *realm_.solutionOptions_, this, tke_, dkdx_, evisc_, dataPreReqs);
+
+      build_topo_kernel_if_requested<ScalarTAMSUpwAdvDiffElemKernel>
+        (partTopo, *this, activeKernels, "TAMS_upw_advection_diffusion",
          realm_.bulk_data(), *realm_.solutionOptions_, this, tke_, dkdx_, evisc_, dataPreReqs);
 
       build_topo_kernel_if_requested<TurbKineticEnergyKsgsSrcElemKernel>

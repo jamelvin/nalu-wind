@@ -35,6 +35,8 @@ add_sources(GlobalSourceList
    ScalarMassElemKernel.C
    ScalarMassHOElemKernel.C
    ScalarOpenAdvElemKernel.C
+   ScalarTAMSAdvDiffElemKernel.C
+   ScalarTAMSUpwAdvDiffElemKernel.C
    ScalarUpwAdvDiffElemKernel.C
    SpecificDissipationRateSSTSrcElemKernel.C
    SpecificDissipationRateSSTTAMSSrcElemKernel.C

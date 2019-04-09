@@ -59,6 +59,8 @@ ComputeTAMSKEResAdequacyElemAlgorithm::ComputeTAMSKEResAdequacyElemAlgorithm(
     stk::topology::NODE_RANK, "total_dissipation_rate");
   alphaNp1_ = metaData.get_field<ScalarFieldType>(
     stk::topology::NODE_RANK, "k_ratio");
+  massFlowRate_ = metaData.get_field<GenericFieldType>(
+    stk::topology::ELEMENT_RANK,"mass_flow_rate_scs");
 
   avgVelocity_ = metaData.get_field<VectorFieldType>(
     stk::topology::NODE_RANK, "average_velocity");
@@ -66,6 +68,8 @@ ComputeTAMSKEResAdequacyElemAlgorithm::ComputeTAMSKEResAdequacyElemAlgorithm(
     stk::topology::NODE_RANK, "average_density");
   avgTime_ = metaData.get_field<ScalarFieldType>(
     stk::topology::NODE_RANK, "average_time");
+  avgMdot_ = metaData.get_field<GenericFieldType>(
+    stk::topology::ELEMENT_RANK,"average_mass_flow_rate");
 
   resAdeq_ = metaData.get_field<ScalarFieldType>(
     stk::topology::ELEMENT_RANK, "resolution_adequacy_parameter");
@@ -173,6 +177,10 @@ void ComputeTAMSKEResAdequacyElemAlgorithm::execute() {
     meSCS->shape_fcn(&p_shape_function[0]);
 
     for (stk::mesh::Bucket::size_type k = 0; k < length; ++k) {
+
+      // Will average mdot here as well, since it's defined on elements
+      double * mdot = stk::mesh::field_data(*massFlowRate_, b, k );
+      double * avgMdot = stk::mesh::field_data(*avgMdot_, b, k);
 
       // get Mij field_data
       const double *p_Mij = stk::mesh::field_data(*Mij_, b[k]);
@@ -319,6 +327,14 @@ void ComputeTAMSKEResAdequacyElemAlgorithm::execute() {
           }
         }
 
+        // average mdot
+        const double TaveScs = tkeScs / std::max(tdrScs, 1.e-16);
+        const double weightAvgScs = std::max(1.0 - dt/TaveScs, 0.0);
+        const double weightInstScs = std::min(dt/TaveScs, 1.0);
+
+        avgMdot[ip] = weightAvgScs * avgMdot[ip] + weightInstScs * mdot[ip];
+
+
         const double epsilon13 = stk::math::pow(tdrScs, 1.0/3.0);
 
         for (unsigned i = 0; i < nDim_; ++i) {
@@ -397,7 +413,7 @@ void ComputeTAMSKEResAdequacyElemAlgorithm::execute() {
       double elemAlpha = 0.0;
       for ( int ic = 0; ic < nodesPerElement; ++ic ) {
         elemTke += p_tke[ic];
-	elemTdr += p_tdr[ic];
+	      elemTdr += p_tdr[ic];
         elemAvgTime += p_avgTime[ic];
         elemAlpha += p_alpha[ic];
       }

@@ -35,6 +35,8 @@ add_sources(GlobalHeaderList
    ScalarMassElemKernel.h
    ScalarMassHOElemKernel.h
    ScalarOpenAdvElemKernel.h
+   ScalarTAMSAdvDiffElemKernel.h
+   ScalarTAMSUpwAdvDiffElemKernel.h
    ScalarUpwAdvDiffElemKernel.h
    SpecificDissipationRateSSTSrcElemKernel.h
    SpecificDissipationRateSSTTAMSSrcElemKernel.h
