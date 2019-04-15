@@ -389,6 +389,8 @@ void ComputeTAMSKEResAdequacyElemAlgorithm::execute() {
         const double T_ke = tkeScs / tdrScs;
         const double v2 = 1.0/0.22 * (mutScs / T_ke);
         const double PMscale = std::pow(1.5*alphaScs*v2,-1.5);
+        if (v2 == 0.0)
+            throw std::runtime_error("TAMSKEResAdequacy: v2 is 0, will cause NaN");
         for (unsigned i = 0; i < nDim_; ++i)
           for (unsigned j = 0; j < nDim_; ++j)
             PM[i][j] = PM[i][j] * PMscale;

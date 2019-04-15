@@ -48,6 +48,13 @@
 #include <SolutionOptions.h>
 #include <TAMSEquationSystem.h>
 #include <TimeIntegrator.h>
+#include <TurbViscChienKEAlgorithm.h>
+#include <TurbViscKsgsAlgorithm.h>
+#include <TurbViscSmagorinskyAlgorithm.h>
+#include <TurbViscSSTAlgorithm.h>
+#include <TurbViscTAMSSSTAlgorithm.h>
+#include <TurbViscTAMSKEAlgorithm.h>
+#include <TurbViscWaleAlgorithm.h>
 
 #include <SolverAlgorithmDriver.h>
 
@@ -130,6 +137,7 @@ TAMSEquationSystem::TAMSEquationSystem(
     averagingAlgDriver_(new AlgorithmDriver(realm_)),
     alphaAlgDriver_(new AlgorithmDriver(realm_)),
     avgMdotAlgDriver_(new AlgorithmDriver(realm_)),
+    tviscAlgDriver_(new AlgorithmDriver(realm_)),
     turbulenceModel_(realm_.solutionOptions_->turbulenceModel_),
     isInit_(true)
 {
@@ -161,6 +169,8 @@ TAMSEquationSystem::~TAMSEquationSystem()
     delete resolutionAdequacyAlgDriver_;
   if (NULL != avgMdotAlgDriver_)
     delete avgMdotAlgDriver_;
+  if (NULL != tviscAlgDriver_)
+    delete tviscAlgDriver_;
 }
 
 //--------------------------------------------------------------------------
@@ -372,6 +382,43 @@ TAMSEquationSystem::register_interior_algorithm(
   }
   else {
     itmd->second->partVec_.push_back(part);
+  }
+
+  // FIXME: tvisc needed for initialization only as TAMS goes before LowMach
+  //        but relies on tvisc.  Perhaps there is a way to call tvisc from LowMach here? 
+  std::map<AlgorithmType, Algorithm *>::iterator it_tv =
+    tviscAlgDriver_->algMap_.find(algType);
+  if ( it_tv == tviscAlgDriver_->algMap_.end() ) {
+    Algorithm * theAlg = NULL;
+    switch (realm_.solutionOptions_->turbulenceModel_ ) {
+      case KSGS:
+        theAlg = new TurbViscKsgsAlgorithm(realm_, part);
+        break;
+      case SMAGORINSKY:
+        theAlg = new TurbViscSmagorinskyAlgorithm(realm_, part);
+        break;
+      case WALE:
+        theAlg = new TurbViscWaleAlgorithm(realm_, part);
+        break;
+      case SST: case SST_DES:
+        theAlg = new TurbViscSSTAlgorithm(realm_, part);
+        break;
+      case KEPS:
+        theAlg = new TurbViscChienKEAlgorithm(realm_, part);
+        break;
+      case TAMS_SST: 
+        theAlg = new TurbViscTAMSSSTAlgorithm(realm_,part);
+        break;
+      case TAMS_KE:
+        theAlg = new TurbViscTAMSKEAlgorithm(realm_,part);
+        break;
+      default:
+        throw std::runtime_error("non-supported turb model");
+    }
+    tviscAlgDriver_->algMap_[algType] = theAlg;
+  }
+  else {
+    it_tv->second->partVec_.push_back(part);
   }
 
   //KernelBuilder kb(*this, *part, solverAlgDriver_->solverAlgorithmMap_, realm_.using_tensor_product_kernels());
@@ -637,6 +684,9 @@ TAMSEquationSystem::initial_work()
     }
   }
 
+  // Need to calculate tvisc in initial work in cases where TAMS executes before
+  // LowMach to prevent NaNs in initial avgResAdeq calculation
+  tviscAlgDriver_->execute();
   compute_averages();
   compute_alpha();
   compute_resolution_adequacy_parameters();

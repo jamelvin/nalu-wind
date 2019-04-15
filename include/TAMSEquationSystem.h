@@ -108,6 +108,7 @@ public:
   AlgorithmDriver *averagingAlgDriver_;
   AlgorithmDriver *alphaAlgDriver_;
   AlgorithmDriver *avgMdotAlgDriver_;
+  AlgorithmDriver *tviscAlgDriver_;
 
   const TurbulenceModel turbulenceModel_;
 
