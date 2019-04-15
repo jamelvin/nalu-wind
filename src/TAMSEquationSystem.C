@@ -22,6 +22,7 @@
 #include <ConstantAuxFunction.h>
 #include <CopyFieldAlgorithm.h>
 #include <ComputeMetricTensorElemAlgorithm.h>
+#include <ComputeTAMSAvgMdotElemAlgorithm.h>
 #include <ComputeTAMSKEAveragesElemAlgorithm.h>
 #include <ComputeTAMSKEResAdequacyElemAlgorithm.h>
 #include <ComputeTAMSKratioElemAlgorithm.h>
@@ -128,6 +129,7 @@ TAMSEquationSystem::TAMSEquationSystem(
     resolutionAdequacyAlgDriver_(new AlgorithmDriver(realm_)),
     averagingAlgDriver_(new AlgorithmDriver(realm_)),
     alphaAlgDriver_(new AlgorithmDriver(realm_)),
+    avgMdotAlgDriver_(new AlgorithmDriver(realm_)),
     turbulenceModel_(realm_.solutionOptions_->turbulenceModel_),
     isInit_(true)
 {
@@ -157,6 +159,8 @@ TAMSEquationSystem::~TAMSEquationSystem()
     delete alphaAlgDriver_;
   if (NULL != resolutionAdequacyAlgDriver_)
     delete resolutionAdequacyAlgDriver_;
+  if (NULL != avgMdotAlgDriver_)
+    delete avgMdotAlgDriver_;
 }
 
 //--------------------------------------------------------------------------
@@ -351,7 +355,23 @@ TAMSEquationSystem::register_interior_algorithm(
     alphaAlgDriver_->algMap_[algType] = alphaAlg;
   }
   else {
-    itmt->second->partVec_.push_back(part);
+    itkr->second->partVec_.push_back(part);
+  }
+
+  // avgMdot algorithm
+  if ( NULL == avgMdotAlgDriver_ )
+    avgMdotAlgDriver_ = new AlgorithmDriver(realm_);
+
+  std::map<AlgorithmType, Algorithm *>::iterator itmd =
+    avgMdotAlgDriver_->algMap_.find(algType);
+
+  if (itmd == avgMdotAlgDriver_->algMap_.end() ) {
+    ComputeTAMSAvgMdotElemAlgorithm *avgMdotAlg =
+      new ComputeTAMSAvgMdotElemAlgorithm(realm_, part);
+    avgMdotAlgDriver_->algMap_[algType] = avgMdotAlg;
+  }
+  else {
+    itmd->second->partVec_.push_back(part);
   }
 
   //KernelBuilder kb(*this, *part, solverAlgDriver_->solverAlgorithmMap_, realm_.using_tensor_product_kernels());
@@ -493,6 +513,8 @@ TAMSEquationSystem::solve_and_update()
 
   compute_resolution_adequacy_parameters();
 
+  compute_avgMdot();
+
   // TODO: Add recalculation of metric tensor if mesh changes
 
   // Forcing poisson solve
@@ -618,6 +640,7 @@ TAMSEquationSystem::initial_work()
   compute_averages();
   compute_alpha();
   compute_resolution_adequacy_parameters();
+  compute_avgMdot();
 }
 
 //--------------------------------------------------------------------------
@@ -703,6 +726,16 @@ TAMSEquationSystem::compute_alpha()
 {
   if ( NULL != alphaAlgDriver_)
     alphaAlgDriver_->execute();
+}
+
+//--------------------------------------------------------------------------
+//-------- compute_avgMdot() -----------------------------------------------
+//--------------------------------------------------------------------------
+void
+TAMSEquationSystem::compute_avgMdot()
+{
+  if ( NULL != avgMdotAlgDriver_)
+    avgMdotAlgDriver_->execute();
 }
 
 //--------------------------------------------------------------------------

@@ -80,6 +80,7 @@ public:
   void compute_metric_tensor();
   void compute_averages();
   void compute_alpha();
+  void compute_avgMdot();
   void update_and_clip();
 
   const bool managePNG_;
@@ -106,6 +107,7 @@ public:
   AlgorithmDriver *metricTensorAlgDriver_;
   AlgorithmDriver *averagingAlgDriver_;
   AlgorithmDriver *alphaAlgDriver_;
+  AlgorithmDriver *avgMdotAlgDriver_;
 
   const TurbulenceModel turbulenceModel_;
 

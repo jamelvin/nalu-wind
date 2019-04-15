@@ -81,6 +81,7 @@ add_sources(GlobalHeaderList
    ComputeMdotNonConformalAlgorithm.h
    ComputeMetricTensorElemAlgorithm.h
    ComputeSSTMaxLengthScaleElemAlgorithm.h
+   ComputeTAMSAvgMdotElemAlgorithm.h
    ComputeTAMSKEAveragesElemAlgorithm.h
    ComputeTAMSKEResAdequacyElemAlgorithm.h
    ComputeTAMSKratioElemAlgorithm.h

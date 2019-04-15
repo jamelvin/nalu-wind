@@ -106,6 +106,7 @@ MomentumTAMSKEForcingElemKernel<AlgTraits>::setup(const TimeIntegrator& timeInte
   //FIXME: Hack to match CDP time
   time_ = timeIntegrator.get_current_time() - 440.0;
   dt_   = timeIntegrator.get_time_step();
+  step_ = timeIntegrator.get_time_step_count();
 }
 
 template <typename AlgTraits>
@@ -206,14 +207,16 @@ MomentumTAMSKEForcingElemKernel<AlgTraits>::execute(
 
     DoubleType length = FORCING_CL*stk::math::pow(alphaScs*tkeScs,1.5)/tdrScs;
     length = stk::math::max(length, Ceta*(stk::math::pow(muScs,0.75)/stk::math::pow(tdrScs,0.25)));
-    length = stk::math::min(length, wallDistScs);
+    // FIXME: For channel, only want to clip in wall normal direction with wallDist
+    //        For other flows, will need a better approach...
+    DoubleType lengthY = stk::math::min(length, wallDistScs);
     
     DoubleType T_alpha = alphaScs*tkeScs/tdrScs;
     T_alpha = stk::math::max(T_alpha,Ct*stk::math::sqrt(muScs/tdrScs));
     T_alpha = BL_T*T_alpha;
   
     const DoubleType ceilLengthX = stk::math::max(length, 2.0*v_Mij(0,0));
-    const DoubleType ceilLengthY = stk::math::max(length, 2.0*v_Mij(1,1));
+    const DoubleType ceilLengthY = stk::math::max(lengthY, 2.0*v_Mij(1,1));
     const DoubleType ceilLengthZ = stk::math::max(length, 2.0*v_Mij(2,2));
   
     const DoubleType clipLengthX = stk::math::min(ceilLengthX, periodicForcingLengthX);
@@ -328,8 +331,8 @@ MomentumTAMSKEForcingElemKernel<AlgTraits>::execute(
     DoubleType gY = norm * hY; //* 10.0;// / dt_;
     DoubleType gZ = norm * hZ; //* 10.0;// / dt_;
 
-    //if (time_ < 101.00)
-    //  tmpFile << w_coordScs[0] << w_coordScs[1] << w_coordScs[2] << gX << gY << gZ << norm << prod_r << F_target << Sa << std::endl;
+    if (step_ % 10 == 0)
+      tmpFile << w_coordScs[0] << w_coordScs[1] << w_coordScs[2] << gX << gY << gZ << norm << prod_r << F_target << Sa << std::endl;
 
     // g_i is not divergence free, so we must solve a Poisson equation
     //rhs = G * normal * area;
