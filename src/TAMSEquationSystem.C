@@ -596,6 +596,9 @@ void
 TAMSEquationSystem::initial_work()
 {
   compute_metric_tensor();
+  // Need to calculate tvisc in initial work in cases where TAMS executes before
+  // LowMach to prevent NaNs in initial avgResAdeq calculation
+  //tviscAlgDriver_->execute();
 
   stk::mesh::MetaData & meta_data = realm_.meta_data();
 
@@ -684,9 +687,6 @@ TAMSEquationSystem::initial_work()
     }
   }
 
-  // Need to calculate tvisc in initial work in cases where TAMS executes before
-  // LowMach to prevent NaNs in initial avgResAdeq calculation
-  tviscAlgDriver_->execute();
   compute_averages();
   compute_alpha();
   compute_resolution_adequacy_parameters();

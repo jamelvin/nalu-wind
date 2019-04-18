@@ -327,12 +327,14 @@ MomentumTAMSKEForcingElemKernel<AlgTraits>::execute(
   
     // Now we determine the actual forcing field
     // FIXME: DEBUG HACK! Remove 100, only for testing
-    DoubleType gX = norm * hX; //* 10.0;// / dt_; 
-    DoubleType gY = norm * hY; //* 10.0;// / dt_;
-    DoubleType gZ = norm * hZ; //* 10.0;// / dt_;
+    DoubleType gX = norm * hX;// * 10.0;// / dt_; 
+    DoubleType gY = norm * hY;// * 10.0;// / dt_;
+    DoubleType gZ = norm * hZ;// * 10.0;// / dt_;
 
-    if (step_ % 10 == 0)
-      tmpFile << w_coordScs[0] << w_coordScs[1] << w_coordScs[2] << gX << gY << gZ << norm << prod_r << F_target << Sa << std::endl;
+    if (step_ % 1000 == 0)
+    {  
+        tmpFile << w_coordScs[0] << w_coordScs[1] << w_coordScs[2] << gX << gY << gZ << norm << prod_r << F_target << Sa << std::endl;
+    }
 
     // g_i is not divergence free, so we must solve a Poisson equation
     //rhs = G * normal * area;
