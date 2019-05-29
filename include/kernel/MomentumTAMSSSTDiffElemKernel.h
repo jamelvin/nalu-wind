@@ -44,8 +44,6 @@ public:
     SharedMemView<DoubleType*>&,
     ScratchViews<DoubleType>&);
 
-  DoubleType get_M43_constant(DoubleType D[AlgTraits::nDim_][AlgTraits::nDim_]);
-
 private:
   MomentumTAMSSSTDiffElemKernel() = delete;
 

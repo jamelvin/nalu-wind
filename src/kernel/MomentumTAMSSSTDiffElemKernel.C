@@ -23,6 +23,8 @@
 #include <stk_mesh/base/BulkData.hpp>
 #include <stk_mesh/base/Field.hpp>
 
+#include "utils/TAMSUtils.h"
+
 namespace sierra {
 namespace nalu {
 
@@ -148,7 +150,7 @@ MomentumTAMSSSTDiffElemKernel<AlgTraits>::execute(
   }
 
   // Compute CM43
-  DoubleType CM43 = get_M43_constant(D);
+  DoubleType CM43 = tams_utils::get_M43_constant<DoubleType, AlgTraits::nDim_>(D, CMdeg_);
 
   for (int ip = 0; ip < AlgTraits::numScsIp_; ++ip) {
 
@@ -290,54 +292,6 @@ MomentumTAMSSSTDiffElemKernel<AlgTraits>::execute(
       }
     }
   }
-}
-
-template <typename AlgTraits>
-DoubleType
-MomentumTAMSSSTDiffElemKernel<AlgTraits>::get_M43_constant(
-  DoubleType D[AlgTraits::nDim_][AlgTraits::nDim_])
-{
-
-  // Coefficients for the polynomial
-  double c[15] = {1.033749474513071,  -0.154122686264488, -0.007737595743644,
-                  0.177611732560139,  0.060868024017604,  0.162200630336440,
-                  -0.041086757724764, -0.027380130027626, 0.005521188430182,
-                  0.049139605169403,  0.002926283060215,  0.002672790587853,
-                  0.000486437925728,  0.002136258066662,  0.005113058518679};
-
-  if (AlgTraits::nDim_ != 3)
-    throw std::runtime_error(
-      "In MomentumTAMSSSTDiffElemKernel, requires 3D problem");
-
-  // FIXME: Can we find a more elegant way to sort the three eigenvalues...
-  DoubleType smallestEV =
-    stk::math::min(D[0][0], stk::math::min(D[1][1], D[2][2]));
-  DoubleType largestEV =
-    stk::math::max(D[0][0], stk::math::max(D[1][1], D[2][2]));
-  DoubleType middleEV = stk::math::if_then_else(
-    D[0][0] == smallestEV, stk::math::min(D[1][1], D[2][2]),
-    stk::math::if_then_else(
-      D[1][1] == smallestEV, stk::math::min(D[0][0], D[2][2]),
-      stk::math::min(D[0][0], D[1][1])));
-
-  // Scale the EVs
-  middleEV = middleEV / smallestEV;
-  largestEV = largestEV / smallestEV;
-
-  DoubleType r =
-    stk::math::sqrt(stk::math::pow(middleEV, 2) + stk::math::pow(largestEV, 2));
-  DoubleType theta = stk::math::acos(largestEV / r);
-
-  DoubleType x = stk::math::log(r);
-  DoubleType y = stk::math::log(stk::math::sin(2 * theta));
-
-  DoubleType poly =
-    c[0] + c[1] * x + c[2] * y + c[3] * x * x + c[4] * x * y + c[5] * y * y +
-    c[6] * x * x * x + c[7] * x * x * y + c[8] * x * y * y + c[9] * y * y * y +
-    c[10] * x * x * x * x + c[11] * x * x * x * y + c[12] * x * x * y * y +
-    c[13] * x * y * y * y + c[14] * y * y * y * y;
-
-  return poly * CMdeg_;
 }
 
 INSTANTIATE_KERNEL(MomentumTAMSSSTDiffElemKernel)

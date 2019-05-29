@@ -23,6 +23,8 @@
 #include <stk_mesh/base/MetaData.hpp>
 #include <stk_mesh/base/Part.hpp>
 
+#include "utils/TAMSUtils.h"
+
 namespace sierra {
 namespace nalu {
 
@@ -225,7 +227,7 @@ void ComputeTAMSKEpsResAdequacyElemAlgorithm::execute() {
         }
       }
 
-      const double CM43 = get_M43_constant(D);
+      const double CM43 = tams_utils::get_M43_constant<double, 3>(D, CMdeg_);
 
       //===============================================
       // gather nodal data; this is how we do it now..
@@ -447,44 +449,6 @@ void ComputeTAMSKEpsResAdequacyElemAlgorithm::execute() {
       avgResAdeq[k] = weightAvg * avgResAdeq[k] + weightInst * resAdeq[k]; 
     }
   }
-}
-
-double ComputeTAMSKEpsResAdequacyElemAlgorithm::get_M43_constant(double D[3][3])
-{
-  // Coefficients for the polynomial 
-  double c[15] = {1.033749474513071,-0.154122686264488,-0.007737595743644,
-                  0.177611732560139, 0.060868024017604, 0.162200630336440,
-                 -0.041086757724764,-0.027380130027626, 0.005521188430182,
-                  0.049139605169403, 0.002926283060215, 0.002672790587853,
-                  0.000486437925728, 0.002136258066662, 0.005113058518679};
-
-  if (nDim_ != 3)
-     throw std::runtime_error("In ComputeTAMSKEpsResAdequacyElemAlgorithm, requires 3D");
-
-  // FIXME: Can we find a more elegant way to sort the three eigenvalues...
-  double smallestEV = stk::math::min(D[0][0], stk::math::min(D[1][1], D[2][2]));
-  double largestEV = stk::math::max(D[0][0], stk::math::max(D[1][1], D[2][2]));
-  double middleEV = (D[0][0] == smallestEV) ? stk::math::min(D[1][1], D[2][2]) :
-                    ((D[1][1] == smallestEV) ? stk::math::min(D[0][0],D[2][2]) :
-                                stk::math::min(D[0][0],D[1][1]));
-
-  // Scale the EVs
-  middleEV = middleEV/smallestEV;
-  largestEV = largestEV/smallestEV;
-
-  double r = stk::math::sqrt(stk::math::pow(middleEV,2) + stk::math::pow(largestEV,2));
-  double theta = stk::math::acos(largestEV/r);
-
-  double x = stk::math::log(r);
-  double y = stk::math::log(stk::math::sin(2*theta));
-
-  double poly = c[0] +
-                c[1]*x + c[2]*y +
-                c[3]*x*x + c[4]*x*y + c[5]*y*y +
-                c[6]*x*x*x + c[7]*x*x*y + c[8]*x*y*y + c[9]*y*y*y +
-                c[10]*x*x*x*x + c[11]*x*x*x*y + c[12]*x*x*y*y + c[13]*x*y*y*y + c[14]*y*y*y*y;
-
-  return poly*CMdeg_;
 }
 
 } // namespace nalu

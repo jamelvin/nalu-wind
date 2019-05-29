@@ -21,7 +21,6 @@ public:
   virtual ~ComputeTAMSKEpsResAdequacyElemAlgorithm();
 
   virtual void execute();
-  double get_M43_constant(double D[3][3]);
 
   const unsigned nDim_{0};
   const double CMdeg_;
