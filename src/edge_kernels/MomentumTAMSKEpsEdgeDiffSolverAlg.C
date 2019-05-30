@@ -31,7 +31,7 @@ MomentumTAMSKEpsEdgeDiffSolverAlg::MomentumTAMSKEpsEdgeDiffSolverAlg(
   tkeNp1_ = get_field_ordinal(meta, "turbulent_ke");
   tdrNp1_ = get_field_ordinal(meta, "total_dissipation_rate");
   alphaNp1_ = get_field_ordinal(meta, "k_ratio");
-  visc_ = get_field_ordinal(meta, "viscosity");
+  tvisc_ = get_field_ordinal(meta, "turbulent_viscosity");
   // Mij_ =
   //   get_field_ordinal(metaData, "metric_tensor",
   //   stk::topology::ELEMENT_RANK);
@@ -57,7 +57,7 @@ MomentumTAMSKEpsEdgeDiffSolverAlg::execute()
   const auto tke = fieldMgr.get_field<double>(tkeNp1_);
   const auto tdr = fieldMgr.get_field<double>(tdrNp1_);
   const auto alpha = fieldMgr.get_field<double>(alphaNp1_);
-  const auto visc = fieldMgr.get_field<double>(visc_);
+  const auto tvisc = fieldMgr.get_field<double>(tvisc_);
   const auto avgVelocity = fieldMgr.get_field<double>(avgVelocity_);
   const auto avgDudx = fieldMgr.get_field<double>(avgDudx_);
   const auto avgDensity = fieldMgr.get_field<double>(avgDensity_);
@@ -107,7 +107,7 @@ MomentumTAMSKEpsEdgeDiffSolverAlg::execute()
       // Compute CM43
       DblType CM43 = tams_utils::get_M43_constant(D, CMdeg_);
 
-      const DblType muIp = 0.5 * (visc.get(nodeL, 0) + visc.get(nodeR, 0));
+      const DblType muIp = 0.5 * (tvisc.get(nodeL, 0) + tvisc.get(nodeR, 0));
       const DblType avgRhoIp =
         0.5 * (avgDensity.get(nodeL, 0) + avgDensity.get(nodeR, 0));
       const DblType fluctRhoIp =
@@ -175,28 +175,26 @@ MomentumTAMSKEpsEdgeDiffSolverAlg::execute()
         avgDivU += avgdUidxj[i][i];
       }
 
-      // This is the divU term for the average quantities in the model for
-      // tau_ij^SGRS Since we are letting SST calculate it's normal mu_t, we
-      // need to scale by alpha here
-      for (int i = 0; i < ndim; ++i) {
-        const DblType avgDivUstress =
-          2.0 / 3.0 * alphaIp * muIp * avgDivU * av[i] * includeDivU_;
-        smdata.rhs(0) -= avgDivUstress;
-        smdata.rhs(1) += avgDivUstress;
-      }
-
       // FIXME: Does this need a rho in it?
       const DblType epsilon13Ip = stk::math::pow(tdrIp, 1.0 / 3.0);
 
       for (int i = 0; i < ndim; ++i) {
 
+        // This is the divU term for the average quantities in the model for
+        // tau_ij^SGRS Since we are letting SST calculate it's normal mu_t, we
+        // need to scale by alpha here
+        const DblType avgDivUstress =
+          2.0 / 3.0 * alphaIp * muIp * avgDivU * av[i] * includeDivU_;
+        smdata.rhs(0 + i) -= avgDivUstress;
+        smdata.rhs(3 + i) += avgDivUstress;
+
         // Hybrid turbulence diffusion term; -(mu^jk*dui/dxk + mu^ik*duj/dxk -
         // 2/3*rho*tke*del_ij)*Aj
         for (int j = 0; j < ndim; ++j) {
           const DblType avgUjIp =
-            0.5 * (avgVelocity.get(nodeL, j) + avgVelocity.get(nodeL, j));
+            0.5 * (avgVelocity.get(nodeL, j) + avgVelocity.get(nodeR, j));
           const DblType fluctUjIp =
-            0.5 * (velocity.get(nodeL, j) + velocity.get(nodeL, j)) - avgUjIp;
+            0.5 * (velocity.get(nodeL, j) + velocity.get(nodeR, j)) - avgUjIp;
 
           // -mut^jk*dui/dxk*A_j; fixed i over j loop; see below..
           DblType rhsfacDiff_i = 0.0;
@@ -210,13 +208,11 @@ MomentumTAMSKEpsEdgeDiffSolverAlg::execute()
           }
 
           // SGRS (average) term, scaled by alpha
-          const DblType avgDudxIp_ij = 0.5 * (avgDudx.get(nodeL, i * ndim + j) +
-                                              avgDudx.get(nodeR, i * ndim + j));
           const DblType rhsSGRCfacDiff_i =
-            -alphaIp * muIp * avgDudxIp_ij * av[i];
+            -alphaIp * muIp * avgdUidxj[i][j] * av[i];
 
-          smdata.rhs(0) -= rhsfacDiff_i + rhsSGRCfacDiff_i;
-          smdata.rhs(1) += rhsfacDiff_i + rhsSGRCfacDiff_i;
+          smdata.rhs(0 + i) -= rhsfacDiff_i + rhsSGRCfacDiff_i;
+          smdata.rhs(3 + i) += rhsfacDiff_i + rhsSGRCfacDiff_i;
 
           // -mut^ik*duj/dxk*A_j
           DblType rhsfacDiff_j = 0.0;
@@ -227,13 +223,11 @@ MomentumTAMSKEpsEdgeDiffSolverAlg::execute()
           }
 
           // SGRS (average) term, scaled by alpha
-          const DblType avgDudxIp_ji = 0.5 * (avgDudx.get(nodeL, j * ndim + i) +
-                                              avgDudx.get(nodeR, j * ndim + i));
           const DblType rhsSGRCfacDiff_j =
-            -alphaIp * muIp * avgDudxIp_ji * av[i];
+            -alphaIp * muIp * avgdUidxj[j][i] * av[i];
 
-          smdata.rhs(0) -= rhsfacDiff_j + rhsSGRCfacDiff_j;
-          smdata.rhs(1) += rhsfacDiff_j + rhsSGRCfacDiff_j;
+          smdata.rhs(0 + i) -= rhsfacDiff_j + rhsSGRCfacDiff_j;
+          smdata.rhs(3 + i) += rhsfacDiff_j + rhsSGRCfacDiff_j;
         }
       }
     });
