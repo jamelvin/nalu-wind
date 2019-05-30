@@ -34,38 +34,15 @@ public:
   ScalarFieldType *tdrNp1_{nullptr};
   ScalarFieldType *tkeNp1_{nullptr};
   ScalarFieldType *alphaNp1_{nullptr};
-  GenericFieldType *massFlowRate_{nullptr};
+  GenericFieldType *dudx_{nullptr};
   VectorFieldType *avgVelocity_{nullptr};
   ScalarFieldType *avgDensity_{nullptr};
   ScalarFieldType *avgTime_{nullptr};
-  GenericFieldType *avgMdot_{nullptr};
+  GenericFieldType *avgDudx_{nullptr};
   ScalarFieldType *resAdeq_{nullptr};
   ScalarFieldType *avgResAdeq_{nullptr};
   GenericFieldType *Mij_{nullptr};
 
-  std::vector<double> ws_coordinates;
-  std::vector<double> ws_dndx;
-  std::vector<double> ws_deriv;
-  std::vector<double> ws_det_j;
-  std::vector<double> ws_scs_areav;
-  std::vector<double> ws_shape_function;
-  std::vector<double> ws_mut;
-
-  std::vector<double> ws_uNp1;
-  std::vector<double> ws_rhoNp1;
-  std::vector<double> ws_tke;
-  std::vector<double> ws_tdr;
-  std::vector<double> ws_alpha;
-  std::vector<double> ws_avgTime;
-  std::vector<double> ws_avgU;
-  std::vector<double> ws_avgRho;
-
-  std::vector<double> fluctUjScs;
-  std::vector<double> avgUjScs;
-  std::vector<double> coordScs;
-  std::vector<double> fluctDudxScs;
-  std::vector<double> avgDudxScs;
-  std::vector<double> dudxScs;
   std::vector<double> tauSGET;
   std::vector<double> tauSGRS;
   std::vector<double> tau;

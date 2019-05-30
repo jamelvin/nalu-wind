@@ -183,7 +183,6 @@ TAMSEquationSystem::register_nodal_fields(
   stk::mesh::MetaData &meta_data = realm_.meta_data();
 
   const int nDim = meta_data.spatial_dimension();
-  const int numStates = realm_.number_of_states();
 
   // register dof; set it as a restart variable
   alpha_ =  &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "k_ratio"));
@@ -216,15 +215,15 @@ TAMSEquationSystem::register_nodal_fields(
   avgTime_ = &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK,"average_time"));
   stk::mesh::put_field_on_mesh(*avgTime_, *part, nullptr);
 
-//  metric_ = &(meta_data.declare_field<GenericFieldType>(stk::topology::ELEMENT_RANK, "metric_tensor"));
-//  stk::mesh::put_field_on_mesh(*metric_, *part, nDim*nDim, nullptr);
+  metric_ = &(meta_data.declare_field<GenericFieldType>(stk::topology::NODE_RANK, "metric_tensor"));
+  stk::mesh::put_field_on_mesh(*metric_, *part, nDim*nDim, nullptr);
 
-//  resAdequacy_ = &(meta_data.declare_field<ScalarFieldType>(stk::topology::ELEMENT_RANK, "resolution_adequacy_parameter"));
-//  stk::mesh::put_field_on_mesh(*resAdequacy_, *part, nullptr);
+  resAdequacy_ = &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "resolution_adequacy_parameter"));
+  stk::mesh::put_field_on_mesh(*resAdequacy_, *part, nullptr);
 
-//  avgResAdequacy_ = &(meta_data.declare_field<ScalarFieldType>(stk::topology::ELEMENT_RANK, "average_resolution_adequacy_parameter"));
-//  stk::mesh::put_field_on_mesh(*avgResAdequacy_, *part, nullptr);
-//  realm_.augment_restart_variable_list("average_resolution_adequacy_parameter");
+  avgResAdequacy_ = &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "average_resolution_adequacy_parameter"));
+  stk::mesh::put_field_on_mesh(*avgResAdequacy_, *part, nullptr);
+  realm_.augment_restart_variable_list("average_resolution_adequacy_parameter");
 
 //  MasterElement *meSCS = sierra::nalu::MasterElementRepo::get_surface_master_element(theTopo);
 //  const int numScsIp = meSCS->numIntPoints_;
@@ -249,17 +248,15 @@ TAMSEquationSystem::register_element_fields(
 {
   stk::mesh::MetaData &meta_data = realm_.meta_data();
 
-  const int nDim = meta_data.spatial_dimension();
+  //metric_ = &(meta_data.declare_field<GenericFieldType>(stk::topology::ELEMENT_RANK,"metric_tensor"));
+  //stk::mesh::put_field_on_mesh(*metric_, *part, nDim*nDim, nullptr);
 
-  metric_ = &(meta_data.declare_field<GenericFieldType>(stk::topology::ELEMENT_RANK,"metric_tensor"));
-  stk::mesh::put_field_on_mesh(*metric_, *part, nDim*nDim, nullptr);
+  //resAdequacy_ = &(meta_data.declare_field<ScalarFieldType>(stk::topology::ELEMENT_RANK,"resolution_adequacy_parameter"));
+  //stk::mesh::put_field_on_mesh(*resAdequacy_, *part, nullptr);
 
-  resAdequacy_ = &(meta_data.declare_field<ScalarFieldType>(stk::topology::ELEMENT_RANK,"resolution_adequacy_parameter"));
-  stk::mesh::put_field_on_mesh(*resAdequacy_, *part, nullptr);
-
-  avgResAdequacy_ = &(meta_data.declare_field<ScalarFieldType>(stk::topology::ELEMENT_RANK,"average_resolution_adequacy_parameter"));
-  stk::mesh::put_field_on_mesh(*avgResAdequacy_, *part, nullptr);
-  realm_.augment_restart_variable_list("average_resolution_adequacy_parameter");
+  //avgResAdequacy_ = &(meta_data.declare_field<ScalarFieldType>(stk::topology::ELEMENT_RANK,"average_resolution_adequacy_parameter"));
+  //stk::mesh::put_field_on_mesh(*avgResAdequacy_, *part, nullptr);
+  //realm_.augment_restart_variable_list("average_resolution_adequacy_parameter");
 
   MasterElement *meSCS = sierra::nalu::MasterElementRepo::get_surface_master_element(theTopo);
   const int numScsIp = meSCS->num_integration_points();
@@ -669,31 +666,34 @@ TAMSEquationSystem::initial_work()
     
       // Initialize average production to mean production
       // FIXME: Want to turn this off if restarting...
-      double tij[nDim][nDim];
+      double *tij = new double[nDim*nDim];
       for (int i = 0; i < nDim; ++i) {
         for (int j = 0; j < nDim; ++j) {
           const double avgSij = 0.5*(avgDudx[i*nDim+j] + avgDudx[j*nDim+i]);
-          tij[i][j] = 2.0 * tvisc[k] * avgSij;
+          tij[i*nDim + j] = 2.0 * tvisc[k] * avgSij;
         }
-        tij[i][i] -= 2.0/3.0 * tke[k];
+        tij[i*nDim + i] -= 2.0/3.0 * tke[k];
       }
 
-      double Pij[nDim][nDim];
+      double *Pij = new double[nDim*nDim];
       for (int i = 0; i < nDim; ++i) {
         for (int j = 0; j < nDim; ++j) {
-          Pij[i][j] = 0.0;
+          Pij[i*nDim + j] = 0.0;
           for (int m = 0; m < nDim; ++m) {
-             Pij[i][j] += avgDudx[i*nDim + m] * tij[j][m] + avgDudx[j*nDim + m] * tij[i][m];
+             Pij[i*nDim + j] += avgDudx[i*nDim + m] * tij[j*nDim + m] + avgDudx[j*nDim + m] * tij[i*nDim + m];
           }
-          Pij[i][j] *= 0.5;
+          Pij[i*nDim + j] *= 0.5;
         }
       }
 
       double instProd = 0.0;
       for (int i = 0; i < nDim; ++i)
-        instProd += Pij[i][i];
+        instProd += Pij[i*nDim + i];
 
       avgProd[k] = instProd;
+
+      delete [] tij;
+      delete [] Pij;
     }
   }
 
@@ -731,11 +731,9 @@ TAMSEquationSystem::initialize_mdot()
     const stk::mesh::Bucket::size_type length = b.size();
 
     // extract master element
-    MasterElement *meSCS = sierra::nalu::MasterElementRepo::get_surface_master_element(b. 
-topology());
+    MasterElement *meSCS = sierra::nalu::MasterElementRepo::get_surface_master_element(b.topology());
 
     // extract master element specifics
-    const int nodesPerElement = meSCS->nodesPerElement_;
     const int numScsIp = meSCS->num_integration_points();
 
     for ( stk::mesh::Bucket::size_type k = 0 ; k < length ; ++k ) {

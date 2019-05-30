@@ -50,8 +50,7 @@ MomentumTAMSSSTDiffElemKernel<AlgTraits>::MomentumTAMSSSTDiffElemKernel(
   tkeNp1_ = get_field_ordinal(metaData, "turbulent_ke");
   sdrNp1_ = get_field_ordinal(metaData, "specific_dissipation_rate");
   alphaNp1_ = get_field_ordinal(metaData, "k_ratio");
-  Mij_ =
-    get_field_ordinal(metaData, "metric_tensor", stk::topology::ELEMENT_RANK);
+  Mij_ = get_field_ordinal(metaData, "metric_tensor");
 
   avgVelocity_ = get_field_ordinal(metaData, "average_velocity");
   avgDensity_ = get_field_ordinal(metaData, "average_density");
@@ -78,7 +77,7 @@ MomentumTAMSSSTDiffElemKernel<AlgTraits>::MomentumTAMSSSTDiffElemKernel(
   dataPreReqs.add_gathered_nodal_field(avgVelocity_, AlgTraits::nDim_);
   dataPreReqs.add_gathered_nodal_field(avgDensity_, 1);
   dataPreReqs.add_gathered_nodal_field(alphaNp1_, 1);
-  dataPreReqs.add_element_field(Mij_, AlgTraits::nDim_, AlgTraits::nDim_);
+  dataPreReqs.add_gathered_nodal_field(Mij_, AlgTraits::nDim_, AlgTraits::nDim_);
 
   // master element data
   dataPreReqs.add_master_element_call(SCS_AREAV, CURRENT_COORDINATES);
@@ -114,7 +113,8 @@ MomentumTAMSSSTDiffElemKernel<AlgTraits>::execute(
     scratchViews.get_scratch_view_1D(avgDensity_);
   SharedMemView<DoubleType*>& v_alphaNp1 =
     scratchViews.get_scratch_view_1D(alphaNp1_);
-  SharedMemView<DoubleType**>& v_Mij = scratchViews.get_scratch_view_2D(Mij_);
+  SharedMemView<DoubleType***>& v_Mij = 
+    scratchViews.get_scratch_view_3D(Mij_);
 
   SharedMemView<DoubleType**>& v_scs_areav =
     scratchViews.get_me_views(CURRENT_COORDINATES).scs_areav;
@@ -128,7 +128,14 @@ MomentumTAMSSSTDiffElemKernel<AlgTraits>::execute(
   DoubleType D[AlgTraits::nDim_][AlgTraits::nDim_];
   for (unsigned i = 0; i < AlgTraits::nDim_; i++)
     for (unsigned j = 0; j < AlgTraits::nDim_; j++)
-      Mij[i][j] = v_Mij(i, j);
+      Mij[i][j] = 0.0;
+
+  // determine scs values of interest
+  for (int ic = 0; ic < AlgTraits::nodesPerElement_; ++ic) {
+    for (unsigned i = 0; i < AlgTraits::nDim_; i++)
+      for (unsigned j = 0; j < AlgTraits::nDim_; j++)
+        Mij[i][j] += v_Mij(ic, i, j)/AlgTraits::nodesPerElement_;
+  }
 
   EigenDecomposition::sym_diagonalize<DoubleType>(Mij, Q, D);
 
@@ -215,7 +222,8 @@ MomentumTAMSSSTDiffElemKernel<AlgTraits>::execute(
 
     for (int ic = 0; ic < AlgTraits::nodesPerElement_; ++ic) {
 
-      const int icNdim = ic * AlgTraits::nDim_;
+      // Related to LHS, currently unused: FIXME: add some implicitness
+      //const int icNdim = ic * AlgTraits::nDim_;
 
       for (int i = 0; i < AlgTraits::nDim_; ++i) {
 

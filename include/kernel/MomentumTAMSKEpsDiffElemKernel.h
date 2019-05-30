@@ -47,8 +47,6 @@ public:
 private:
   MomentumTAMSKEpsDiffElemKernel() = delete;
 
-  const double includeDivU_;
-
   unsigned velocityNp1_{stk::mesh::InvalidOrdinal};
   unsigned densityNp1_{stk::mesh::InvalidOrdinal};
   unsigned tkeNp1_{stk::mesh::InvalidOrdinal};
@@ -63,11 +61,12 @@ private:
 
   unsigned viscosity_{stk::mesh::InvalidOrdinal};
 
+  const double includeDivU_;
+
+  const double CMdeg_;
+
   // master element
   const int* lrscv_;
-
-  const double betaStar_;
-  const double CMdeg_;
 
   const bool shiftedGradOp_;
 

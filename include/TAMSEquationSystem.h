@@ -85,26 +85,23 @@ public:
 
   const bool managePNG_;
 
-  ScalarFieldType *alpha_;
   VectorFieldType *avgVelocity_;
   ScalarFieldType *avgPressure_; 
   ScalarFieldType *avgDensity_; 
   ScalarFieldType *avgTkeResolved_;
-  ScalarFieldType *avgTime_;
   GenericFieldType *avgDudx_;
-  ScalarFieldType *avgProduciton_;
   GenericFieldType *metric_;
-
+  ScalarFieldType *alpha_;
+ 
   ScalarFieldType *resAdequacy_;
   ScalarFieldType *avgResAdequacy_;
+  ScalarFieldType *avgProduction_;
+  ScalarFieldType *avgTime_;
   GenericFieldType *avgMdot_;
   VectorFieldType *gTmp_;
 
-  ScalarFieldType *avgProduction_;
- 
-  AssembleNodalGradAlgorithmDriver *assembleNodalGradAlgDriver_;
-  AlgorithmDriver *resolutionAdequacyAlgDriver_;
   AlgorithmDriver *metricTensorAlgDriver_;
+  AlgorithmDriver *resolutionAdequacyAlgDriver_;
   AlgorithmDriver *averagingAlgDriver_;
   AlgorithmDriver *alphaAlgDriver_;
   AlgorithmDriver *avgMdotAlgDriver_;

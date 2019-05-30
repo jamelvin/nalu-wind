@@ -28,7 +28,6 @@ MomentumTAMSKEpsForcingEdgeSolverAlg::MomentumTAMSKEpsForcingEdgeSolverAlg(
   tkeNp1_ = get_field_ordinal(meta, "turbulent_ke", stk::mesh::StateNP1);
   tdrNp1_ = get_field_ordinal(meta, "total_dissipation_rate", stk::mesh::StateNP1);
   alpha_ = get_field_ordinal(meta, "k_ratio");
-  // FIXME: Need to make "metric_tensor" a nodal quantity
   Mij_ = get_field_ordinal(meta, "metric_tensor");
   minDist_ = get_field_ordinal(meta, "minimum_distance_to_wall");
 
@@ -36,7 +35,6 @@ MomentumTAMSKEpsForcingEdgeSolverAlg::MomentumTAMSKEpsForcingEdgeSolverAlg(
   avgVelocity_ = get_field_ordinal(meta, "average_velocity");
   avgDensity_ = get_field_ordinal(meta, "average_density"); 
   avgTime_ = get_field_ordinal(meta, "average_time"); 
-  // FIXME: Need to make "av..." a nodal quantity
   avgResAdeq_ =  get_field_ordinal(meta, "average_resolution_adequacy_parameter");
 
   edgeAreaVec_ = get_field_ordinal(meta, "edge_area_vector", stk::topology::EDGE_RANK);
@@ -98,6 +96,10 @@ MomentumTAMSKEpsForcingEdgeSolverAlg::execute()
       const DblType avgRhoIp = 0.5 * (avgDensity.get(nodeL, 0) + avgDensity.get(nodeR, 0));
       const DblType avgTimeIp = 0.5 * (avgTime.get(nodeL, 0) + avgTime.get(nodeR, 0));
       const DblType avgResAdeqIp = 0.5 * (avgResAdeq.get(nodeL, 0) + avgResAdeq.get(nodeR, 0));
+      // FIXME: How do I properly access array elements from Mij??
+      const DblType Mij_00 = 0.5 * (Mij.get(nodeL, 0)) + (Mij.get(nodeR, 0));
+      const DblType Mij_11 = 0.5 * (Mij.get(nodeL, 5)) + (Mij.get(nodeR, 5));
+      const DblType Mij_22 = 0.5 * (Mij.get(nodeL, 9)) + (Mij.get(nodeR, 9));
 
       DblType asq = 0.0;
       DblType axdx = 0.0;
@@ -136,9 +138,6 @@ MomentumTAMSKEpsForcingEdgeSolverAlg::execute()
       T_alpha = BL_T * T_alpha;
   
       // FIXME: Deal with Mij
-      const DblType Mij_00 = 0.0;
-      const DblType Mij_11 = 0.0;
-      const DblType Mij_22 = 0.0;
       const DblType ceilLengthX = stk::math::max(length,  2.0 * Mij_00);
       const DblType ceilLengthY = stk::math::max(lengthY, 2.0 * Mij_11);
       const DblType ceilLengthZ = stk::math::max(length,  2.0 * Mij_22);

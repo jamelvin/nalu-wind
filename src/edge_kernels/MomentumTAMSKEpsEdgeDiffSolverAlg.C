@@ -31,9 +31,7 @@ MomentumTAMSKEpsEdgeDiffSolverAlg::MomentumTAMSKEpsEdgeDiffSolverAlg(
   tdrNp1_ = get_field_ordinal(meta, "total_dissipation_rate");
   alphaNp1_ = get_field_ordinal(meta, "k_ratio");
   tvisc_ = get_field_ordinal(meta, "turbulent_viscosity");
-  // Mij_ =
-  //   get_field_ordinal(metaData, "metric_tensor",
-  //   stk::topology::ELEMENT_RANK);
+  Mij_ = get_field_ordinal(meta, "metric_tensor");
 
   avgVelocity_ = get_field_ordinal(meta, "average_velocity");
   avgDudx_ = get_field_ordinal(meta, "avgDudx");
@@ -61,6 +59,7 @@ MomentumTAMSKEpsEdgeDiffSolverAlg::execute()
   const auto avgDudx = fieldMgr.get_field<double>(avgDudx_);
   const auto avgDensity = fieldMgr.get_field<double>(avgDensity_);
   const auto edgeAreaVec = fieldMgr.get_field<double>(edgeAreaVec_);
+  const auto nodalMij = fieldMgr.get_field<double>(Mij_);
 
   run_algorithm(
     realm_.bulk_data(),
@@ -81,8 +80,8 @@ MomentumTAMSKEpsEdgeDiffSolverAlg::execute()
       DblType D[nDimMax_][nDimMax_];
       for (unsigned i = 0; i < ndim; i++)
         for (unsigned j = 0; j < ndim; j++)
-          // Mij[i][j] = v_Mij(i, j);
-          Mij[i][j] = 0.0;
+           // FIXME: Is this right for accessing 2D array of nodal Mij, is it 1D or 2D??
+           Mij[i][j] = 0.5 * (nodalMij.get(nodeL, i*ndim + j) + nodalMij.get(nodeR, i*ndim + j));
 
       EigenDecomposition::sym_diagonalize<DblType>(Mij, Q, D);
 

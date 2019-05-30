@@ -35,7 +35,7 @@ private:
   unsigned sdrNp1_{stk::mesh::InvalidOrdinal};
   unsigned alphaNp1_{stk::mesh::InvalidOrdinal};
   unsigned tvisc_{stk::mesh::InvalidOrdinal};
-  // unsigned Mij_ {stk::mesh::InvalidOrdinal};
+  unsigned Mij_ {stk::mesh::InvalidOrdinal};
   unsigned avgVelocity_{stk::mesh::InvalidOrdinal};
   unsigned avgDudx_{stk::mesh::InvalidOrdinal};
   unsigned avgDensity_{stk::mesh::InvalidOrdinal};

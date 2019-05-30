@@ -50,16 +50,13 @@ MomentumTAMSSSTForcingElemKernel<AlgTraits>::MomentumTAMSSSTForcingElemKernel(
 
   sdrNp1_ = get_field_ordinal(metaData, "specific_dissipation_rate");
   alphaNp1_ = get_field_ordinal(metaData, "k_ratio");
-  Mij_ =
-    get_field_ordinal(metaData, "metric_tensor", stk::topology::ELEMENT_RANK);
+  Mij_ = get_field_ordinal(metaData, "metric_tensor");
 
   avgVelocity_ = get_field_ordinal(metaData, "average_velocity");
   avgDensity_ = get_field_ordinal(metaData, "average_density");
   avgTime_ = get_field_ordinal(metaData, "average_time");
 
-  avgResAdeq_ = get_field_ordinal(
-    metaData, "average_resolution_adequacy_parameter",
-    stk::topology::ELEMENT_RANK);
+  avgResAdeq_ = get_field_ordinal(metaData, "average_resolution_adequacy_parameter");
   coordinates_ = get_field_ordinal(metaData, solnOpts.get_coordinates_name());
 
   minDist_ = get_field_ordinal(metaData, "minimum_distance_to_wall");
@@ -88,8 +85,8 @@ MomentumTAMSSSTForcingElemKernel<AlgTraits>::MomentumTAMSSSTForcingElemKernel(
   dataPreReqs.add_gathered_nodal_field(alphaNp1_, 1);
   dataPreReqs.add_gathered_nodal_field(avgTime_, 1);
   dataPreReqs.add_gathered_nodal_field(minDist_, 1);
-  dataPreReqs.add_element_field(avgResAdeq_, 1);
-  dataPreReqs.add_element_field(Mij_, AlgTraits::nDim_, AlgTraits::nDim_);
+  dataPreReqs.add_gathered_nodal_field(avgResAdeq_, 1);
+  dataPreReqs.add_gathered_nodal_field(Mij_, AlgTraits::nDim_, AlgTraits::nDim_);
 
   // master element data
   dataPreReqs.add_master_element_call(SCV_VOLUME, CURRENT_COORDINATES);
@@ -124,6 +121,7 @@ MomentumTAMSSSTForcingElemKernel<AlgTraits>::execute(
   NALU_ALIGNED DoubleType w_coordScs[AlgTraits::nDim_];
   NALU_ALIGNED DoubleType w_avgUScs[AlgTraits::nDim_];
   NALU_ALIGNED DoubleType w_fluctUScs[AlgTraits::nDim_];
+  NALU_ALIGNED DoubleType w_MijElem[AlgTraits::nDim_][AlgTraits::nDim_];
 
   SharedMemView<DoubleType**>& v_uNp1 =
     scratchViews.get_scratch_view_2D(velocityNp1_);
@@ -149,7 +147,8 @@ MomentumTAMSSSTForcingElemKernel<AlgTraits>::execute(
     scratchViews.get_scratch_view_1D(minDist_);
   SharedMemView<DoubleType*>& v_avgResAdeq =
     scratchViews.get_scratch_view_1D(avgResAdeq_);
-  SharedMemView<DoubleType**>& v_Mij = scratchViews.get_scratch_view_2D(Mij_);
+  SharedMemView<DoubleType***>& v_Mij = 
+    scratchViews.get_scratch_view_3D(Mij_);
 
   SharedMemView<DoubleType*>& v_scv_volume =
     scratchViews.get_me_views(CURRENT_COORDINATES).scv_volume;
@@ -164,6 +163,9 @@ MomentumTAMSSSTForcingElemKernel<AlgTraits>::execute(
       w_coordScs[j] = 0.0;
       w_avgUScs[j] = 0.0;
       w_fluctUScs[j] = 0.0;
+      for (int k = 0; k < AlgTraits::nDim_; ++k) {
+        w_MijElem[j][k] = 0.0;
+      }
     }
 
     DoubleType muScs = 0.0;
@@ -174,6 +176,7 @@ MomentumTAMSSSTForcingElemKernel<AlgTraits>::execute(
     DoubleType avgTimeScs = 0.0;
     DoubleType alphaScs = 0.0;
     DoubleType wallDistScs = 0.0;
+    DoubleType avgResAdeqScs = 0.0;
 
     // determine scs values of interest
     for (int ic = 0; ic < AlgTraits::nodesPerElement_; ++ic) {
@@ -189,11 +192,18 @@ MomentumTAMSSSTForcingElemKernel<AlgTraits>::execute(
       avgTimeScs += r * v_avgTime(ic);
       alphaScs += r * v_alphaNp1(ic);
       wallDistScs += r * v_minDist(ic);
+      avgResAdeqScs += r * v_avgResAdeq(ic);
 
       for (int i = 0; i < AlgTraits::nDim_; ++i) {
         w_coordScs[i] += r * v_coordinates(ic, i);
         w_avgUScs[i] += r * v_avgU(ic, i);
         w_fluctUScs[i] += r * (v_uNp1(ic, i) - v_avgU(ic, i));
+
+        // Don't allow Mij to vary over the element, so take it as a direct average over nodes
+        for (int j = 0; j < AlgTraits::nDim_; ++j) {
+          w_MijElem[i][j] += v_Mij(ic, i, j)/AlgTraits::nodesPerElement_;
+        }
+
       }
     }
 
@@ -223,9 +233,9 @@ MomentumTAMSSSTForcingElemKernel<AlgTraits>::execute(
     T_alpha = stk::math::max(T_alpha, Ct * stk::math::sqrt(muScs / epsScs));
     T_alpha = BL_T * T_alpha;
 
-    const DoubleType ceilLengthX = stk::math::max(length, 2.0 * v_Mij(0, 0));
-    const DoubleType ceilLengthY = stk::math::max(lengthY, 2.0 * v_Mij(1, 1));
-    const DoubleType ceilLengthZ = stk::math::max(length, 2.0 * v_Mij(2, 2));
+    const DoubleType ceilLengthX = stk::math::max(length, 2.0 * w_MijElem[0][0]);
+    const DoubleType ceilLengthY = stk::math::max(lengthY, 2.0 * w_MijElem[1][1]);
+    const DoubleType ceilLengthZ = stk::math::max(length, 2.0 * w_MijElem[2][2]);
 
     const DoubleType clipLengthX =
       stk::math::min(ceilLengthX, periodicForcingLengthX);
@@ -288,19 +298,24 @@ MomentumTAMSSSTForcingElemKernel<AlgTraits>::execute(
     const DoubleType F_target =
       FORCING_FACTOR * stk::math::sqrt(alphaScs * v2Scs) / T_alpha;
 
-    const DoubleType prod_r =
+    const DoubleType prod_r_temp =
       (F_target * dt_) *
       (hX * w_fluctUScs[0] + hY * w_fluctUScs[1] + hZ * w_fluctUScs[2]);
 
-    const DoubleType arg1 = stk::math::sqrt(v_avgResAdeq(0)) - 1.0;
-    const DoubleType arg = stk::math::if_then_else(arg1 < 0.0, 1.0 - 1.0 / stk::math::sqrt(v_avgResAdeq(0)),arg1);
+    const DoubleType prod_r_sgn = stk::math::if_then_else(prod_r_temp < 0.0, -1.0, 1.0);
+    const DoubleType prod_r_abs = prod_r_sgn * prod_r_temp;
+
+    const DoubleType prod_r = stk::math::if_then_else(prod_r_abs >= 1.0e-15, prod_r_temp, 0.0);
+
+    const DoubleType arg1 = stk::math::sqrt(avgResAdeqScs) - 1.0;
+    const DoubleType arg = stk::math::if_then_else(arg1 < 0.0, 1.0 - 1.0 / stk::math::sqrt(avgResAdeqScs),arg1);
 
     const DoubleType a_sign = stk::math::tanh(arg);
 
     DoubleType Sa = a_sign;
 
     // FIXME: I need to straighten out this rho situation
-    DoubleType a_kol =
+    const DoubleType a_kol =
       stk::math::min(BL_KOL * stk::math::sqrt(muScs * epsScs) / tkeScs, 1.0);
 
     // FIXME: Can I do a compound if statement with if_then... it was not
@@ -325,7 +340,7 @@ MomentumTAMSSSTForcingElemKernel<AlgTraits>::execute(
     //      (1.0+a_kol-alphaScs)*a_sign), stk::math::if_then_else_zero(alphaScs
     //      >= 1.0, Sa = Sa - alphaScs*a_sign));
 
-    const DoubleType fd_temp = v_avgResAdeq(0);
+    const DoubleType fd_temp = avgResAdeqScs;
 
     DoubleType C_F;
 

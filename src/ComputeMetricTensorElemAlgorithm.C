@@ -40,8 +40,17 @@ ComputeMetricTensorElemAlgorithm::ComputeMetricTensorElemAlgorithm(
   stk::mesh::MetaData &meta_data = realm_.meta_data();
   coordinates_ = meta_data.get_field<VectorFieldType>(
       stk::topology::NODE_RANK, realm_.get_coordinates_name());
-  Mij_ = meta_data.get_field<GenericFieldType>(stk::topology::ELEMENT_RANK,
+  nodalMij_ = meta_data.get_field<GenericFieldType>(stk::topology::NODE_RANK,
                                                "metric_tensor");
+  dualNodalVolume_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, 
+                                               "dual_nodal_volume");
+
+  tmpFile.open("metricTensor.txt", std::fstream::app);
+}
+
+ComputeMetricTensorElemAlgorithm::~ComputeMetricTensorElemAlgorithm()
+{
+  tmpFile.close();
 }
 
 //--------------------------------------------------------------------------
@@ -49,16 +58,34 @@ ComputeMetricTensorElemAlgorithm::ComputeMetricTensorElemAlgorithm(
 //--------------------------------------------------------------------------
 void ComputeMetricTensorElemAlgorithm::execute() {
 
+  stk::mesh::BulkData & bulk_data = realm_.bulk_data();
   stk::mesh::MetaData &meta_data = realm_.meta_data();
 
   const int nDim = meta_data.spatial_dimension();
 
-  // fill in elemental values
-  stk::mesh::Selector s_locally_owned_union =
+  stk::mesh::Selector selector =
       meta_data.locally_owned_part() & stk::mesh::selectUnion(partVec_);
 
+  stk::mesh::BucketVector const &node_buckets =
+      realm_.get_buckets(stk::topology::NODE_RANK, selector);
+  for (stk::mesh::BucketVector::const_iterator ib = node_buckets.begin();
+       ib != node_buckets.end(); ++ib) {
+    stk::mesh::Bucket &b = **ib;
+    const stk::mesh::Bucket::size_type length = b.size();
+
+    for (stk::mesh::Bucket::size_type k = 0; k < length; ++k) {
+      // get Mij field_data
+      double *Mij = stk::mesh::field_data(*nodalMij_, b[k]);
+
+      // initialize to 0
+      for (int i = 0; i < nDim; ++i)
+        for (int j = 0; j < nDim; ++j)
+          Mij[i * nDim + j] = 0.0;
+    }
+  }
+
   stk::mesh::BucketVector const &elem_buckets =
-      realm_.get_buckets(stk::topology::ELEMENT_RANK, s_locally_owned_union);
+      realm_.get_buckets(stk::topology::ELEMENT_RANK, selector);
   for (stk::mesh::BucketVector::const_iterator ib = elem_buckets.begin();
        ib != elem_buckets.end(); ++ib) {
     stk::mesh::Bucket &b = **ib;
@@ -78,6 +105,7 @@ void ComputeMetricTensorElemAlgorithm::execute() {
     ws_dndx.resize(nDim * numScvIp * nodesPerElement);
     ws_deriv.resize(nDim * numScvIp * nodesPerElement);
     ws_det_j.resize(numScvIp);
+    ws_scv_volume.resize(numScvIp);
     ws_Mij.resize(numScvIp * nDim * nDim);
 
     // pointers to vectors
@@ -85,14 +113,6 @@ void ComputeMetricTensorElemAlgorithm::execute() {
     double *p_Mij = &ws_Mij[0];
 
     for (stk::mesh::Bucket::size_type k = 0; k < length; ++k) {
-
-      // get Mij field_data
-      double *Mij = stk::mesh::field_data(*Mij_, b[k]);
-
-      // initialize to 0
-      for (int i = 0; i < nDim; ++i)
-        for (int j = 0; j < nDim; ++j)
-          Mij[i * nDim + j] = 0.0;
 
       //===============================================
       // gather nodal data; this is how we do it now..
@@ -122,17 +142,63 @@ void ComputeMetricTensorElemAlgorithm::execute() {
       meSCV->grad_op(1, &p_coords[0], &ws_dndx[0], &ws_deriv[0], &ws_det_j[0],
                      &scv_error);
       meSCV->Mij(&p_coords[0], &p_Mij[0], &ws_deriv[0]);
+      meSCV->determinant(1, &p_coords[0], &ws_scv_volume[0], &scv_error);
+      const int *ipNodeMap = meSCV->ipNodeMap();
 
       // since we only want a single elemental value, average over all
       // integration points
-      for (int ip = 0; ip < numScvIp; ++ip)
+      for (int ip = 0; ip < numScvIp; ++ip) {
+ 
+        // nearest node to ip
+        stk::mesh::Entity nearestNode = node_rels[ipNodeMap[ip]];
+
+        const double *dualNodalVolume = stk::mesh::field_data(*dualNodalVolume_, nearestNode);
+        double * nodalMij = stk::mesh::field_data(*nodalMij_, nearestNode); 
+
+        const double scV = ws_scv_volume[ip];
         for (int i = 0; i < nDim; ++i)
           for (int j = 0; j < nDim; ++j)
-            Mij[i * nDim + j] +=
-                p_Mij[ip * nDim * nDim + i * nDim + j] / numScvIp;
+            nodalMij[i * nDim + j] +=
+                p_Mij[ip * nDim * nDim + i * nDim + j] * scV/dualNodalVolume[0];
+
+        //tmpFile << p_coords[ipNodeMap[ip]*nDim + 0] << " " << p_coords[ipNodeMap[ip]*nDim + 1] << " " << p_coords[ipNodeMap[ip]*nDim + 2] << " " << scV << " " << dualNodalVolume[0] << " " << " " << p_Mij[0] << " " << p_Mij[4] << " " << p_Mij[8] << " " << p_Mij[2] << " " << nodalMij[0] << " " << nodalMij[4] << " " << nodalMij[8] << " " << nodalMij[2] << std::endl;      
+      }
+
     }
+  }
+
+  stk::mesh::parallel_sum(bulk_data, {nodalMij_});
+
+  if ( realm_.hasPeriodic_) {
+    const unsigned nDim = meta_data.spatial_dimension();
+    realm_.periodic_field_update(nodalMij_, nDim*nDim);
   }
 }
 
+//--------------------------------------------------------------------------
+//-------- post_work -------------------------------------------------------
+//--------------------------------------------------------------------------
+void
+ComputeMetricTensorElemAlgorithm::post_work()
+{
+
+//  stk::mesh::BulkData & bulk_data = realm_.bulk_data();
+//  stk::mesh::MetaData & meta_data = realm_.meta_data();
+//
+//  stk::mesh::parallel_sum(bulk_data, {nodalMij_});
+//
+//  tmpFile << "HERE" << std::endl;
+//
+//  if ( realm_.hasPeriodic_) {
+//    const unsigned nDim = meta_data.spatial_dimension();
+//    realm_.periodic_field_update(nodalMij_, nDim*nDim);
+//  }
+//
+//  if ( realm_.hasOverset_ ) {
+//    // this is a vector
+//    const unsigned nDim = meta_data.spatial_dimension();
+//    realm_.overset_orphan_node_field_update(nodalMij_, nDim, nDim);
+//  }
+}
 } // namespace nalu
 } // namespace sierra
