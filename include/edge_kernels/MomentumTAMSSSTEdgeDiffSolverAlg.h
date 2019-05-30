@@ -5,25 +5,26 @@
 /*  directory structure                                                   */
 /*------------------------------------------------------------------------*/
 
-#ifndef MOMENTUMTAMSKEPSEDGEDIFFSOLVERALG_H
-#define MOMENTUMTAMSKEPSEDGEDIFFSOLVERALG_H
+#ifndef MOMENTUMTAMSSSTEDGEDIFFSOLVERALG_H
+#define MOMENTUMTAMSSSTEDGEDIFFSOLVERALG_H
 
 #include "AssembleEdgeSolverAlgorithm.h"
 
 namespace sierra {
 namespace nalu {
 
-class MomentumTAMSKEpsEdgeDiffSolverAlg : public AssembleEdgeSolverAlgorithm
+class MomentumTAMSSSTEdgeDiffSolverAlg : public AssembleEdgeSolverAlgorithm
 {
 public:
-  MomentumTAMSKEpsEdgeDiffSolverAlg(Realm&, stk::mesh::Part*, EquationSystem*);
+  MomentumTAMSSSTEdgeDiffSolverAlg(Realm&, stk::mesh::Part*, EquationSystem*);
 
-  virtual ~MomentumTAMSKEpsEdgeDiffSolverAlg() = default;
+  virtual ~MomentumTAMSSSTEdgeDiffSolverAlg() = default;
 
   virtual void execute();
 
 private:
   const double includeDivU_;
+  const double betaStar_;
   const double CMdeg_;
 
   unsigned coordinates_{stk::mesh::InvalidOrdinal};
@@ -31,7 +32,7 @@ private:
   unsigned dudx_{stk::mesh::InvalidOrdinal};
   unsigned densityNp1_{stk::mesh::InvalidOrdinal};
   unsigned tkeNp1_{stk::mesh::InvalidOrdinal};
-  unsigned tdrNp1_{stk::mesh::InvalidOrdinal};
+  unsigned sdrNp1_{stk::mesh::InvalidOrdinal};
   unsigned alphaNp1_{stk::mesh::InvalidOrdinal};
   unsigned tvisc_{stk::mesh::InvalidOrdinal};
   // unsigned Mij_ {stk::mesh::InvalidOrdinal};
@@ -44,4 +45,4 @@ private:
 } // namespace nalu
 } // namespace sierra
 
-#endif /* MOMENTUMTAMSKEPSEDGEDIFFSOLVERALG_H */
+#endif /* MOMENTUMTAMSSSTEDGEDIFFSOLVERALG_H */

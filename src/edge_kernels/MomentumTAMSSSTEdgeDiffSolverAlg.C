@@ -5,7 +5,7 @@
 /*  directory structure                                                   */
 /*------------------------------------------------------------------------*/
 
-#include "edge_kernels/MomentumTAMSKEpsEdgeDiffSolverAlg.h"
+#include "edge_kernels/MomentumTAMSSSTEdgeDiffSolverAlg.h"
 #include "EigenDecomposition.h"
 #include "utils/StkHelpers.h"
 #include "utils/TAMSUtils.h"
@@ -13,10 +13,11 @@
 namespace sierra {
 namespace nalu {
 
-MomentumTAMSKEpsEdgeDiffSolverAlg::MomentumTAMSKEpsEdgeDiffSolverAlg(
+MomentumTAMSSSTEdgeDiffSolverAlg::MomentumTAMSSSTEdgeDiffSolverAlg(
   Realm& realm, stk::mesh::Part* part, EquationSystem* eqSystem)
   : AssembleEdgeSolverAlgorithm(realm, part, eqSystem),
     includeDivU_(realm.get_divU()),
+    betaStar_(realm.get_turb_model_constant(TM_betaStar)),
     CMdeg_(realm.get_turb_model_constant(TM_CMdeg))
 {
   const auto& meta = realm.meta_data();
@@ -28,7 +29,7 @@ MomentumTAMSKEpsEdgeDiffSolverAlg::MomentumTAMSKEpsEdgeDiffSolverAlg(
   dudx_ = get_field_ordinal(meta, "dudx");
   densityNp1_ = get_field_ordinal(meta, "density");
   tkeNp1_ = get_field_ordinal(meta, "turbulent_ke");
-  tdrNp1_ = get_field_ordinal(meta, "total_dissipation_rate");
+  sdrNp1_ = get_field_ordinal(meta, "specific_dissipation_rate");
   alphaNp1_ = get_field_ordinal(meta, "k_ratio");
   tvisc_ = get_field_ordinal(meta, "turbulent_viscosity");
   // Mij_ =
@@ -43,7 +44,7 @@ MomentumTAMSKEpsEdgeDiffSolverAlg::MomentumTAMSKEpsEdgeDiffSolverAlg(
 }
 
 void
-MomentumTAMSKEpsEdgeDiffSolverAlg::execute()
+MomentumTAMSSSTEdgeDiffSolverAlg::execute()
 {
   const int ndim = realm_.meta_data().spatial_dimension();
 
@@ -54,7 +55,7 @@ MomentumTAMSKEpsEdgeDiffSolverAlg::execute()
   const auto dudx = fieldMgr.get_field<double>(dudx_);
   const auto density = fieldMgr.get_field<double>(densityNp1_);
   const auto tke = fieldMgr.get_field<double>(tkeNp1_);
-  const auto tdr = fieldMgr.get_field<double>(tdrNp1_);
+  const auto sdr = fieldMgr.get_field<double>(sdrNp1_);
   const auto alpha = fieldMgr.get_field<double>(alphaNp1_);
   const auto tvisc = fieldMgr.get_field<double>(tvisc_);
   const auto avgVelocity = fieldMgr.get_field<double>(avgVelocity_);
@@ -112,7 +113,7 @@ MomentumTAMSKEpsEdgeDiffSolverAlg::execute()
       const DblType fluctRhoIp =
         0.5 * (density.get(nodeL, 0) + density.get(nodeR, 0)) - avgRhoIp;
       const DblType tkeIp = 0.5 * (tke.get(nodeL, 0) + tke.get(nodeR, 0));
-      const DblType tdrIp = 0.5 * (tdr.get(nodeL, 0) + tdr.get(nodeR, 0));
+      const DblType sdrIp = 0.5 * (sdr.get(nodeL, 0) + sdr.get(nodeR, 0));
       const DblType alphaIp = 0.5 * (alpha.get(nodeL, 0) + alpha.get(nodeR, 0));
       DblType avgdUidxj[nDimMax_][nDimMax_];
       DblType fluctdUidxj[nDimMax_][nDimMax_];
@@ -175,7 +176,8 @@ MomentumTAMSKEpsEdgeDiffSolverAlg::execute()
       }
 
       // FIXME: Does this need a rho in it?
-      const DblType epsilon13Ip = stk::math::pow(tdrIp, 1.0 / 3.0);
+      const DblType epsilon13Ip =
+        stk::math::pow(betaStar_ * tkeIp * sdrIp, 1.0 / 3.0);
 
       for (int i = 0; i < ndim; ++i) {
 
