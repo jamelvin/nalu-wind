@@ -34,7 +34,8 @@ public:
     const SolutionOptions&,
     ScalarFieldType*,
     ScalarFieldType*,
-    ElemDataRequests&);
+    ElemDataRequests&,
+    const bool useAvgMdot = false);
 
   KOKKOS_FUNCTION ScalarAdvDiffElemKernel() = default;
 
@@ -59,6 +60,7 @@ private:
 
   const bool shiftedGradOp_;
   const bool skewSymmetric_;
+  const bool useAvgMdot_;
 
   MasterElement* meSCS_{nullptr};
 };

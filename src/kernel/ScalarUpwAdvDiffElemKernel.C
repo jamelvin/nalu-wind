@@ -35,7 +35,8 @@ ScalarUpwAdvDiffElemKernel<AlgTraits>::ScalarUpwAdvDiffElemKernel(
   ScalarFieldType* scalarQ,
   VectorFieldType* Gjq,
   ScalarFieldType* diffFluxCoeff,
-  ElemDataRequests& dataPreReqs)
+  ElemDataRequests& dataPreReqs,
+  const bool useAvgMdot /*=false*/)
   : scalarQ_(scalarQ->mesh_meta_data_ordinal()),
     Gjq_(Gjq->mesh_meta_data_ordinal()),
     diffFluxCoeff_(diffFluxCoeff->mesh_meta_data_ordinal()),
@@ -47,12 +48,17 @@ ScalarUpwAdvDiffElemKernel<AlgTraits>::ScalarUpwAdvDiffElemKernel(
     om_alphaUpw_(1.0 - alphaUpw_),
     shiftedGradOp_(solnOpts.get_shifted_grad_op(scalarQ->name())),
     skewSymmetric_(solnOpts.get_skew_symmetric(scalarQ->name())),
-    pecletFunction_(eqSystem->ngp_create_peclet_function(scalarQ->name()))
+    pecletFunction_(eqSystem->ngp_create_peclet_function(scalarQ->name())),
+    useAvgMdot_(useAvgMdot)
 {
   // Save of required fields
   const stk::mesh::MetaData& metaData = bulkData.mesh_meta_data();
   coordinates_ = get_field_ordinal(metaData, solnOpts.get_coordinates_name());
-  massFlowRate_ = get_field_ordinal(metaData, "mass_flow_rate_scs", stk::topology::ELEM_RANK);
+  if (useAvgMdot_) {
+    massFlowRate_ = get_field_ordinal(metaData, "average_mass_flow_rate", stk::topology::ELEM_RANK);
+  } else {
+    massFlowRate_ = get_field_ordinal(metaData, "mass_flow_rate_scs", stk::topology::ELEM_RANK);
+  }
   density_ = get_field_ordinal(metaData, "density");
 
   const std::string vrtm_name = solnOpts.does_mesh_move()? "velocity_rtm" : "velocity";

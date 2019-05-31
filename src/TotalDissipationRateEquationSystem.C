@@ -55,8 +55,6 @@
 #include <kernel/ScalarMassElemKernel.h>
 #include <kernel/ScalarAdvDiffElemKernel.h>
 #include <kernel/ScalarUpwAdvDiffElemKernel.h>
-#include <kernel/ScalarTAMSAdvDiffElemKernel.h>
-#include <kernel/ScalarTAMSUpwAdvDiffElemKernel.h>
 #include <kernel/TotalDissipationRateChienKEpsSrcElemKernel.h>
 
 // UT Austin Hybird TAMS kernel
@@ -228,7 +226,13 @@ TotalDissipationRateEquationSystem::register_interior_algorithm(
     if (itsi == solverAlgDriver_->solverAlgMap_.end()) {
       SolverAlgorithm* theAlg = NULL;
       if (realm_.realmUsesEdges_) {
-        theAlg = new AssembleScalarEdgeSolverAlgorithm(realm_, part, this, tdr_, dedx_, evisc_);
+        if (realm_.solutionOptions_->turbulenceModel_ == TAMS_KEPS) {
+          theAlg = new AssembleScalarEdgeSolverAlgorithm(
+            realm_, part, this, tdr_, dedx_, evisc_, true);
+        } else {
+          theAlg = new AssembleScalarEdgeSolverAlgorithm(
+            realm_, part, this, tdr_, dedx_, evisc_);
+        }
       }
       else {
         theAlg = new AssembleScalarElemSolverAlgorithm(realm_, part, this, tdr_, dedx_, evisc_);
@@ -367,17 +371,17 @@ TotalDissipationRateEquationSystem::register_interior_algorithm(
         (partTopo, *this, activeKernels, "advection_diffusion",
          realm_.bulk_data(), *realm_.solutionOptions_, tdr_, evisc_, dataPreReqs);
 
-      build_topo_kernel_if_requested<ScalarTAMSAdvDiffElemKernel>
+      build_topo_kernel_if_requested<ScalarAdvDiffElemKernel>
         (partTopo, *this, activeKernels, "TAMS_advection_diffusion",
-         realm_.bulk_data(), *realm_.solutionOptions_, tdr_, evisc_, dataPreReqs);
+         realm_.bulk_data(), *realm_.solutionOptions_, tdr_, evisc_, dataPreReqs, true);
 
       build_topo_kernel_if_requested<ScalarUpwAdvDiffElemKernel>
         (partTopo, *this, activeKernels, "upw_advection_diffusion",
         realm_.bulk_data(), *realm_.solutionOptions_, this, tdr_, dedx_, evisc_, dataPreReqs);
 
-      build_topo_kernel_if_requested<ScalarTAMSUpwAdvDiffElemKernel>
+      build_topo_kernel_if_requested<ScalarUpwAdvDiffElemKernel>
         (partTopo, *this, activeKernels, "TAMS_upw_advection_diffusion",
-        realm_.bulk_data(), *realm_.solutionOptions_, this, tdr_, dedx_, evisc_, dataPreReqs);
+         realm_.bulk_data(), *realm_.solutionOptions_, this, tdr_, dedx_, evisc_, dataPreReqs, true);
 
       build_topo_kernel_if_requested<TotalDissipationRateChienKEpsSrcElemKernel>
         (partTopo, *this, activeKernels, "keps",

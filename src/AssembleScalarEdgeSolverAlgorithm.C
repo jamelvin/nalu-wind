@@ -40,7 +40,8 @@ AssembleScalarEdgeSolverAlgorithm::AssembleScalarEdgeSolverAlgorithm(
   EquationSystem *eqSystem,
   ScalarFieldType *scalarQ,
   VectorFieldType *dqdx,
-  ScalarFieldType *diffFluxCoeff)
+  ScalarFieldType *diffFluxCoeff,
+  const bool useAvgMdot /*=false*/)
   : SolverAlgorithm(realm, part, eqSystem),
     meshMotion_(realm_.does_mesh_move()),
     scalarQ_(scalarQ),
@@ -51,7 +52,8 @@ AssembleScalarEdgeSolverAlgorithm::AssembleScalarEdgeSolverAlgorithm(
     density_(NULL),
     massFlowRate_(NULL),
     edgeAreaVec_(NULL),
-    pecletFunction_(NULL)
+    pecletFunction_(NULL),
+    useAvgMdot_(useAvgMdot)
 {
   // save off fields
   stk::mesh::MetaData & meta_data = realm_.meta_data();
@@ -61,7 +63,11 @@ AssembleScalarEdgeSolverAlgorithm::AssembleScalarEdgeSolverAlgorithm(
     velocityRTM_ = meta_data.get_field<VectorFieldType>(stk::topology::NODE_RANK, "velocity");
   coordinates_ = meta_data.get_field<VectorFieldType>(stk::topology::NODE_RANK, realm_.get_coordinates_name());
   density_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "density");
-  massFlowRate_ = meta_data.get_field<ScalarFieldType>(stk::topology::EDGE_RANK, "mass_flow_rate");
+  if (useAvgMdot_) {
+    massFlowRate_ = meta_data.get_field<ScalarFieldType>(stk::topology::EDGE_RANK, "average_mass_flow_rate");
+  } else {
+    massFlowRate_ = meta_data.get_field<ScalarFieldType>(stk::topology::EDGE_RANK, "mass_flow_rate");
+  }
   edgeAreaVec_ = meta_data.get_field<VectorFieldType>(stk::topology::EDGE_RANK, "edge_area_vector");
 
   // create the peclet blending function

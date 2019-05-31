@@ -38,7 +38,8 @@ public:
     ScalarFieldType*,
     VectorFieldType*,
     ScalarFieldType*,
-    ElemDataRequests&);
+    ElemDataRequests&,
+    const bool useAvgMdot = false);
 
   KOKKOS_FUNCTION ScalarUpwAdvDiffElemKernel() = default;
 
@@ -74,6 +75,7 @@ private:
   const bool shiftedGradOp_;
   const bool skewSymmetric_;
   const double small_{1.0e-16};
+  const bool useAvgMdot_;
 
   //! Device pointer to the Peclet function
   PecletFunction<DoubleType>* pecletFunction_{nullptr};

@@ -70,8 +70,6 @@
 #include <kernel/ScalarMassElemKernel.h>
 #include <kernel/ScalarAdvDiffElemKernel.h>
 #include <kernel/ScalarUpwAdvDiffElemKernel.h>
-#include <kernel/ScalarTAMSAdvDiffElemKernel.h>
-#include <kernel/ScalarTAMSUpwAdvDiffElemKernel.h>
 
 // nso
 #include <nso/ScalarNSOElemKernel.h>
