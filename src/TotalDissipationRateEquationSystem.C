@@ -226,13 +226,8 @@ TotalDissipationRateEquationSystem::register_interior_algorithm(
     if (itsi == solverAlgDriver_->solverAlgMap_.end()) {
       SolverAlgorithm* theAlg = NULL;
       if (realm_.realmUsesEdges_) {
-        if (realm_.solutionOptions_->turbulenceModel_ == TAMS_KEPS) {
-          theAlg = new AssembleScalarEdgeSolverAlgorithm(
-            realm_, part, this, tdr_, dedx_, evisc_, true);
-        } else {
-          theAlg = new AssembleScalarEdgeSolverAlgorithm(
-            realm_, part, this, tdr_, dedx_, evisc_);
-        }
+        const bool useAvgMdot = (realm_.solutionOptions_->turbulenceModel_ == TAMS_KEPS) ? true : false;
+        theAlg = new AssembleScalarEdgeSolverAlgorithm(realm_, part, this, tdr_, dedx_, evisc_, useAvgMdot);
       }
       else {
         theAlg = new AssembleScalarElemSolverAlgorithm(realm_, part, this, tdr_, dedx_, evisc_);

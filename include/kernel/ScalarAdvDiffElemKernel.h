@@ -60,7 +60,6 @@ private:
 
   const bool shiftedGradOp_;
   const bool skewSymmetric_;
-  const bool useAvgMdot_;
 
   MasterElement* meSCS_{nullptr};
 };

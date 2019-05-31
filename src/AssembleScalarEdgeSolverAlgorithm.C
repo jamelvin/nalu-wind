@@ -52,8 +52,7 @@ AssembleScalarEdgeSolverAlgorithm::AssembleScalarEdgeSolverAlgorithm(
     density_(NULL),
     massFlowRate_(NULL),
     edgeAreaVec_(NULL),
-    pecletFunction_(NULL),
-    useAvgMdot_(useAvgMdot)
+    pecletFunction_(NULL)
 {
   // save off fields
   stk::mesh::MetaData & meta_data = realm_.meta_data();
@@ -63,7 +62,7 @@ AssembleScalarEdgeSolverAlgorithm::AssembleScalarEdgeSolverAlgorithm(
     velocityRTM_ = meta_data.get_field<VectorFieldType>(stk::topology::NODE_RANK, "velocity");
   coordinates_ = meta_data.get_field<VectorFieldType>(stk::topology::NODE_RANK, realm_.get_coordinates_name());
   density_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "density");
-  if (useAvgMdot_) {
+  if (useAvgMdot) {
     massFlowRate_ = meta_data.get_field<ScalarFieldType>(stk::topology::EDGE_RANK, "average_mass_flow_rate");
   } else {
     massFlowRate_ = meta_data.get_field<ScalarFieldType>(stk::topology::EDGE_RANK, "mass_flow_rate");

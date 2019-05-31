@@ -46,7 +46,6 @@ public:
     const double &small);
 
   const bool meshMotion_;
-  const bool useAvgMdot_;
   
   ScalarFieldType *scalarQ_;
   VectorFieldType *dqdx_;

@@ -48,13 +48,12 @@ ScalarUpwAdvDiffElemKernel<AlgTraits>::ScalarUpwAdvDiffElemKernel(
     om_alphaUpw_(1.0 - alphaUpw_),
     shiftedGradOp_(solnOpts.get_shifted_grad_op(scalarQ->name())),
     skewSymmetric_(solnOpts.get_skew_symmetric(scalarQ->name())),
-    pecletFunction_(eqSystem->ngp_create_peclet_function(scalarQ->name())),
-    useAvgMdot_(useAvgMdot)
+    pecletFunction_(eqSystem->ngp_create_peclet_function(scalarQ->name()))
 {
   // Save of required fields
   const stk::mesh::MetaData& metaData = bulkData.mesh_meta_data();
   coordinates_ = get_field_ordinal(metaData, solnOpts.get_coordinates_name());
-  if (useAvgMdot_) {
+  if (useAvgMdot) {
     massFlowRate_ = get_field_ordinal(metaData, "average_mass_flow_rate", stk::topology::ELEM_RANK);
   } else {
     massFlowRate_ = get_field_ordinal(metaData, "mass_flow_rate_scs", stk::topology::ELEM_RANK);
