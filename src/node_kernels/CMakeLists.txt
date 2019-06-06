@@ -1,3 +1,9 @@
 add_sources(GlobalSourceList
   MomentumBodyForceNodeKernel.C
+  MomentumTAMSKEpsForcingNodeKernel.C
+  MomentumTAMSSSTForcingNodeKernel.C
+  SpecificDissipationRateTAMSSSTSrcNodeKernel.C
+  TotalDissipationRateTAMSKEpsSrcNodeKernel.C
+  TurbKineticEnergyTAMSKEpsSrcNodeKernel.C
+  TurbKineticEnergyTAMSSSTSrcNodeKernel.C
   )
