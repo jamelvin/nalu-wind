@@ -171,6 +171,16 @@ void ComputeTAMSKEpsResAdequacyElemAlgorithm::execute() {
         }
       }
 
+      // zeroing out tesnors
+      for (unsigned i = 0; i < nDim_; ++i) {
+        for (unsigned j = 0; j < nDim_; ++j) {
+          p_tauSGRS[i*nDim_ + j] = 0.0;
+          p_tauSGET[i*nDim_ + j] = 0.0;
+          p_tau[i*nDim_ + j] = 0.0;
+          p_Psgs[i*nDim_ + j] = 0.0;
+        }
+      }
+
       const double CM43 = tams_utils::get_M43_constant<double, 3>(D, CMdeg_);
 
       const double epsilon13 = stk::math::pow(tdr[k], 1.0/3.0);
@@ -182,7 +192,7 @@ void ComputeTAMSKEpsResAdequacyElemAlgorithm::execute() {
           // mean quantities... i.e this is (tauSGRS = alpha*tauSST)
           // The 2 in the coeff cancels with the 1/2 in the strain rate tensor
           const double coeffSGRS = alpha[k] * mut[k];
-          p_tauSGRS[i*nDim_ + j] += avgDudx[i*nDim_ + j] + avgDudx[j*nDim_ + i];
+          p_tauSGRS[i*nDim_ + j] = avgDudx[i*nDim_ + j] + avgDudx[j*nDim_ + i];
           p_tauSGRS[i*nDim_ + j] *= coeffSGRS;
 
           for (unsigned l = 0; l < nDim_; ++l) {
@@ -240,7 +250,7 @@ void ComputeTAMSKEpsResAdequacyElemAlgorithm::execute() {
 
       const double maxPM = std::max(std::abs(D[0][0]), std::max(std::abs(D[1][1]), std::abs(D[2][2])));
 
-      tmpFile << coords[0] << " " << coords[1] << " " << coords[2] << " " << dudx[0] << " " << dudx[1] << " " << dudx[2] << " " << dudx[3] << " " << dudx[4] << " " << dudx[5] << " " << dudx[6] << " " << dudx[7] << " " << dudx[8] << " " << avgDudx[0] << " " << avgDudx[1] << " " << avgDudx[2] << " " << avgDudx[3] << " " << avgDudx[4] << " " << avgDudx[5] << " " << avgDudx[6] << " " << avgDudx[7] << " " << avgDudx[8] << std::endl;        
+      //tmpFile << coords[0] << " " << coords[1] << " " << coords[2] << " " << dudx[0] << " " << dudx[1] << " " << dudx[2] << " " << dudx[3] << " " << dudx[4] << " " << dudx[5] << " " << dudx[6] << " " << dudx[7] << " " << dudx[8] << " " << avgDudx[0] << " " << avgDudx[1] << " " << avgDudx[2] << " " << avgDudx[3] << " " << avgDudx[4] << " " << avgDudx[5] << " " << avgDudx[6] << " " << avgDudx[7] << " " << avgDudx[8] << std::endl;        
         
       // Update the instantaneous resAdeq field
       resAdeq[k] = maxPM;
