@@ -55,7 +55,7 @@ MomentumTAMSKEpsForcingElemKernel<AlgTraits>::MomentumTAMSKEpsForcingElemKernel(
   avgDensity_ = get_field_ordinal(metaData, "average_density");
   avgTime_ = get_field_ordinal(metaData, "average_time");
 
-  avgResAdeq_ = get_field_ordinal(metaData, "average_resolution_adequacy_parameter");
+  avgResAdeq_ = get_field_ordinal(metaData, "avg_res_adequacy_parameter");
   coordinates_ = get_field_ordinal(metaData, solnOpts.get_coordinates_name());
 
   minDist_ = get_field_ordinal(metaData, "minimum_distance_to_wall");

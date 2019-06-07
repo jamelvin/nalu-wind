@@ -45,7 +45,7 @@ MomentumTAMSSSTForcingNodeKernel::MomentumTAMSSSTForcingNodeKernel(
   avgDensityID_ = get_field_ordinal(meta, "average_density");
   avgTimeID_ = get_field_ordinal(meta, "average_time");
   // FIXME: Need to make "avg..." a nodal quantity
-  avgResAdeqID_ =  get_field_ordinal(meta, "average_resolution_adequacy_parameter");
+  avgResAdeqID_ =  get_field_ordinal(meta, "avg_res_adequacy_parameter");
 }
 
 void MomentumTAMSSSTForcingNodeKernel::setup(Realm& realm)

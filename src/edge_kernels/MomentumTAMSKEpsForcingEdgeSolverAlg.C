@@ -35,7 +35,7 @@ MomentumTAMSKEpsForcingEdgeSolverAlg::MomentumTAMSKEpsForcingEdgeSolverAlg(
   avgVelocity_ = get_field_ordinal(meta, "average_velocity");
   avgDensity_ = get_field_ordinal(meta, "average_density"); 
   avgTime_ = get_field_ordinal(meta, "average_time"); 
-  avgResAdeq_ =  get_field_ordinal(meta, "average_resolution_adequacy_parameter");
+  avgResAdeq_ =  get_field_ordinal(meta, "avg_res_adequacy_parameter");
 
   edgeAreaVec_ = get_field_ordinal(meta, "edge_area_vector", stk::topology::EDGE_RANK);
 }

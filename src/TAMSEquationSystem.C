@@ -221,9 +221,9 @@ TAMSEquationSystem::register_nodal_fields(
   resAdequacy_ = &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "resolution_adequacy_parameter"));
   stk::mesh::put_field_on_mesh(*resAdequacy_, *part, nullptr);
 
-  avgResAdequacy_ = &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "average_resolution_adequacy_parameter"));
+  avgResAdequacy_ = &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "avg_res_adequacy_parameter"));
   stk::mesh::put_field_on_mesh(*avgResAdequacy_, *part, nullptr);
-  realm_.augment_restart_variable_list("average_resolution_adequacy_parameter");
+  realm_.augment_restart_variable_list("avg_res_adequacy_parameter");
 
 //  MasterElement *meSCS = sierra::nalu::MasterElementRepo::get_surface_master_element(theTopo);
 //  const int numScsIp = meSCS->numIntPoints_;
@@ -254,9 +254,9 @@ TAMSEquationSystem::register_element_fields(
   //resAdequacy_ = &(meta_data.declare_field<ScalarFieldType>(stk::topology::ELEMENT_RANK,"resolution_adequacy_parameter"));
   //stk::mesh::put_field_on_mesh(*resAdequacy_, *part, nullptr);
 
-  //avgResAdequacy_ = &(meta_data.declare_field<ScalarFieldType>(stk::topology::ELEMENT_RANK,"average_resolution_adequacy_parameter"));
+  //avgResAdequacy_ = &(meta_data.declare_field<ScalarFieldType>(stk::topology::ELEMENT_RANK,"avg_res_adequacy_parameter"));
   //stk::mesh::put_field_on_mesh(*avgResAdequacy_, *part, nullptr);
-  //realm_.augment_restart_variable_list("average_resolution_adequacy_parameter");
+  //realm_.augment_restart_variable_list("avg_res_adequacy_parameter");
 
   MasterElement *meSCS = sierra::nalu::MasterElementRepo::get_surface_master_element(theTopo);
   const int numScsIp = meSCS->num_integration_points();
@@ -610,26 +610,26 @@ TAMSEquationSystem::initial_work()
   stk::mesh::MetaData & meta_data = realm_.meta_data();
 
   // FIXME: Hack since setting an element field to a constant using Aux doesn't seem to work...
-  // required fields
+  // required fields... Update: resAdeq has now been moved to a nodal quantity
 
   // define some common selectors
-  stk::mesh::Selector s_all_elem
-    = (meta_data.locally_owned_part() | meta_data.globally_shared_part())
-    &stk::mesh::selectField(*avgResAdequacy_);
+  //stk::mesh::Selector s_all_elem
+  //  = (meta_data.locally_owned_part() | meta_data.globally_shared_part())
+  //  &stk::mesh::selectField(*avgResAdequacy_);
 
-  stk::mesh::BucketVector const& elem_buckets =
-    realm_.get_buckets( stk::topology::ELEMENT_RANK, s_all_elem );
-  for ( stk::mesh::BucketVector::const_iterator ib = elem_buckets.begin();
-        ib != elem_buckets.end() ; ++ib ) {
-    stk::mesh::Bucket & b = **ib ;
-    const stk::mesh::Bucket::size_type length = b.size();
+  //stk::mesh::BucketVector const& node_buckets =
+  //  realm_.get_buckets( stk::topology::ELEMENT_RANK, s_all_elem );
+  //for ( stk::mesh::BucketVector::const_iterator ib = elem_buckets.begin();
+  //      ib != elem_buckets.end() ; ++ib ) {
+  //  stk::mesh::Bucket & b = **ib ;
+  //  const stk::mesh::Bucket::size_type length = b.size();
 
-    double *avgResAdeq = stk::mesh::field_data(*avgResAdequacy_, b);
+  //  double *avgResAdeq = stk::mesh::field_data(*avgResAdequacy_, b);
 
-    for ( stk::mesh::Bucket::size_type k = 0 ; k < length ; ++k ) {
-       avgResAdeq[k] = 1.0;
-    }
-  }
+  //  for ( stk::mesh::Bucket::size_type k = 0 ; k < length ; ++k ) {
+  //     avgResAdeq[k] = 1.0;
+  //  }
+  //}
 
   const int nDim = meta_data.spatial_dimension();
 

@@ -73,7 +73,7 @@ ComputeTAMSKEpsResAdequacyElemAlgorithm::ComputeTAMSKEpsResAdequacyElemAlgorithm
   resAdeq_ = metaData.get_field<ScalarFieldType>(
     stk::topology::NODE_RANK, "resolution_adequacy_parameter");
   avgResAdeq_ = metaData.get_field<ScalarFieldType>(
-    stk::topology::NODE_RANK, "average_resolution_adequacy_parameter");
+    stk::topology::NODE_RANK, "avg_res_adequacy_parameter");
   Mij_ = metaData.get_field<GenericFieldType>(
     stk::topology::NODE_RANK, "metric_tensor");
 
