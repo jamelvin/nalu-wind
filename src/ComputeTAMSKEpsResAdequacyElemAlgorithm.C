@@ -240,7 +240,7 @@ void ComputeTAMSKEpsResAdequacyElemAlgorithm::execute() {
 
       const double maxPM = std::max(std::abs(D[0][0]), std::max(std::abs(D[1][1]), std::abs(D[2][2])));
 
-      tmpFile << coords[0] << " " << coords[1] << " " << coords[2] << " " << PM[0][0] << " " << PM[0][1] << " " << PM[0][2] << " " << PM[1][0] << " " << PM[1][1] << " " << PM[1][2] << " " << PM[2][0] << " " << PM[2][1] << " " << PM[2][2] << " " << Mij[0][0] << " " << Mij[1][1] << " " << Mij[2][2] << " " << Mij[1][2] << std::endl;        
+      tmpFile << coords[0] << " " << coords[1] << " " << coords[2] << " " << dudx[0] << " " << dudx[1] << " " << dudx[2] << " " << dudx[3] << " " << dudx[4] << " " << dudx[5] << " " << dudx[6] << " " << dudx[7] << " " << dudx[8] << " " << avgDudx[0] << " " << avgDudx[1] << " " << avgDudx[2] << " " << avgDudx[3] << " " << avgDudx[4] << " " << avgDudx[5] << " " << avgDudx[6] << " " << avgDudx[7] << " " << avgDudx[8] << std::endl;        
         
       // Update the instantaneous resAdeq field
       resAdeq[k] = maxPM;
