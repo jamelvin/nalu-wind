@@ -55,6 +55,7 @@ MomentumTAMSKEpsForcingElemKernel<AlgTraits>::MomentumTAMSKEpsForcingElemKernel(
   avgDensity_ = get_field_ordinal(metaData, "average_density");
   avgTime_ = get_field_ordinal(metaData, "average_time");
 
+  resAdeq_ = get_field_ordinal(metaData, "resolution_adequacy_parameter");
   avgResAdeq_ = get_field_ordinal(metaData, "avg_res_adequacy_parameter");
   coordinates_ = get_field_ordinal(metaData, solnOpts.get_coordinates_name());
 
@@ -84,6 +85,7 @@ MomentumTAMSKEpsForcingElemKernel<AlgTraits>::MomentumTAMSKEpsForcingElemKernel(
   dataPreReqs.add_gathered_nodal_field(alphaNp1_, 1);
   dataPreReqs.add_gathered_nodal_field(avgTime_, 1);
   dataPreReqs.add_gathered_nodal_field(minDist_, 1);
+  dataPreReqs.add_gathered_nodal_field(resAdeq_, 1);
   dataPreReqs.add_gathered_nodal_field(avgResAdeq_, 1);
   dataPreReqs.add_gathered_nodal_field(Mij_, AlgTraits::nDim_, AlgTraits::nDim_);
 
@@ -146,6 +148,8 @@ MomentumTAMSKEpsForcingElemKernel<AlgTraits>::execute(
     scratchViews.get_scratch_view_1D(minDist_);
   SharedMemView<DoubleType*>& v_avgResAdeq =
     scratchViews.get_scratch_view_1D(avgResAdeq_);
+  SharedMemView<DoubleType*>& v_resAdeq =
+    scratchViews.get_scratch_view_1D(resAdeq_);
   SharedMemView<DoubleType***>& v_Mij = 
     scratchViews.get_scratch_view_3D(Mij_);
 
@@ -176,6 +180,7 @@ MomentumTAMSKEpsForcingElemKernel<AlgTraits>::execute(
     DoubleType alphaScs = 0.0;
     DoubleType wallDistScs = 0.0;
     DoubleType avgResAdeqScs = 0.0;
+    DoubleType resAdeqScs = 0.0;
 
     // determine scs values of interest
     for (int ic = 0; ic < AlgTraits::nodesPerElement_; ++ic) {
@@ -192,6 +197,7 @@ MomentumTAMSKEpsForcingElemKernel<AlgTraits>::execute(
       alphaScs += r * v_alphaNp1(ic);
       wallDistScs += r * v_minDist(ic);
       avgResAdeqScs += r * v_avgResAdeq(ic);
+      resAdeqScs += r * v_resAdeq(ic);
 
       for (int i = 0; i < AlgTraits::nDim_; ++i) {
         w_coordScs[i] += r * v_coordinates(ic, i);
@@ -339,6 +345,7 @@ MomentumTAMSKEpsForcingElemKernel<AlgTraits>::execute(
     // alphaScs*a_sign, Sa = Sa*1.0);
 
     const DoubleType fd_temp = avgResAdeqScs;
+    const DoubleType fd_cur_temp = resAdeqScs;
 
     DoubleType C_F;
     // FIXME: Can I do a compound if statement with if_then... it was not
@@ -369,9 +376,9 @@ MomentumTAMSKEpsForcingElemKernel<AlgTraits>::execute(
     DoubleType gY = norm * hY; //* 10.0;// / dt_;
     DoubleType gZ = norm * hZ; //* 10.0;// / dt_;
 
-    if ((step_ % 10000) == 0)
+    if ((step_ % 1) == 0)
     { 
-      tmpFile << w_coordScs[0] << w_coordScs[1] << w_coordScs[2] << gX << gY << gZ << norm << F_target << alphaScs << prod_r << arg << fd_temp << Sa << a_kol << a_sign << std::endl;
+      tmpFile << w_coordScs[0] << w_coordScs[1] << w_coordScs[2] << gX << gY << gZ << norm << F_target << alphaScs << prod_r << arg << fd_temp << Sa << fd_cur_temp << a_sign << std::endl;
     }
 
     //if ((step_ % 1) == 0)

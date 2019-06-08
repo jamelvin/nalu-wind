@@ -67,6 +67,7 @@ private:
   unsigned alphaNp1_{stk::mesh::InvalidOrdinal};
   unsigned coordinates_{stk::mesh::InvalidOrdinal};
   unsigned Mij_{stk::mesh::InvalidOrdinal};
+  unsigned resAdeq_{stk::mesh::InvalidOrdinal};
   unsigned avgResAdeq_{stk::mesh::InvalidOrdinal};
   unsigned minDist_{stk::mesh::InvalidOrdinal};
   unsigned avgVelocity_{stk::mesh::InvalidOrdinal};
