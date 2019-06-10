@@ -268,7 +268,7 @@ void ComputeTAMSKEpsResAdequacyElemAlgorithm::execute() {
       const double origAvgResAdeq = avgResAdeq[k];
       avgResAdeq[k] = weightAvg * avgResAdeq[k] + weightInst * resAdeq[k];
 
-      tmpFile << coords[0] << " " << coords[1] << " " << coords[2] << " " << mut[k] << " " << avgRho[k] << " " << tke[k] << " " << tdr[k] << " " << alpha[k] << " " << avgTime[k] << " " << Mij[0][0] << " " << Mij[1][1] << " " << Mij[2][2] << " " << M43[0][0] << " " << M43[1][1] << " " << M43[2][2] << " " << M43[1][2] << " " << maxPM << " " << p_Psgs[0] << " " << origAvgResAdeq << " " << resAdeq[k] << " " << avgResAdeq[k] << std::endl; 
+      //tmpFile << coords[0] << " " << coords[1] << " " << coords[2] << " " << mut[k] << " " << avgRho[k] << " " << tke[k] << " " << tdr[k] << " " << alpha[k] << " " << avgTime[k] << " " << Mij[0][0] << " " << Mij[1][1] << " " << Mij[2][2] << " " << M43[0][0] << " " << M43[1][1] << " " << M43[2][2] << " " << M43[1][2] << " " << maxPM << " " << p_Psgs[0] << " " << origAvgResAdeq << " " << resAdeq[k] << " " << avgResAdeq[k] << std::endl; 
     }
   }
 }

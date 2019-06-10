@@ -212,6 +212,11 @@ MomentumTAMSKEpsForcingElemKernel<AlgTraits>::execute(
       }
     }
 
+      //if ((step_ % 1) == 0)
+      //{
+      //  tmpFile << w_coordScs[0] << w_coordScs[1] << w_coordScs[2] << v_avgResAdeq(0) << v_avgResAdeq(1) << v_avgResAdeq(2) << v_avgResAdeq(3) << v_avgResAdeq(4) << v_avgResAdeq(5) << v_avgResAdeq(6) << v_avgResAdeq(7) << v_avgResAdeq(8) << avgResAdeqScs << resAdeqScs << tkeScs << std::endl;
+      //}
+
     // First we calculate the a_i's
     const double FORCING_CL = 4.0;
     const double Ceta = 70.0;
@@ -376,9 +381,9 @@ MomentumTAMSKEpsForcingElemKernel<AlgTraits>::execute(
     DoubleType gY = norm * hY; //* 10.0;// / dt_;
     DoubleType gZ = norm * hZ; //* 10.0;// / dt_;
 
-    if ((step_ % 1) == 0)
+    if ((step_ % 10000) == 0)
     { 
-      tmpFile << w_coordScs[0] << w_coordScs[1] << w_coordScs[2] << gX << gY << gZ << norm << F_target << alphaScs << prod_r << arg << fd_temp << Sa << fd_cur_temp << a_sign << std::endl;
+      tmpFile << w_coordScs[0] << w_coordScs[1] << w_coordScs[2] << w_MijElem[0][0] << w_MijElem[1][1] << w_MijElem[2][2] << norm << F_target << alphaScs << prod_r << arg << fd_temp << Sa << fd_cur_temp << a_sign << std::endl;
     }
 
     //if ((step_ % 1) == 0)
