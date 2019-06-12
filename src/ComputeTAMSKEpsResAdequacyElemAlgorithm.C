@@ -97,9 +97,13 @@ void ComputeTAMSKEpsResAdequacyElemAlgorithm::execute() {
   const double dt = realm_.get_time_step();
 
   // fill in elemental values
-  stk::mesh::Selector s_locally_owned_union =
-      meta_data.locally_owned_part() & stk::mesh::selectUnion(partVec_);
+  //stk::mesh::Selector s_locally_owned_union =
+  //    meta_data.locally_owned_part() & stk::mesh::selectUnion(partVec_);
 
+  // fill in elemental values
+     stk::mesh::Selector s_locally_owned_union =
+           stk::mesh::selectUnion(partVec_);
+  
   stk::mesh::BucketVector const &node_buckets =
       realm_.get_buckets(stk::topology::NODE_RANK, s_locally_owned_union);
   for (stk::mesh::BucketVector::const_iterator ib = node_buckets.begin();
