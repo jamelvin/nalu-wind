@@ -5,8 +5,8 @@
 /*  directory structure                                                   */
 /*------------------------------------------------------------------------*/
 
-#ifndef COMPUTETAMSKEPSAVERAGESELEMALGORITHM_H
-#define COMPUTETAMSKEPSAVERAGESELEMALGORITHM_H
+#ifndef COMPUTETAMSKEPSAVERAGESNODEALGORITHM_H
+#define COMPUTETAMSKEPSAVERAGESNODEALGORITHM_H
 
 #include <Algorithm.h>
 #include <FieldTypeDef.h>
@@ -15,10 +15,10 @@ namespace sierra {
 namespace nalu {
 
 class Realm;
-class ComputeTAMSKEpsAveragesElemAlgorithm : public Algorithm {
+class ComputeTAMSKEpsAveragesNodeAlgorithm : public Algorithm {
 public:
-  ComputeTAMSKEpsAveragesElemAlgorithm(Realm &realm, stk::mesh::Part *part);
-  virtual ~ComputeTAMSKEpsAveragesElemAlgorithm() {}
+  ComputeTAMSKEpsAveragesNodeAlgorithm(Realm &realm, stk::mesh::Part *part);
+  virtual ~ComputeTAMSKEpsAveragesNodeAlgorithm() {}
 
   virtual void execute();
 

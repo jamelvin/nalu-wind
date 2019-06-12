@@ -5,8 +5,8 @@
 /*  directory structure                                                   */
 /*------------------------------------------------------------------------*/
 
-#ifndef COMPUTEMETRICTENSORELEMALGORITHM_H
-#define COMPUTEMETRICTENSORELEMALGORITHM_H
+#ifndef COMPUTEMETRICTENSORNODEALGORITHM_H
+#define COMPUTEMETRICTENSORNODEALGORITHM_H
 
 #include <Algorithm.h>
 #include <FieldTypeDef.h>
@@ -15,10 +15,10 @@ namespace sierra {
 namespace nalu {
 
 class Realm;
-class ComputeMetricTensorElemAlgorithm : public Algorithm {
+class ComputeMetricTensorNodeAlgorithm : public Algorithm {
 public:
-  ComputeMetricTensorElemAlgorithm(Realm &realm, stk::mesh::Part *part);
-  virtual ~ComputeMetricTensorElemAlgorithm();
+  ComputeMetricTensorNodeAlgorithm(Realm &realm, stk::mesh::Part *part);
+  virtual ~ComputeMetricTensorNodeAlgorithm();
 
   virtual void execute();
 

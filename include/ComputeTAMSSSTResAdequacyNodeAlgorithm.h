@@ -5,8 +5,8 @@
 /*  directory structure                                                   */
 /*------------------------------------------------------------------------*/
 
-#ifndef COMPUTETAMSKEPSRESADEQUACYELEMALGORITHM_H
-#define COMPUTETAMSKEPSRESADEQUACYELEMALGORITHM_H
+#ifndef COMPUTETAMSSSTRESADEQUACYNODEALGORITHM_H
+#define COMPUTETAMSSSTRESADEQUACYNODEALGORITHM_H
 
 #include <Algorithm.h>
 #include <FieldTypeDef.h>
@@ -15,14 +15,15 @@ namespace sierra {
 namespace nalu {
 
 class Realm;
-class ComputeTAMSKEpsResAdequacyElemAlgorithm : public Algorithm {
+class ComputeTAMSSSTResAdequacyNodeAlgorithm : public Algorithm {
 public:
-  ComputeTAMSKEpsResAdequacyElemAlgorithm(Realm &realm, stk::mesh::Part *part);
-  virtual ~ComputeTAMSKEpsResAdequacyElemAlgorithm();
+  ComputeTAMSSSTResAdequacyNodeAlgorithm(Realm &realm, stk::mesh::Part *part);
+  virtual ~ComputeTAMSSSTResAdequacyNodeAlgorithm();
 
   virtual void execute();
 
   const unsigned nDim_{0};
+  const double betaStar_;
   const double CMdeg_;
 
   std::ofstream tmpFile;
@@ -31,7 +32,7 @@ public:
   VectorFieldType *velocityNp1_{nullptr};
   ScalarFieldType *turbVisc_{nullptr};
   ScalarFieldType *densityNp1_{nullptr};
-  ScalarFieldType *tdrNp1_{nullptr};
+  ScalarFieldType *sdrNp1_{nullptr};
   ScalarFieldType *tkeNp1_{nullptr};
   ScalarFieldType *alphaNp1_{nullptr};
   GenericFieldType *dudx_{nullptr};

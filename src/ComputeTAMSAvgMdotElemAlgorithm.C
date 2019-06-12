@@ -42,7 +42,9 @@ ComputeTAMSAvgMdotElemAlgorithm::ComputeTAMSAvgMdotElemAlgorithm(
     velocityRTM_(NULL),
     coordinates_(NULL),
     density_(NULL),
+    avgTime_(NULL),
     massFlowRate_(NULL),
+    avgMassFlowRate_(NULL),
     shiftTAMSAvgMdot_(realm_.get_cvfem_shifted_mdot())
 {
    // extract fields; nodal
@@ -50,7 +52,9 @@ ComputeTAMSAvgMdotElemAlgorithm::ComputeTAMSAvgMdotElemAlgorithm(
   velocityRTM_ = meta_data.get_field<VectorFieldType>(stk::topology::NODE_RANK, "average_velocity");
   coordinates_ = meta_data.get_field<VectorFieldType>(stk::topology::NODE_RANK, realm_.get_coordinates_name());
   density_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "average_density");
-  massFlowRate_ = meta_data.get_field<GenericFieldType>(stk::topology::ELEMENT_RANK, "average_mass_flow_rate");
+  avgTime_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "average_time");
+  massFlowRate_ = meta_data.get_field<GenericFieldType>(stk::topology::ELEMENT_RANK, "mass_flow_rate_scs");
+  avgMassFlowRate_ = meta_data.get_field<GenericFieldType>(stk::topology::ELEMENT_RANK, "average_mass_flow_rate");
 }
 
 //--------------------------------------------------------------------------
@@ -70,6 +74,8 @@ ComputeTAMSAvgMdotElemAlgorithm::execute()
   stk::mesh::MetaData & meta_data = realm_.meta_data();
 
   const int nDim = meta_data.spatial_dimension();
+  // time step
+  const double dt = realm_.get_time_step();
 
   // deal with interpolation procedure
   const double interpTogether = realm_.get_mdot_interp();
@@ -79,6 +85,7 @@ ComputeTAMSAvgMdotElemAlgorithm::execute()
   std::vector<double> ws_vrtm;
   std::vector<double> ws_coordinates;
   std::vector<double> ws_density;
+  std::vector<double> ws_avgTime;
 
   // geometry related to populate
   std::vector<double> ws_scs_areav;
@@ -115,6 +122,7 @@ ComputeTAMSAvgMdotElemAlgorithm::execute()
     ws_vrtm.resize(nodesPerElement*nDim);
     ws_coordinates.resize(nodesPerElement*nDim);
     ws_density.resize(nodesPerElement);
+    ws_avgTime.resize(nodesPerElement);
     ws_scs_areav.resize(numScsIp*nDim);
     ws_shape_function.resize(numScsIp*nodesPerElement);
 
@@ -122,6 +130,7 @@ ComputeTAMSAvgMdotElemAlgorithm::execute()
     double *p_vrtm = &ws_vrtm[0];
     double *p_coordinates = &ws_coordinates[0];
     double *p_density = &ws_density[0];
+    double *p_avgTime = &ws_avgTime[0];
     double *p_scs_areav = &ws_scs_areav[0];
     double *p_shape_function = &ws_shape_function[0];
 
@@ -134,6 +143,7 @@ ComputeTAMSAvgMdotElemAlgorithm::execute()
 
       // pointers to elem data
       double * mdot = stk::mesh::field_data(*massFlowRate_, b, k );
+      double * avgMdot = stk::mesh::field_data(*avgMassFlowRate_, b, k );
 
       //===============================================
       // gather nodal data; this is how we do it now..
@@ -153,6 +163,7 @@ ComputeTAMSAvgMdotElemAlgorithm::execute()
 
         // gather scalars
         p_density[ni]  = *stk::mesh::field_data(*density_, node);
+        p_avgTime[ni]  = *stk::mesh::field_data(*avgTime_, node);
 
         // gather vectors
         const int offSet = ni*nDim;
@@ -174,14 +185,17 @@ ComputeTAMSAvgMdotElemAlgorithm::execute()
           p_rho_uIp[j] = 0.0;
         }
         double rhoIp = 0.0;
+        double avgTimeIp = 0.0;
 
         const int offSet = ip*nodesPerElement;
         for ( int ic = 0; ic < nodesPerElement; ++ic ) {
 
           const double r = p_shape_function[offSet+ic];
           const double nodalRho = p_density[ic];
+          const double nodalAvgTime = p_avgTime[ic];
 
           rhoIp += r*nodalRho;
+          avgTimeIp += r*nodalAvgTime;
 
           const int offSetDnDx = nDim*nodesPerElement*ip + ic*nDim;
           for ( int j = 0; j < nDim; ++j ) {
@@ -197,8 +211,11 @@ ComputeTAMSAvgMdotElemAlgorithm::execute()
                         *p_scs_areav[ip*nDim+j];
         }
 
-        mdot[ip] = tmdot;
+        //mdot[ip] = tmdot;
+        const double weightAvg = std::max(1.0 - dt/avgTimeIp, 0.0);
+        const double weightInst = std::min(dt/avgTimeIp, 1.0);
 
+        avgMdot[ip] += weightAvg * avgMdot[ip] + weightInst * mdot[ip];
       }
     }
   }

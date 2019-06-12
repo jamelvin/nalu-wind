@@ -5,8 +5,8 @@
 /*  directory structure                                                   */
 /*------------------------------------------------------------------------*/
 
-#ifndef COMPUTETAMSSSTKRATIOELEMALGORITHM_H
-#define COMPUTETAMSSSTKRATIOELEMALGORITHM_H
+#ifndef COMPUTETAMSKEPSKRATIONODEALGORITHM_H
+#define COMPUTETAMSKEPSKRATIONODEALGORITHM_H
 
 #include <Algorithm.h>
 #include <FieldTypeDef.h>
@@ -15,18 +15,16 @@ namespace sierra {
 namespace nalu {
 
 class Realm;
-class ComputeTAMSSSTKratioElemAlgorithm : public Algorithm {
+class ComputeTAMSKEpsKratioNodeAlgorithm : public Algorithm {
 public:
-  ComputeTAMSSSTKratioElemAlgorithm(Realm &realm, stk::mesh::Part *part);
-  virtual ~ComputeTAMSSSTKratioElemAlgorithm() {}
+  ComputeTAMSKEpsKratioNodeAlgorithm(Realm &realm, stk::mesh::Part *part);
+  virtual ~ComputeTAMSKEpsKratioNodeAlgorithm() {}
 
   virtual void execute();
 
-  const double betaStar_;
-
   ScalarFieldType *alpha_{nullptr};
   ScalarFieldType *turbKineticEnergy_{nullptr};
-  ScalarFieldType *specDissRate_{nullptr};
+  ScalarFieldType *totalDissRate_{nullptr};
   ScalarFieldType *viscosity_{nullptr};
   ScalarFieldType *turbVisc_{nullptr};
   ScalarFieldType *avgTkeRes_{nullptr};

@@ -7,7 +7,7 @@
 
 // nalu
 #include <Algorithm.h>
-#include <ComputeTAMSKEpsKratioElemAlgorithm.h>
+#include <ComputeTAMSKEpsKratioNodeAlgorithm.h>
 
 #include <FieldTypeDef.h>
 #include <Realm.h>
@@ -27,12 +27,12 @@ namespace nalu {
 //==========================================================================
 // Class Definition
 //==========================================================================
-// ComputeTAMSKEpsKratioElemAlgorithm - Metric Tensor
+// ComputeTAMSKEpsKratioNodeAlgorithm - Metric Tensor
 //==========================================================================
 //--------------------------------------------------------------------------
 //-------- constructor -----------------------------------------------------
 //--------------------------------------------------------------------------
-ComputeTAMSKEpsKratioElemAlgorithm::ComputeTAMSKEpsKratioElemAlgorithm(
+ComputeTAMSKEpsKratioNodeAlgorithm::ComputeTAMSKEpsKratioNodeAlgorithm(
     Realm &realm, stk::mesh::Part *part)
     : Algorithm(realm, part) {
   // save off data
@@ -50,7 +50,7 @@ ComputeTAMSKEpsKratioElemAlgorithm::ComputeTAMSKEpsKratioElemAlgorithm(
 //--------------------------------------------------------------------------
 //-------- execute ---------------------------------------------------------
 //--------------------------------------------------------------------------
-void ComputeTAMSKEpsKratioElemAlgorithm::execute() {
+void ComputeTAMSKEpsKratioNodeAlgorithm::execute() {
 
   stk::mesh::MetaData &meta_data = realm_.meta_data();
 

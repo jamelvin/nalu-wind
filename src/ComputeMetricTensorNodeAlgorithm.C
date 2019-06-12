@@ -7,7 +7,7 @@
 
 // nalu
 #include <Algorithm.h>
-#include <ComputeMetricTensorElemAlgorithm.h>
+#include <ComputeMetricTensorNodeAlgorithm.h>
 
 #include <FieldTypeDef.h>
 #include <Realm.h>
@@ -28,12 +28,12 @@ namespace nalu {
 //==========================================================================
 // Class Definition
 //==========================================================================
-// ComputeMetricTensorElemAlgorithm - Metric Tensor
+// ComputeMetricTensorNodeAlgorithm - Metric Tensor
 //==========================================================================
 //--------------------------------------------------------------------------
 //-------- constructor -----------------------------------------------------
 //--------------------------------------------------------------------------
-ComputeMetricTensorElemAlgorithm::ComputeMetricTensorElemAlgorithm(
+ComputeMetricTensorNodeAlgorithm::ComputeMetricTensorNodeAlgorithm(
     Realm &realm, stk::mesh::Part *part)
     : Algorithm(realm, part) {
   // save off data
@@ -48,7 +48,7 @@ ComputeMetricTensorElemAlgorithm::ComputeMetricTensorElemAlgorithm(
   tmpFile.open("metricTensor.txt", std::fstream::app);
 }
 
-ComputeMetricTensorElemAlgorithm::~ComputeMetricTensorElemAlgorithm()
+ComputeMetricTensorNodeAlgorithm::~ComputeMetricTensorNodeAlgorithm()
 {
   tmpFile.close();
 }
@@ -56,7 +56,7 @@ ComputeMetricTensorElemAlgorithm::~ComputeMetricTensorElemAlgorithm()
 //--------------------------------------------------------------------------
 //-------- execute ---------------------------------------------------------
 //--------------------------------------------------------------------------
-void ComputeMetricTensorElemAlgorithm::execute() {
+void ComputeMetricTensorNodeAlgorithm::execute() {
 
   stk::mesh::BulkData & bulk_data = realm_.bulk_data();
   stk::mesh::MetaData &meta_data = realm_.meta_data();
@@ -179,7 +179,7 @@ void ComputeMetricTensorElemAlgorithm::execute() {
 //-------- post_work -------------------------------------------------------
 //--------------------------------------------------------------------------
 void
-ComputeMetricTensorElemAlgorithm::post_work()
+ComputeMetricTensorNodeAlgorithm::post_work()
 {
 
 //  stk::mesh::BulkData & bulk_data = realm_.bulk_data();

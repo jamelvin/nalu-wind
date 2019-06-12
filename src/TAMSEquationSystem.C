@@ -22,13 +22,13 @@
 #include <ConstantAuxFunction.h>
 #include <CopyFieldAlgorithm.h>
 #include <ComputeTAMSAvgMdotElemAlgorithm.h>
-#include <ComputeMetricTensorElemAlgorithm.h>
-#include <ComputeTAMSKEpsAveragesElemAlgorithm.h>
-#include <ComputeTAMSKEpsResAdequacyElemAlgorithm.h>
-#include <ComputeTAMSKEpsKratioElemAlgorithm.h>
-#include <ComputeTAMSSSTAveragesElemAlgorithm.h>
-#include <ComputeTAMSSSTKratioElemAlgorithm.h>
-#include <ComputeTAMSSSTResAdequacyElemAlgorithm.h>
+#include <ComputeMetricTensorNodeAlgorithm.h>
+#include <ComputeTAMSKEpsAveragesNodeAlgorithm.h>
+#include <ComputeTAMSKEpsResAdequacyNodeAlgorithm.h>
+#include <ComputeTAMSKEpsKratioNodeAlgorithm.h>
+#include <ComputeTAMSSSTAveragesNodeAlgorithm.h>
+#include <ComputeTAMSSSTKratioNodeAlgorithm.h>
+#include <ComputeTAMSSSTResAdequacyNodeAlgorithm.h>
 #include <DirichletBC.h>
 #include <EquationSystem.h>
 #include <EquationSystems.h>
@@ -290,10 +290,10 @@ TAMSEquationSystem::register_interior_algorithm(
     Algorithm * theAlg = NULL;
     switch (turbulenceModel_ ) {
       case TAMS_SST:
-        theAlg = new ComputeTAMSSSTResAdequacyElemAlgorithm(realm_, part);
+        theAlg = new ComputeTAMSSSTResAdequacyNodeAlgorithm(realm_, part);
         break;
       case TAMS_KEPS:
-        theAlg = new ComputeTAMSKEpsResAdequacyElemAlgorithm(realm_, part);
+        theAlg = new ComputeTAMSKEpsResAdequacyNodeAlgorithm(realm_, part);
         break;
       default:
         throw std::runtime_error("TAMSEquationSystem: non-supported turb model");
@@ -313,8 +313,8 @@ TAMSEquationSystem::register_interior_algorithm(
     metricTensorAlgDriver_->algMap_.find(algType);
 
   if (itmt == metricTensorAlgDriver_->algMap_.end() ) {
-    ComputeMetricTensorElemAlgorithm *metricTensorAlg =
-      new ComputeMetricTensorElemAlgorithm(realm_, part);
+    ComputeMetricTensorNodeAlgorithm *metricTensorAlg =
+      new ComputeMetricTensorNodeAlgorithm(realm_, part);
     metricTensorAlgDriver_->algMap_[algType] = metricTensorAlg;
   }
   else {
@@ -332,10 +332,10 @@ TAMSEquationSystem::register_interior_algorithm(
     Algorithm * theAlg = NULL;
     switch (turbulenceModel_ ) {
       case TAMS_SST:
-        theAlg = new ComputeTAMSSSTAveragesElemAlgorithm(realm_, part);
+        theAlg = new ComputeTAMSSSTAveragesNodeAlgorithm(realm_, part);
         break;
       case TAMS_KEPS:
-        theAlg = new ComputeTAMSKEpsAveragesElemAlgorithm(realm_, part);
+        theAlg = new ComputeTAMSKEpsAveragesNodeAlgorithm(realm_, part);
         break;
       default:
         throw std::runtime_error("TAMSEquationSystem: non-supported turb model");
@@ -357,10 +357,10 @@ TAMSEquationSystem::register_interior_algorithm(
     Algorithm * theAlg = NULL;
     switch (turbulenceModel_ ) {
       case TAMS_SST:
-        theAlg = new ComputeTAMSSSTKratioElemAlgorithm(realm_, part);
+        theAlg = new ComputeTAMSSSTKratioNodeAlgorithm(realm_, part);
         break;
       case TAMS_KEPS:
-        theAlg = new ComputeTAMSKEpsKratioElemAlgorithm(realm_, part);
+        theAlg = new ComputeTAMSKEpsKratioNodeAlgorithm(realm_, part);
         break;
       default:
         throw std::runtime_error("TAMSEquationSystem: non-supported turb model");
@@ -698,6 +698,7 @@ TAMSEquationSystem::initial_work()
   }
 
   compute_averages();
+  initialize_mdot();
   compute_alpha();
   compute_resolution_adequacy_parameters();
   compute_avgMdot();

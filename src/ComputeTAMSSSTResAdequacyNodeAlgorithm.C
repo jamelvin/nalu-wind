@@ -7,7 +7,7 @@
 
 // nalu
 #include <Algorithm.h>
-#include <ComputeTAMSKEpsResAdequacyElemAlgorithm.h>
+#include <ComputeTAMSSSTResAdequacyNodeAlgorithm.h>
 #include <EigenDecomposition.h>
 
 #include <FieldTypeDef.h>
@@ -31,15 +31,16 @@ namespace nalu {
 //==========================================================================
 // Class Definition
 //==========================================================================
-// ComputeTAMSKEpsResAdequacyElemAlgorithm - Metric Tensor
+// ComputeTAMSSSTResAdequacyNodeAlgorithm - Metric Tensor
 //==========================================================================
 //--------------------------------------------------------------------------
 //-------- constructor -----------------------------------------------------
 //--------------------------------------------------------------------------
-ComputeTAMSKEpsResAdequacyElemAlgorithm::ComputeTAMSKEpsResAdequacyElemAlgorithm(
+ComputeTAMSSSTResAdequacyNodeAlgorithm::ComputeTAMSSSTResAdequacyNodeAlgorithm(
     Realm &realm, stk::mesh::Part *part)
     : Algorithm(realm, part),
     nDim_(realm.meta_data().spatial_dimension()),
+    betaStar_(realm.get_turb_model_constant(TM_betaStar)),
     CMdeg_(realm.get_turb_model_constant(TM_CMdeg))
 {
 
@@ -56,8 +57,8 @@ ComputeTAMSKEpsResAdequacyElemAlgorithm::ComputeTAMSKEpsResAdequacyElemAlgorithm
     stk::topology::NODE_RANK, "density");
   tkeNp1_ = metaData.get_field<ScalarFieldType>(
     stk::topology::NODE_RANK, "turbulent_ke");
-  tdrNp1_ = metaData.get_field<ScalarFieldType>(
-    stk::topology::NODE_RANK, "total_dissipation_rate");
+  sdrNp1_ = metaData.get_field<ScalarFieldType>(
+    stk::topology::NODE_RANK, "specific_dissipation_rate");
   alphaNp1_ = metaData.get_field<ScalarFieldType>(
     stk::topology::NODE_RANK, "k_ratio");
   dudx_ = metaData.get_field<GenericFieldType>(
@@ -80,28 +81,25 @@ ComputeTAMSKEpsResAdequacyElemAlgorithm::ComputeTAMSKEpsResAdequacyElemAlgorithm
   tmpFile.open("resAdeq.txt", std::fstream::app);
 }
 
-ComputeTAMSKEpsResAdequacyElemAlgorithm::~ComputeTAMSKEpsResAdequacyElemAlgorithm()
+ComputeTAMSSSTResAdequacyNodeAlgorithm::~ComputeTAMSSSTResAdequacyNodeAlgorithm()
 {
   tmpFile.close();
 }
 
+
 //--------------------------------------------------------------------------
 //-------- execute ---------------------------------------------------------
 //--------------------------------------------------------------------------
-void ComputeTAMSKEpsResAdequacyElemAlgorithm::execute() {
+void ComputeTAMSSSTResAdequacyNodeAlgorithm::execute() {
 
   stk::mesh::MetaData &meta_data = realm_.meta_data();
 
   const double dt = realm_.get_time_step();
 
   // fill in elemental values
-  //stk::mesh::Selector s_locally_owned_union =
-  //    meta_data.locally_owned_part() & stk::mesh::selectUnion(partVec_);
+  stk::mesh::Selector s_locally_owned_union =
+      meta_data.locally_owned_part() & stk::mesh::selectUnion(partVec_);
 
-  // fill in elemental values
-     stk::mesh::Selector s_locally_owned_union =
-           stk::mesh::selectUnion(partVec_);
-  
   stk::mesh::BucketVector const &node_buckets =
       realm_.get_buckets(stk::topology::NODE_RANK, s_locally_owned_union);
   for (stk::mesh::BucketVector::const_iterator ib = node_buckets.begin();
@@ -124,7 +122,7 @@ void ComputeTAMSKEpsResAdequacyElemAlgorithm::execute() {
     const double *mut     = stk::mesh::field_data(*turbVisc_, b);
     const double *rhoNp1  = stk::mesh::field_data(*densityNp1_, b);
     const double *tke     = stk::mesh::field_data(*tkeNp1_, b);
-    const double *tdr     = stk::mesh::field_data(*tdrNp1_, b);
+    const double *sdr     = stk::mesh::field_data(*sdrNp1_, b);
     const double *avgTime = stk::mesh::field_data(*avgTime_, b);
     const double *alpha   = stk::mesh::field_data(*alphaNp1_, b);
     const double *avgRho  = stk::mesh::field_data(*avgDensity_, b);
@@ -175,28 +173,19 @@ void ComputeTAMSKEpsResAdequacyElemAlgorithm::execute() {
         }
       }
 
-      // zeroing out tesnors
-      for (unsigned i = 0; i < nDim_; ++i) {
-        for (unsigned j = 0; j < nDim_; ++j) {
-          p_tauSGRS[i*nDim_ + j] = 0.0;
-          p_tauSGET[i*nDim_ + j] = 0.0;
-          p_tau[i*nDim_ + j] = 0.0;
-          p_Psgs[i*nDim_ + j] = 0.0;
-        }
-      }
-
       const double CM43 = tams_utils::get_M43_constant<double, 3>(D, CMdeg_);
 
-      const double epsilon13 = stk::math::pow(tdr[k], 1.0/3.0);
+      const double epsilon13 = stk::math::pow(betaStar_*tke[k]*sdr[k], 1.0/3.0);
 
       for (unsigned i = 0; i < nDim_; ++i) {
+
         for (unsigned j = 0; j < nDim_; ++j) {
           // Calculate tauSGRS_ij = 2*alpha*nu_t*<S_ij> where nu_t comes from
           // the SST model and <S_ij> is the strain rate tensor based on the
           // mean quantities... i.e this is (tauSGRS = alpha*tauSST)
           // The 2 in the coeff cancels with the 1/2 in the strain rate tensor
           const double coeffSGRS = alpha[k] * mut[k];
-          p_tauSGRS[i*nDim_ + j] = avgDudx[i*nDim_ + j] + avgDudx[j*nDim_ + i];
+          p_tauSGRS[i*nDim_ + j] += avgDudx[i*nDim_ + j] + avgDudx[j*nDim_ + i];
           p_tauSGRS[i*nDim_ + j] *= coeffSGRS;
 
           for (unsigned l = 0; l < nDim_; ++l) {
@@ -240,32 +229,32 @@ void ComputeTAMSKEpsResAdequacyElemAlgorithm::execute() {
       }
 
       // Scale PM first
-      const double T_ke = avgTime[k]; //tkeScs / tdrScs;
-      const double v2 = 1.0/0.22 * (mut[k] / T_ke);
+      const double T_sst = avgTime[k]; //1.0 / (betaStar_ * sdrScs);
+      const double v2 = 1.0/0.22 * (mut[k] / T_sst);
       const double PMscale = std::pow(1.5*alpha[k]*v2,-1.5);
       if (v2 == 0.0)
-        throw std::runtime_error("TAMSKEResAdequacy: v2 is 0, will cause NaN");
+        throw std::runtime_error("TAMSSSTResAdequacy: v2 is 0, will cause NaN");
       for (unsigned i = 0; i < nDim_; ++i)
         for (unsigned j = 0; j < nDim_; ++j)
           PM[i][j] = PM[i][j] * PMscale;
 
-      //FIXME: PM is not symmetric....
+      //FIXME: PM is not symmetric
       EigenDecomposition::unsym_matrix_force_sym<double>(PM, Q, D);
 
       const double maxPM = std::max(std::abs(D[0][0]), std::max(std::abs(D[1][1]), std::abs(D[2][2])));
 
-      tmpFile << coords[0] << " " << coords[1] << " " << coords[2] << " " << PM[0][0] << " " << PM[0][1] << " " << PM[0][2] << " " << PM[1][0] << " " << PM[1][1] << " " << PM[1][2] << " " << PM[2][0] << " " << PM[2][1] << " " << PM[2][2] << " " << Mij[0][0] << " " << Mij[1][1] << " " << Mij[2][2] << " " << Mij[1][2] << std::endl;        
-        
+      //tmpFile << coords[0] << " " << coords[1] << " " << coords[2] << " " << maxPM << " "<< T_sst << " " << v2 << " " << PM[0][0] << " " << p_Psgs[0] << " " << p_tau[0] << " " << alpha[k] << " " << mut[k] << " " << epsilon13 << std::endl; 
+
       // Update the instantaneous resAdeq field
       resAdeq[k] = maxPM;
       // FIXME: Limiters as in CDP...
       resAdeq[k] = std::min(resAdeq[k],30.0);
-      
+  
       if (alpha[k] >= 1.0)
         resAdeq[k] = std::min(resAdeq[k],1.0);
 
-      const double weightAvg = std::max(1.0 - dt/T_ke, 0.0);
-      const double weightInst = std::min(dt/T_ke, 1.0);
+      const double weightAvg = std::max(1.0 - dt/T_sst, 0.0);
+      const double weightInst = std::min(dt/T_sst, 1.0);
 
       avgResAdeq[k] = weightAvg * avgResAdeq[k] + weightInst * resAdeq[k]; 
     }
