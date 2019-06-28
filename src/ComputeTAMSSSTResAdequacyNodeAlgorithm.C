@@ -97,6 +97,9 @@ void ComputeTAMSSSTResAdequacyNodeAlgorithm::execute() {
   const double dt = realm_.get_time_step();
 
   // fill in elemental values
+  //stk::mesh::Selector s_locally_owned_union =
+  //    meta_data.locally_owned_part() & stk::mesh::selectUnion(partVec_);
+
   stk::mesh::Selector s_locally_owned_union =
       meta_data.locally_owned_part() & stk::mesh::selectUnion(partVec_);
 
@@ -170,6 +173,16 @@ void ComputeTAMSSSTResAdequacyNodeAlgorithm::execute() {
           for (unsigned j = 0; j < nDim_; j++) {
             M43[i][j] += Q[i][l] * Q[j][l] * D43;
           }
+        }
+      }
+
+      // zeroing out tesnors
+      for (unsigned i = 0; i < nDim_; ++i) {
+        for (unsigned j = 0; j < nDim_; ++j) {
+          p_tauSGRS[i*nDim_ + j] = 0.0;
+          p_tauSGET[i*nDim_ + j] = 0.0;
+          p_tau[i*nDim_ + j] = 0.0;
+          p_Psgs[i*nDim_ + j] = 0.0;
         }
       }
 

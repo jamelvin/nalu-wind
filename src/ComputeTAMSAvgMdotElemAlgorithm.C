@@ -211,11 +211,11 @@ ComputeTAMSAvgMdotElemAlgorithm::execute()
                         *p_scs_areav[ip*nDim+j];
         }
 
-        //mdot[ip] = tmdot;
+        //avgMdot[ip] = tmdot;
         const double weightAvg = std::max(1.0 - dt/avgTimeIp, 0.0);
         const double weightInst = std::min(dt/avgTimeIp, 1.0);
 
-        avgMdot[ip] += weightAvg * avgMdot[ip] + weightInst * mdot[ip];
+        avgMdot[ip] = weightAvg * avgMdot[ip] + weightInst * mdot[ip];
       }
     }
   }

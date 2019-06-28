@@ -95,8 +95,12 @@ void ComputeTAMSKEpsResAdequacyNodeAlgorithm::execute() {
   const double dt = realm_.get_time_step();
 
   // fill in elemental values
-  stk::mesh::Selector s_locally_owned_union =
-      meta_data.locally_owned_part() & stk::mesh::selectUnion(partVec_);
+  //stk::mesh::Selector s_locally_owned_union =
+  //    meta_data.locally_owned_part() & stk::mesh::selectUnion(partVec_);
+
+  // fill in elemental values
+     stk::mesh::Selector s_locally_owned_union =
+           stk::mesh::selectUnion(partVec_);
 
   stk::mesh::BucketVector const &node_buckets =
       realm_.get_buckets(stk::topology::NODE_RANK, s_locally_owned_union);
@@ -171,6 +175,16 @@ void ComputeTAMSKEpsResAdequacyNodeAlgorithm::execute() {
         }
       }
 
+      // zeroing out tesnors
+      for (unsigned i = 0; i < nDim_; ++i) {
+        for (unsigned j = 0; j < nDim_; ++j) {
+          p_tauSGRS[i*nDim_ + j] = 0.0;
+          p_tauSGET[i*nDim_ + j] = 0.0;
+          p_tau[i*nDim_ + j] = 0.0;
+          p_Psgs[i*nDim_ + j] = 0.0;
+        }
+      }
+
       const double CM43 = tams_utils::get_M43_constant<double, 3>(D, CMdeg_);
 
       const double epsilon13 = stk::math::pow(tdr[k], 1.0/3.0);
@@ -182,7 +196,7 @@ void ComputeTAMSKEpsResAdequacyNodeAlgorithm::execute() {
           // mean quantities... i.e this is (tauSGRS = alpha*tauSST)
           // The 2 in the coeff cancels with the 1/2 in the strain rate tensor
           const double coeffSGRS = alpha[k] * mut[k];
-          p_tauSGRS[i*nDim_ + j] += avgDudx[i*nDim_ + j] + avgDudx[j*nDim_ + i];
+          p_tauSGRS[i*nDim_ + j] = avgDudx[i*nDim_ + j] + avgDudx[j*nDim_ + i];
           p_tauSGRS[i*nDim_ + j] *= coeffSGRS;
 
           for (unsigned l = 0; l < nDim_; ++l) {

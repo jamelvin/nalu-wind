@@ -221,7 +221,7 @@ MomentumTAMSKEpsDiffElemKernel<AlgTraits>::execute(
     for (int ic = 0; ic < AlgTraits::nodesPerElement_; ++ic) {
 
       // Related to LHS, currently unused: FIXME: add some implicitness
-      //const int icNdim = ic * AlgTraits::nDim_;
+      const int icNdim = ic * AlgTraits::nDim_;
 
       for (int i = 0; i < AlgTraits::nDim_; ++i) {
 
@@ -275,17 +275,20 @@ MomentumTAMSKEpsDiffElemKernel<AlgTraits>::execute(
           const DoubleType lhsfacDiffSGRS_j =
             -alphaScs * muScs * v_dndx(ip, ic, i) * axj;
 
-          // lhs; il then ir
-          // lhs(indexL, icNdim + j) += lhsfacDiff_j + lhsfacDiffSGRS_j;
-          // lhs(indexR, icNdim + j) -= lhsfacDiff_j + lhsfacDiffSGRS_j;
+          // NOTE: lhs (implicit only from the fluctuating term, u' = u - <u>, so the lhs can function
+          // as normal as it will only take the instantaneous part of the fluctuation u and the 
+          // rhs can just stick with the fluctuating quantities
+          lhs(indexL, icNdim + j) += lhsfacDiff_j;
+          lhs(indexR, icNdim + j) -= lhsfacDiff_j;
           // rhs; il then ir
           rhs(indexL) -= lhsfacDiff_j * fluctUj + lhsfacDiffSGRS_j * avgUj;
           rhs(indexR) += lhsfacDiff_j * fluctUj + lhsfacDiffSGRS_j * avgUj;
         }
 
         // deal with accumulated lhs and flux for -mut^jk*dui/dxk*Aj
-        // lhs(indexL, icNdim + i) += lhs_riC_i + lhs_riCSGRS_i;
-        // lhs(indexR, icNdim + i) -= lhs_riC_i + lhs_riCSGRS_i;
+        // lhs handled only for fluctuating term (see NOTE above)
+        lhs(indexL, icNdim + i) += lhs_riC_i;
+        lhs(indexR, icNdim + i) -= lhs_riC_i;
         const DoubleType fluctUi = v_uNp1(ic, i) - v_avgU(ic, i);
         const DoubleType avgUi = v_avgU(ic, i);
 
