@@ -85,7 +85,8 @@ void ComputeTAMSSSTKratioNodeAlgorithm::execute() {
          // limiters
          alpha[k] = std::min(alpha[k],1.0);
 
-         const double T_sst = 1.0 / (betaStar_ * std::max(sdr[k],1e-16));
+         const double T_sst = avgTime[k]; //1.0 / (betaStar_ * std::max(sdr[k],1e-16));
+	 //FIXME: I need a rho in here
 	 const double v2 = 1.0/0.22 * (tvisc[k] / T_sst);
          const double epsilon = betaStar_*tke[k]*sdr[k];
          //const double v2 = 1.0/0.22 * (tvisc[k] * tdr[k]) / std::max(tke[k], 1.0e-16);
