@@ -12,6 +12,7 @@
 #include <FieldTypeDef.h>
 #include <Realm.h>
 #include <master_element/MasterElement.h>
+#include <NaluEnv.h>
 
 // stk_mesh/base/fem
 #include <stk_mesh/base/BulkData.hpp>
@@ -76,6 +77,8 @@ void ComputeTAMSKEpsAveragesNodeAlgorithm::execute() {
   stk::mesh::MetaData &meta_data = realm_.meta_data();
 
   const int nDim = meta_data.spatial_dimension();
+
+  NaluEnv::self().naluOutputP0() << "TAMS Averaging..." << std::endl;
 
   // time step
   const double dt = realm_.get_time_step();

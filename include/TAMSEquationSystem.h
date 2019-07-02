@@ -75,6 +75,7 @@ public:
   
   void solve_and_update();
   void initial_work();
+  void post_converged_work();
   void initialize_mdot();
   void compute_resolution_adequacy_parameters();
   void compute_metric_tensor();

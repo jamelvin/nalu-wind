@@ -369,7 +369,7 @@ MomentumTAMSKEpsForcingElemKernel<AlgTraits>::execute(
     DoubleType gY = norm * hY; //* 10.0;// / dt_;
     DoubleType gZ = norm * hZ; //* 10.0;// / dt_;
 
-    if ((step_ % 1000000) == 0)
+    if ((step_ % 100000) == 0)
     { 
       tmpFile << w_coordScs[0] << w_coordScs[1] << w_coordScs[2] << gX << gY << gZ << norm << F_target << alphaScs << prod_r << arg << fd_temp << Sa << a_kol << a_sign << std::endl;
     }

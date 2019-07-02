@@ -559,15 +559,15 @@ TAMSEquationSystem::solve_and_update()
 
   // FIXME: Need this to be part of TAMS so that the order of operations is right, 
   //        is there a way to turn it off in LowMach, so it's not called twice?
-  tviscAlgDriver_->execute();
+  //tviscAlgDriver_->execute();
 
-  compute_averages();
+  //compute_averages();
  
-  compute_alpha();
+  //compute_alpha();
 
-  compute_resolution_adequacy_parameters();
+  //compute_resolution_adequacy_parameters();
 
-  compute_avgMdot();
+  //compute_avgMdot();
 
   // TODO: Add recalculation of metric tensor if mesh changes
 
@@ -701,6 +701,23 @@ TAMSEquationSystem::initial_work()
   initialize_mdot();
   compute_alpha();
   compute_resolution_adequacy_parameters();
+  compute_avgMdot();
+}
+
+//--------------------------------------------------------------------------
+//-------- post_converged_work ---------------------------------------------
+//--------------------------------------------------------------------------
+void
+TAMSEquationSystem::post_converged_work()
+{
+  tviscAlgDriver_->execute();
+
+  compute_averages();
+
+  compute_alpha();
+
+  compute_resolution_adequacy_parameters();
+
   compute_avgMdot();
 }
 
