@@ -57,6 +57,9 @@
 #include <kernel/ScalarUpwAdvDiffElemKernel.h>
 #include <kernel/TotalDissipationRateChienKEpsSrcElemKernel.h>
 
+// edge kernels
+#include <edge_kernels/ScalarEdgeSolverAlg.h>
+
 // UT Austin Hybird TAMS kernel
 #include <kernel/TotalDissipationRateTAMSKEpsSrcElemKernel.h>
 
@@ -227,7 +230,7 @@ TotalDissipationRateEquationSystem::register_interior_algorithm(
       SolverAlgorithm* theAlg = NULL;
       if (realm_.realmUsesEdges_) {
         const bool useAvgMdot = (realm_.solutionOptions_->turbulenceModel_ == TAMS_KEPS) ? true : false;
-        theAlg = new AssembleScalarEdgeSolverAlgorithm(realm_, part, this, tdr_, dedx_, evisc_, useAvgMdot);
+        theAlg = new ScalarEdgeSolverAlg(realm_, part, this, tdr_, dedx_, evisc_, useAvgMdot);
       }
       else {
         theAlg = new AssembleScalarElemSolverAlgorithm(realm_, part, this, tdr_, dedx_, evisc_);

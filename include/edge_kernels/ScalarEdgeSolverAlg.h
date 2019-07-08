@@ -23,7 +23,8 @@ public:
     EquationSystem*,
     ScalarFieldType*,
     VectorFieldType*,
-    ScalarFieldType*);
+    ScalarFieldType*,
+    const bool);
 
   virtual ~ScalarEdgeSolverAlg() = default;
 
