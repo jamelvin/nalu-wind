@@ -2,8 +2,8 @@ add_sources(GlobalSourceList
   # Edge kernels
   ContinuityEdgeSolverAlg.C
   MomentumEdgeSolverAlg.C
-  MomentumTAMSKEpsEdgeDiffSolverAlg.C
-  MomentumTAMSSSTEdgeDiffSolverAlg.C
+  MomentumTAMSKEpsDiffEdgeSolverAlg.C
+  MomentumTAMSSSTDiffEdgeSolverAlg.C
   ScalarEdgeSolverAlg.C
   WallDistEdgeSolverAlg.C
   # Face/edge BC kernels
