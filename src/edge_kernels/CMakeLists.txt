@@ -1,4 +1,7 @@
 add_sources(GlobalSourceList
+  # Edge Kernel wrapper
+  AssembleEdgeKernelAlg.C
+
   # Edge kernels
   ContinuityEdgeSolverAlg.C
   MomentumEdgeSolverAlg.C
