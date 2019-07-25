@@ -162,8 +162,6 @@
 #include <kernel/MomentumTAMSKEpsForcingElemKernel.h>
 #include <kernel/MomentumTAMSSSTDiffElemKernel.h>
 #include <kernel/MomentumTAMSSSTForcingElemKernel.h>
-#include <edge_kernels/MomentumTAMSKEpsDiffEdgeSolverAlg.C>
-#include <edge_kernels/MomentumTAMSSSTDiffEdgeSolverAlg.C>
 
 // user function
 #include <user_functions/ConvectingTaylorVortexVelocityAuxFunction.h>

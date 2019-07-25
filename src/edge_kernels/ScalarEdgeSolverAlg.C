@@ -22,7 +22,7 @@ ScalarEdgeSolverAlg::ScalarEdgeSolverAlg(
   ScalarFieldType* scalarQ,
   VectorFieldType* dqdx,
   ScalarFieldType* diffFluxCoeff,
-  const bool useAvgMdot,
+  const bool useAvgMdot
 ) : AssembleEdgeSolverAlgorithm(realm, part, eqSystem),
     dofName_(scalarQ->name())
 {
