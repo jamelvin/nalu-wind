@@ -10,6 +10,7 @@
 
 #include "AssembleEdgeSolverAlgorithm.h"
 #include "MomentumTAMSKEpsDiffEdgeKernel.h"
+#include "AssembleEdgeKernelAlg.h"
 #include "nalu_make_unique.h"
 
 #include <vector>

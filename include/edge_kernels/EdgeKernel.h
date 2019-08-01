@@ -14,7 +14,10 @@
 
 #include "KokkosInterface.h"
 #include "NGPInstance.h"
-//#include "SharedMemData.h"
+#include "ElemDataRequests.h"
+#include "ElemDataRequestsGPU.h"
+#include "ScratchViews.h"
+#include "SharedMemData.h"
 
 #include "stk_ngp/Ngp.hpp"
 #include "stk_mesh/base/Entity.hpp"
@@ -53,11 +56,11 @@ public:
 
   KOKKOS_FUNCTION
   virtual void execute(
-    EdgeKernelTraits::LhsType&,
-    EdgeKernelTraits::RhsType&,
+    EdgeKernelTraits::ShmemDataType&,
     const stk::mesh::FastMeshIndex&,
     const stk::mesh::FastMeshIndex&,
-    const stk::mesh::FastMeshIndex&)
+    const stk::mesh::FastMeshIndex&) = 0;
+
 
 //  KOKKOS_FUNCTION
 //  virtual void execute(

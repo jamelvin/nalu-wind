@@ -38,8 +38,7 @@ public:
 
   KOKKOS_FUNCTION
   virtual void execute(
-    EdgeKernelTraits::LhsType&,
-    EdgeKernelTraits::RhsType&,
+    EdgeKernelTraits::ShmemDataType&,
     const stk::mesh::FastMeshIndex&,
     const stk::mesh::FastMeshIndex&,
     const stk::mesh::FastMeshIndex&) override;

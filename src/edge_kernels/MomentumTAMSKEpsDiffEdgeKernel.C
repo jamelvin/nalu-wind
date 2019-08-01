@@ -8,9 +8,11 @@
 #include "edge_kernels/MomentumTAMSKEpsDiffEdgeKernel.h"
 #include "Realm.h"
 #include "SolutionOptions.h"
+#include "EigenDecomposition.h"
 
 #include "stk_mesh/base/MetaData.hpp"
 #include "utils/StkHelpers.h"
+#include "utils/TAMSUtils.h"
 #include <SimdInterface.h>
 
 namespace sierra {
@@ -65,8 +67,7 @@ void MomentumTAMSKEpsDiffEdgeKernel::setup(Realm& realm)
 
 void
 MomentumTAMSKEpsDiffEdgeKernel::execute(
-  EdgeKernelTraits::LhsType& lhs,
-  EdgeKernelTraits::RhsType& rhs,
+  EdgeKernelTraits::ShmemDataType& smdata,
   const stk::mesh::FastMeshIndex& edge,
   const stk::mesh::FastMeshIndex& nodeL,
   const stk::mesh::FastMeshIndex& nodeR)
@@ -82,12 +83,12 @@ MomentumTAMSKEpsDiffEdgeKernel::execute(
   }
 
   // Mij, eigenvectors and eigenvalues
-  // FIXME: make the nDimMax_ -> ndim
-  EdgeKernelTraits::DblType Mij[nDimMax_][nDimMax_];
-  EdgeKernelTraits::DblType Q[nDimMax_][nDimMax_];
-  EdgeKernelTraits::DblType D[nDimMax_][nDimMax_];
-  for (unsigned i = 0; i < ndim; i++)
-    for (unsigned j = 0; j < ndim; j++)
+  // FIXME: make the 3 -> ndim
+  EdgeKernelTraits::DblType Mij[3][3];
+  EdgeKernelTraits::DblType Q[3][3];
+  EdgeKernelTraits::DblType D[3][3];
+  for (int i = 0; i < ndim; i++)
+    for (int j = 0; j < ndim; j++)
        // FIXME: Is this right for accessing 2D array of nodal Mij, is it 1D or 2D??
        Mij[i][j] = 0.5 * (nodalMij_.get(nodeL, i*ndim + j) + nodalMij_.get(nodeR, i*ndim + j));
 
@@ -95,16 +96,16 @@ MomentumTAMSKEpsDiffEdgeKernel::execute(
 
   // At this point we have Q, the eigenvectors and D the eigenvalues of Mij,
   // so to create M43, we use Q D^(4/3) Q^T
-  EdgeKernelTraits::DblType M43[nDimMax_][nDimMax_];
-  for (unsigned i = 0; i < ndim; i++)
-    for (unsigned j = 0; j < ndim; j++)
+  EdgeKernelTraits::DblType M43[3][3];
+  for (int i = 0; i < ndim; i++)
+    for (int j = 0; j < ndim; j++)
       M43[i][j] = 0.0;
 
   const double fourThirds = 4. / 3.;
-  for (unsigned k = 0; k < ndim; k++) {
+  for (int k = 0; k < ndim; k++) {
     const EdgeKernelTraits::DblType D43 = stk::math::pow(D[k][k], fourThirds);
-    for (unsigned i = 0; i < ndim; i++) {
-      for (unsigned j = 0; j < ndim; j++) {
+    for (int i = 0; i < ndim; i++) {
+      for (int j = 0; j < ndim; j++) {
         M43[i][j] += Q[i][k] * Q[j][k] * D43;
       }
     }
@@ -113,14 +114,14 @@ MomentumTAMSKEpsDiffEdgeKernel::execute(
   // Compute CM43
   EdgeKernelTraits::DblType CM43 = tams_utils::get_M43_constant(D, CMdeg_);
 
-  const EdgeKernelTraits::DblType muIp = 0.5 * (tvisc_.get(nodeL, 0) + tvisc.get(nodeR, 0));
+  const EdgeKernelTraits::DblType muIp = 0.5 * (tvisc_.get(nodeL, 0) + tvisc_.get(nodeR, 0));
   const EdgeKernelTraits::DblType avgRhoIp = 0.5 * (avgDensity_.get(nodeL, 0) + avgDensity_.get(nodeR, 0));
   const EdgeKernelTraits::DblType fluctRhoIp = 0.5 * (density_.get(nodeL, 0) + density_.get(nodeR, 0)) - avgRhoIp;
   const EdgeKernelTraits::DblType tkeIp = 0.5 * (tke_.get(nodeL, 0) + tke_.get(nodeR, 0));
   const EdgeKernelTraits::DblType tdrIp = 0.5 * (tdr_.get(nodeL, 0) + tdr_.get(nodeR, 0));
   const EdgeKernelTraits::DblType alphaIp = 0.5 * (alpha_.get(nodeL, 0) + alpha_.get(nodeR, 0));
-  EdgeKernelTraits::DblType avgdUidxj[nDimMax_][nDimMax_];
-  EdgeKernelTraits::DblType fluctdUidxj[nDimMax_][nDimMax_];
+  EdgeKernelTraits::DblType avgdUidxj[3][3];
+  EdgeKernelTraits::DblType fluctdUidxj[3][3];
 
   EdgeKernelTraits::DblType axdx = 0.0;
   EdgeKernelTraits::DblType asq = 0.0;
@@ -144,8 +145,8 @@ MomentumTAMSKEpsDiffEdgeKernel::execute(
     const int offSetI = ndim * i;
 
     // start sum for NOC contribution
-    DblType GlavgUidxl = 0.0;
-    DblType GlfluctUidxl = 0.0;
+    EdgeKernelTraits::DblType GlavgUidxl = 0.0;
+    EdgeKernelTraits::DblType GlfluctUidxl = 0.0;
     for (int l = 0; l < ndim; ++l) {
       const int offSetIL = offSetI + l;
       const EdgeKernelTraits::DblType dxl =
@@ -172,7 +173,7 @@ MomentumTAMSKEpsDiffEdgeKernel::execute(
     }
   }
 
-  DblType avgDivU = 0.0;
+  EdgeKernelTraits::DblType avgDivU = 0.0;
   for (int i = 0; i < ndim; ++i) {
     avgDivU += avgdUidxj[i][i];
   }
@@ -187,8 +188,8 @@ MomentumTAMSKEpsDiffEdgeKernel::execute(
     // need to scale by alpha here
     const EdgeKernelTraits::DblType avgDivUstress =
       2.0 / 3.0 * alphaIp * muIp * avgDivU * av[i] * includeDivU_;
-    rhs(0 + i) -= avgDivUstress;
-    rhs(3 + i) += avgDivUstress;
+    smdata.rhs(0 + i) -= avgDivUstress;
+    smdata.rhs(3 + i) += avgDivUstress;
 
     // Hybrid turbulence diffusion term; -(mu^jk*dui/dxk + mu^ik*duj/dxk -
     // 2/3*rho*tke*del_ij)*Aj
@@ -199,7 +200,7 @@ MomentumTAMSKEpsDiffEdgeKernel::execute(
         0.5 * (velocity_.get(nodeL, j) + velocity_.get(nodeR, j)) - avgUjIp;
 
       // -mut^jk*dui/dxk*A_j; fixed i over j loop; see below..
-      DblType rhsfacDiff_i = 0.0;
+      EdgeKernelTraits::DblType rhsfacDiff_i = 0.0;
       for (int k = 0; k < ndim; ++k) {
         // FIXME: I need to verify this form, fluctRho or avgRho
         // ..., do I need a deviatoric part only...
@@ -213,11 +214,11 @@ MomentumTAMSKEpsDiffEdgeKernel::execute(
       const EdgeKernelTraits::DblType rhsSGRCfacDiff_i =
         -alphaIp * muIp * avgdUidxj[i][j] * av[i];
 
-      rhs(0 + i) -= rhsfacDiff_i + rhsSGRCfacDiff_i;
-      rhs(3 + i) += rhsfacDiff_i + rhsSGRCfacDiff_i;
+      smdata.rhs(0 + i) -= rhsfacDiff_i + rhsSGRCfacDiff_i;
+      smdata.rhs(3 + i) += rhsfacDiff_i + rhsSGRCfacDiff_i;
 
       // -mut^ik*duj/dxk*A_j
-      DblType rhsfacDiff_j = 0.0;
+      EdgeKernelTraits::DblType rhsfacDiff_j = 0.0;
       for (int k = 0; k < ndim; ++k) {
         // FIXME: See above notes...
         rhsfacDiff_j += -avgRhoIp * CM43 * epsilon13Ip * M43[i][k] *
@@ -228,8 +229,8 @@ MomentumTAMSKEpsDiffEdgeKernel::execute(
       const EdgeKernelTraits::DblType rhsSGRCfacDiff_j =
         -alphaIp * muIp * avgdUidxj[j][i] * av[i];
 
-      rhs(0 + i) -= rhsfacDiff_j + rhsSGRCfacDiff_j;
-      rhs(3 + i) += rhsfacDiff_j + rhsSGRCfacDiff_j;
+      smdata.rhs(0 + i) -= rhsfacDiff_j + rhsSGRCfacDiff_j;
+      smdata.rhs(3 + i) += rhsfacDiff_j + rhsSGRCfacDiff_j;
     }
   }
 }
