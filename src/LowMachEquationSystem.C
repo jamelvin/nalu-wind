@@ -1196,6 +1196,12 @@ MomentumEquationSystem::register_interior_algorithm(
       SolverAlgorithm *theSolverAlg = NULL;
       if ( realm_.realmUsesEdges_ ) {
         theSolverAlg = new MomentumEdgeSolverAlg(realm_, part, this);
+        if ( realm_.solutionOptions_->turbulenceModel_ == TAMS_KEPS || 
+             realm_.solutionOptions_->turbulenceModel_ == TAMS_SST) {
+          SolverAlgorithm *theSolverSrcAlg = NULL;
+          theSolverSrcAlg = new AssembleTAMSEdgeKernel(realm_, part, this);
+          solverAlgDriver_->solverAlgMap_[SRC] = theSolverSrcAlg;
+        } 
       }
       else {
         theSolverAlg = new AssembleMomentumElemSolverAlgorithm(realm_, part, this);
