@@ -158,6 +158,9 @@
 #include <nso/MomentumNSOGradElemSuppAlg.h>
 
 // UT Austin Hybird TAMS kernels
+#include <edge_kernels/AssembleTAMSEdgeKernel.h>
+#include <node_kernels/MomentumTAMSKEpsForcingNodeKernel.h>
+#include <node_kernels/MomentumTAMSSSTForcingNodeKernel.h>
 #include <kernel/MomentumTAMSKEpsDiffElemKernel.h>
 #include <kernel/MomentumTAMSKEpsForcingElemKernel.h>
 #include <kernel/MomentumTAMSSSTDiffElemKernel.h>
@@ -1441,6 +1444,10 @@ MomentumEquationSystem::register_interior_algorithm(
       [&](AssembleNGPNodeSolverAlgorithm& nodeAlg) {
         if (!elementMassAlg)
           nodeAlg.add_kernel<MomentumMassBDFNodeKernel>(realm_.bulk_data());
+        if ( realm_.solutionOptions_->turbulenceModel_ == TAMS_KEPS )
+          nodeAlg.add_kernel<MomentumTAMSKEpsForcingNodeKernel>(realm_.bulk_data(), *realm_.solutionOptions_);
+        if ( realm_.solutionOptions_->turbulenceModel_ == TAMS_SST )
+          nodeAlg.add_kernel<MomentumTAMSSSTForcingNodeKernel>(realm_.bulk_data(), *realm_.solutionOptions_);
       },
       [&](AssembleNGPNodeSolverAlgorithm& nodeAlg, std::string& srcName) {
         bool added = true;
