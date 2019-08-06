@@ -98,7 +98,8 @@ public:
   ScalarFieldType *avgResAdequacy_;
   ScalarFieldType *avgProduction_;
   ScalarFieldType *avgTime_;
-  GenericFieldType *avgMdot_;
+  GenericFieldType *avgMdotScs_;
+  ScalarFieldType *avgMdot_;
   VectorFieldType *gTmp_;
 
   AlgorithmDriver *metricTensorAlgDriver_;

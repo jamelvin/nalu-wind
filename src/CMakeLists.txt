@@ -77,6 +77,7 @@ add_sources(GlobalSourceList
    ComputeMdotNonConformalAlgorithm.C
    ComputeMetricTensorNodeAlgorithm.C
    ComputeSSTMaxLengthScaleElemAlgorithm.C
+   ComputeTAMSAvgMdotEdgeAlgorithm.C
    ComputeTAMSAvgMdotElemAlgorithm.C
    ComputeTAMSKEpsKratioNodeAlgorithm.C
    ComputeTAMSKEpsAveragesNodeAlgorithm.C

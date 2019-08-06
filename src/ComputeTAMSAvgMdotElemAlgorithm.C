@@ -54,7 +54,7 @@ ComputeTAMSAvgMdotElemAlgorithm::ComputeTAMSAvgMdotElemAlgorithm(
   density_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "average_density");
   avgTime_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "average_time");
   massFlowRate_ = meta_data.get_field<GenericFieldType>(stk::topology::ELEMENT_RANK, "mass_flow_rate_scs");
-  avgMassFlowRate_ = meta_data.get_field<GenericFieldType>(stk::topology::ELEMENT_RANK, "average_mass_flow_rate");
+  avgMassFlowRate_ = meta_data.get_field<GenericFieldType>(stk::topology::ELEMENT_RANK, "average_mass_flow_rate_scs");
 }
 
 //--------------------------------------------------------------------------

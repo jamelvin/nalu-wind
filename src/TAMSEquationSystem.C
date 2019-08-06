@@ -129,6 +129,7 @@ TAMSEquationSystem::TAMSEquationSystem(
     avgResAdequacy_(NULL),
     avgProduction_(NULL),
     avgTime_(NULL),
+    avgMdotScs_(NULL),
     avgMdot_(NULL),
     gTmp_(NULL),
     metricTensorAlgDriver_(new AlgorithmDriver(realm_)),
@@ -263,8 +264,21 @@ TAMSEquationSystem::register_element_fields(
 
   NaluEnv::self().naluOutputP0() << "Mdot average added in TAMS " << std::endl;
 
-  avgMdot_ = &(meta_data.declare_field<GenericFieldType>(stk::topology::ELEMENT_RANK,"average_mass_flow_rate"));
-  stk::mesh::put_field_on_mesh(*avgMdot_, *part, numScsIp, nullptr);
+  avgMdotScs_ = &(meta_data.declare_field<GenericFieldType>(stk::topology::ELEMENT_RANK,"average_mass_flow_rate_scs"));
+  stk::mesh::put_field_on_mesh(*avgMdotScs_, *part, numScsIp, nullptr);
+  realm_.augment_restart_variable_list("average_mass_flow_rate_scs");
+}
+
+//--------------------------------------------------------------------------
+//-------- register_edge_fields -------------------------------------------
+//--------------------------------------------------------------------------
+void
+TAMSEquationSystem::register_edge_fields(
+  stk::mesh::Part *part)
+{
+  stk::mesh::MetaData &meta_data = realm_.meta_data();
+  avgMdot_ = &(meta_data.declare_field<ScalarFieldType>(stk::topology::EDGE_RANK, "mass_flow_rate"));
+  stk::mesh::put_field_on_mesh(*avgMdot_, *part, nullptr);
   realm_.augment_restart_variable_list("average_mass_flow_rate");
 }
 
@@ -739,7 +753,7 @@ TAMSEquationSystem::initialize_mdot()
   // define some common selectors
   stk::mesh::Selector s_all_elem
     = (meta_data.locally_owned_part() | meta_data.globally_shared_part())
-    &stk::mesh::selectField(*avgMdot_);
+    &stk::mesh::selectField(*avgMdotScs_);
 
   stk::mesh::BucketVector const& elem_buckets =
     realm_.get_buckets( stk::topology::ELEMENT_RANK, s_all_elem );
@@ -755,7 +769,7 @@ TAMSEquationSystem::initialize_mdot()
     const int numScsIp = meSCS->num_integration_points();
 
     for ( stk::mesh::Bucket::size_type k = 0 ; k < length ; ++k ) {
-       double *avgMdot = stk::mesh::field_data(*avgMdot_, b, k);
+       double *avgMdot = stk::mesh::field_data(*avgMdotScs_, b, k);
        const double *mdot = stk::mesh::field_data(*massFlowRate_, b, k);
 
        for (int ip = 0; ip < numScsIp; ip++)
