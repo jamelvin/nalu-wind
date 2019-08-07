@@ -43,6 +43,7 @@ ComputeTAMSAvgMdotEdgeAlgorithm::ComputeTAMSAvgMdotEdgeAlgorithm(
     Gpdx_(NULL),
     coordinates_(NULL),
     pressure_(NULL),
+    avgTime_(NULL),
     density_(NULL),
     edgeAreaVec_(NULL),
     massFlowRate_(NULL),
@@ -57,6 +58,7 @@ ComputeTAMSAvgMdotEdgeAlgorithm::ComputeTAMSAvgMdotEdgeAlgorithm(
   Gpdx_ = meta_data.get_field<VectorFieldType>(stk::topology::NODE_RANK, "dpdx");
   coordinates_ = meta_data.get_field<VectorFieldType>(stk::topology::NODE_RANK, realm_.get_coordinates_name());
   pressure_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "pressure");
+  avgTime_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "average_time");
   density_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "density");
   edgeAreaVec_ = meta_data.get_field<VectorFieldType>(stk::topology::EDGE_RANK, "edge_area_vector");
   massFlowRate_ = meta_data.get_field<ScalarFieldType>(stk::topology::EDGE_RANK, "mass_flow_rate");
@@ -73,6 +75,8 @@ ComputeTAMSAvgMdotEdgeAlgorithm::execute()
   stk::mesh::MetaData & meta_data = realm_.meta_data();
 
   const int nDim = meta_data.spatial_dimension();
+  // time step
+  const double dt = realm_.get_time_step();
 
   // extract noc
   const std::string dofName = "pressure";
@@ -142,6 +146,9 @@ ComputeTAMSAvgMdotEdgeAlgorithm::execute()
       const double densityL = *stk::mesh::field_data(densityNp1, nodeL );
       const double densityR = *stk::mesh::field_data(densityNp1, nodeR );
 
+      const double avgTimeL = *stk::mesh::field_data(*avgTime_, nodeL );
+      const double avgTimeR = *stk::mesh::field_data(*avgTime_, nodeR );
+
       const double udiagL = *stk::mesh::field_data(*Udiag, nodeL);
       const double udiagR = *stk::mesh::field_data(*Udiag, nodeR);
 
@@ -159,6 +166,7 @@ ComputeTAMSAvgMdotEdgeAlgorithm::execute()
 
       const double inv_axdx = 1.0/axdx;
       const double rhoIp = 0.5*(densityR + densityL);
+      const double avgTimeIp = 0.5*(avgTimeR + avgTimeL);
 
       //  mdot
       double tmdot = -projTimeScale*(pressureR - pressureL)*asq*inv_axdx;

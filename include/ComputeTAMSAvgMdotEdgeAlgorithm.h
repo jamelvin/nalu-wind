@@ -36,6 +36,7 @@ public:
   VectorFieldType *Gpdx_;
   VectorFieldType *coordinates_;
   ScalarFieldType *pressure_;
+  ScalarFieldType *avgTime_;
   ScalarFieldType *density_;
   VectorFieldType *edgeAreaVec_;
   ScalarFieldType *massFlowRate_;

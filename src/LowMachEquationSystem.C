@@ -158,7 +158,7 @@
 #include <nso/MomentumNSOGradElemSuppAlg.h>
 
 // UT Austin Hybird TAMS kernels
-#include <edge_kernels/AssembleTAMSEdgeKernel.h>
+#include <edge_kernels/AssembleTAMSEdgeKernelAlg.h>
 #include <node_kernels/MomentumTAMSKEpsForcingNodeKernel.h>
 #include <node_kernels/MomentumTAMSSSTForcingNodeKernel.h>
 #include <kernel/MomentumTAMSKEpsDiffElemKernel.h>
@@ -1202,7 +1202,7 @@ MomentumEquationSystem::register_interior_algorithm(
         if ( realm_.solutionOptions_->turbulenceModel_ == TAMS_KEPS || 
              realm_.solutionOptions_->turbulenceModel_ == TAMS_SST) {
           SolverAlgorithm *theSolverSrcAlg = NULL;
-          theSolverSrcAlg = new AssembleTAMSEdgeKernel(realm_, part, this);
+          theSolverSrcAlg = new AssembleTAMSEdgeKernelAlg(realm_, part, this);
           solverAlgDriver_->solverAlgMap_[SRC] = theSolverSrcAlg;
         } 
       }

@@ -5,8 +5,8 @@
 /*  directory structure                                                   */
 /*------------------------------------------------------------------------*/
 
-#ifndef MOMENTUMTAMSKEPSFORCINGNODEKERNEL_H
-#define MOMENTUMTAMSKEPSFORCINGNODEKERNEL_H
+#ifndef MOMENTUMTAMSSSTFORCINGNODEKERNEL_H
+#define MOMENTUMTAMSSSTFORCINGNODEKERNEL_H
 
 #include "node_kernels/NodeKernel.h"
 

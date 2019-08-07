@@ -41,6 +41,9 @@ public:
     stk::mesh::Part *part,
     const stk::topology &theTopo);
 
+  virtual void register_edge_fields(
+    stk::mesh::Part *part);
+
   void register_interior_algorithm(
     stk::mesh::Part *part);
   
