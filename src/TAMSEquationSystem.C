@@ -205,6 +205,8 @@ TAMSEquationSystem::register_nodal_fields(
   stk::mesh::put_field_on_mesh(*avgProduction_, *part, nullptr);
   realm_.augment_restart_variable_list("average_production");
 
+  NaluEnv::self().naluOutputP0() << "Declaring avgDudx in TAMS" << std::endl;
+
   avgDudx_ = &(meta_data.declare_field<GenericFieldType>(stk::topology::NODE_RANK, "average_dudx"));
   stk::mesh::put_field_on_mesh(*avgDudx_, *part, nDim*nDim, nullptr);
   realm_.augment_restart_variable_list("average_dudx");
@@ -652,6 +654,8 @@ TAMSEquationSystem::initial_work()
   ScalarFieldType *tvisc_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "turbulent_viscosity");
   
   ScalarFieldType &tkeNp1 = turbKinEne_->field_of_state(stk::mesh::StateNP1);
+
+  NaluEnv::self().naluOutputP0() << "About to initialize avgDudx in TAMS" << std::endl;
 
   // define some common selectors
   stk::mesh::Selector s_all_nodes
