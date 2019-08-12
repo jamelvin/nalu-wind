@@ -44,7 +44,7 @@ MomentumTAMSKEpsDiffEdgeKernel::MomentumTAMSKEpsDiffEdgeKernel(
   // average quantities
   avgVelocityID_ = get_field_ordinal(meta, "average_velocity");
   avgDensityID_ = get_field_ordinal(meta, "average_density");
-  avgDudxID_ = get_field_ordinal(meta, "avgDudx");
+  avgDudxID_ = get_field_ordinal(meta, "average_dudx");
 }
 
 void MomentumTAMSKEpsDiffEdgeKernel::setup(Realm& realm)

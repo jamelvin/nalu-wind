@@ -40,7 +40,7 @@ ScalarEdgeSolverAlg::ScalarEdgeSolverAlg(
   if (useAvgMdot) {
     massFlowRate_ = get_field_ordinal(meta, "average_mass_flow_rate", stk::topology::EDGE_RANK);
   } else {
-    massFlowRate_ = get_field_ordinal(meta, "mass_flow_rate_scs", stk::topology::EDGE_RANK);
+    massFlowRate_ = get_field_ordinal(meta, "mass_flow_rate", stk::topology::EDGE_RANK);
   }
 
   pecletFunction_ = eqSystem->ngp_create_peclet_function<double>(dofName_);
@@ -74,6 +74,8 @@ ScalarEdgeSolverAlg::execute()
 
   // Local pointer for device capture
   auto* pecFunc = pecletFunction_;
+
+  NaluEnv::self().naluOutputP0() << "ScalarEdgeNGP Run..." << std::endl;
 
   run_algorithm(
     realm_.bulk_data(),
@@ -194,6 +196,7 @@ ScalarEdgeSolverAlg::execute()
       smdata.lhs(1, 0) -= alhsfac;
       smdata.lhs(1, 1) -= alhsfac / relaxFac;
     });
+    NaluEnv::self().naluOutputP0() << "ScalarEdgeNGP End..." << std::endl;
 }
 
 }  // nalu

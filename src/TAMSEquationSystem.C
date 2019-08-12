@@ -21,6 +21,7 @@
 #include <AuxFunctionAlgorithm.h>
 #include <ConstantAuxFunction.h>
 #include <CopyFieldAlgorithm.h>
+#include <ComputeTAMSAvgMdotEdgeAlgorithm.h>
 #include <ComputeTAMSAvgMdotElemAlgorithm.h>
 #include <ComputeMetricTensorNodeAlgorithm.h>
 #include <ComputeTAMSKEpsAveragesNodeAlgorithm.h>
@@ -278,8 +279,9 @@ void
 TAMSEquationSystem::register_edge_fields(
   stk::mesh::Part *part)
 {
+  NaluEnv::self().naluOutputP0() << "Edge fields added in TAMS " << std::endl;
   stk::mesh::MetaData &meta_data = realm_.meta_data();
-  avgMdot_ = &(meta_data.declare_field<ScalarFieldType>(stk::topology::EDGE_RANK, "mass_flow_rate"));
+  avgMdot_ = &(meta_data.declare_field<ScalarFieldType>(stk::topology::EDGE_RANK, "average_mass_flow_rate"));
   stk::mesh::put_field_on_mesh(*avgMdot_, *part, nullptr);
   realm_.augment_restart_variable_list("average_mass_flow_rate");
 }
@@ -391,16 +393,31 @@ TAMSEquationSystem::register_interior_algorithm(
   if ( NULL == avgMdotAlgDriver_ )
     avgMdotAlgDriver_ = new AlgorithmDriver(realm_);
 
-  std::map<AlgorithmType, Algorithm *>::iterator itmd =
-    avgMdotAlgDriver_->algMap_.find(algType);
+  if (realm_.realmUsesEdges_) {
+    std::map<AlgorithmType, Algorithm *>::iterator itmd =
+      avgMdotAlgDriver_->algMap_.find(algType);
 
-  if (itmd == avgMdotAlgDriver_->algMap_.end() ) {
-    ComputeTAMSAvgMdotElemAlgorithm *avgMdotAlg =
-      new ComputeTAMSAvgMdotElemAlgorithm(realm_, part);
-    avgMdotAlgDriver_->algMap_[algType] = avgMdotAlg;
+    if (itmd == avgMdotAlgDriver_->algMap_.end() ) {
+      ComputeTAMSAvgMdotEdgeAlgorithm *avgMdotEdgeAlg =
+        new ComputeTAMSAvgMdotEdgeAlgorithm(realm_, part);
+      avgMdotAlgDriver_->algMap_[algType] = avgMdotEdgeAlg;
+    }
+    else {
+      itmd->second->partVec_.push_back(part);
+    }
   }
   else {
-    itmd->second->partVec_.push_back(part);
+    std::map<AlgorithmType, Algorithm *>::iterator itmd =
+      avgMdotAlgDriver_->algMap_.find(algType);
+
+    if (itmd == avgMdotAlgDriver_->algMap_.end() ) {
+      ComputeTAMSAvgMdotElemAlgorithm *avgMdotAlg =
+        new ComputeTAMSAvgMdotElemAlgorithm(realm_, part);
+      avgMdotAlgDriver_->algMap_[algType] = avgMdotAlg;
+    }
+    else {
+      itmd->second->partVec_.push_back(part);
+    }
   }
 
   // FIXME: tvisc needed for initialization only as TAMS goes before LowMach
@@ -748,36 +765,59 @@ TAMSEquationSystem::initialize_mdot()
   //FIXME: Don't do this if it's a restart and average_mdot has been defined...
 
   stk::mesh::MetaData & meta_data = realm_.meta_data();
+  if (realm_.realmUsesEdges_) {
+    ScalarFieldType *massFlowRate_ = meta_data.get_field<ScalarFieldType>(stk::topology::EDGE_RANK, "mass_flow_rate");
 
-  GenericFieldType *massFlowRate_ = meta_data.get_field<GenericFieldType>(stk::topology::ELEMENT_RANK, "mass_flow_rate_scs");
+    // FIXME: Is this selector right?
+    stk::mesh::Selector s_locally_owned_union = (meta_data.locally_owned_part()
+      | meta_data.globally_shared_part())
+      &stk::mesh::selectField(*avgMdot_);
 
-  // FIXME: Hack since setting an element field to a constant using Aux doesn't seem to work...
-  // required fields
+    stk::mesh::BucketVector const& edge_buckets =
+      realm_.get_buckets( stk::topology::EDGE_RANK, s_locally_owned_union );
+    for ( stk::mesh::BucketVector::const_iterator ib = edge_buckets.begin();
+          ib != edge_buckets.end() ; ++ib ) {
+      stk::mesh::Bucket & b = **ib ;
+      const stk::mesh::Bucket::size_type length   = b.size();
 
-  // define some common selectors
-  stk::mesh::Selector s_all_elem
-    = (meta_data.locally_owned_part() | meta_data.globally_shared_part())
-    &stk::mesh::selectField(*avgMdotScs_);
-
-  stk::mesh::BucketVector const& elem_buckets =
-    realm_.get_buckets( stk::topology::ELEMENT_RANK, s_all_elem );
-  for ( stk::mesh::BucketVector::const_iterator ib = elem_buckets.begin();
-        ib != elem_buckets.end() ; ++ib ) {
-    stk::mesh::Bucket & b = **ib ;
-    const stk::mesh::Bucket::size_type length = b.size();
-
-    // extract master element
-    MasterElement *meSCS = sierra::nalu::MasterElementRepo::get_surface_master_element(b.topology());
-
-    // extract master element specifics
-    const int numScsIp = meSCS->num_integration_points();
-
-    for ( stk::mesh::Bucket::size_type k = 0 ; k < length ; ++k ) {
-       double *avgMdot = stk::mesh::field_data(*avgMdotScs_, b, k);
-       const double *mdot = stk::mesh::field_data(*massFlowRate_, b, k);
-
-       for (int ip = 0; ip < numScsIp; ip++)
-         avgMdot[ip] = mdot[ip];
+      const double * mdot = stk::mesh::field_data(*massFlowRate_, b);
+      double * avgMdot    = stk::mesh::field_data(*avgMdot_, b);
+  
+      for ( stk::mesh::Bucket::size_type k = 0 ; k < length ; ++k )
+        avgMdot[k] = mdot[k];
+    }
+  }
+  else {
+    GenericFieldType *massFlowRateScs_ = meta_data.get_field<GenericFieldType>(stk::topology::ELEMENT_RANK, "mass_flow_rate_scs");
+  
+    // FIXME: Hack since setting an element field to a constant using Aux doesn't seem to work...
+    // required fields
+  
+    // define some common selectors
+    stk::mesh::Selector s_all_elem
+      = (meta_data.locally_owned_part() | meta_data.globally_shared_part())
+      &stk::mesh::selectField(*avgMdotScs_);
+  
+    stk::mesh::BucketVector const& elem_buckets =
+      realm_.get_buckets( stk::topology::ELEMENT_RANK, s_all_elem );
+    for ( stk::mesh::BucketVector::const_iterator ib = elem_buckets.begin();
+          ib != elem_buckets.end() ; ++ib ) {
+      stk::mesh::Bucket & b = **ib ;
+      const stk::mesh::Bucket::size_type length = b.size();
+  
+      // extract master element
+      MasterElement *meSCS = sierra::nalu::MasterElementRepo::get_surface_master_element(b.topology());
+  
+      // extract master element specifics
+      const int numScsIp = meSCS->num_integration_points();
+  
+      for ( stk::mesh::Bucket::size_type k = 0 ; k < length ; ++k ) {
+         double *avgMdotScs = stk::mesh::field_data(*avgMdotScs_, b, k);
+         const double *mdotScs = stk::mesh::field_data(*massFlowRateScs_, b, k);
+  
+         for (int ip = 0; ip < numScsIp; ip++)
+           avgMdotScs[ip] = mdotScs[ip];
+      }
     }
   }
 }

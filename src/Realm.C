@@ -451,7 +451,7 @@ Realm::initialize()
 
   // create initial conditions
   setup_initial_conditions();
- 
+
   // set global variables that have not yet been set
   initialize_global_variables();
 

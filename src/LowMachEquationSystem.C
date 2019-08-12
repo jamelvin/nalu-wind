@@ -1152,7 +1152,6 @@ void
 MomentumEquationSystem::register_interior_algorithm(
   stk::mesh::Part *part)
 {
-
   // types of algorithms
   const AlgorithmType algType = INTERIOR;
   const AlgorithmType algMass = SRC;
@@ -1595,7 +1594,6 @@ MomentumEquationSystem::register_interior_algorithm(
       it_tv->second->partVec_.push_back(part);
     }
   }
-
 }
 
 //--------------------------------------------------------------------------

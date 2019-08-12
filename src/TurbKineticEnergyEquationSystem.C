@@ -68,6 +68,8 @@
 // UT Austin Hybird TAMS kernel
 #include <kernel/TurbKineticEnergySSTTAMSSrcElemKernel.h>
 #include <kernel/TurbKineticEnergyTAMSKEpsSrcElemKernel.h>
+#include <node_kernels/TurbKineticEnergyTAMSKEpsSrcNodeKernel.h>
+#include <node_kernels/TurbKineticEnergyTAMSSSTSrcNodeKernel.h>
 
 // bc kernels
 #include <kernel/ScalarOpenAdvElemKernel.h>
@@ -334,10 +336,17 @@ TurbKineticEnergyEquationSystem::register_interior_algorithm(
     process_ngp_node_kernels(
       solverAlgMap, realm_, part, this,
       [&](AssembleNGPNodeSolverAlgorithm& nodeAlg) {
-        if (!elementMassAlg)
+        if (!elementMassAlg) {
+          NaluEnv::self().naluOutputP0() << "Am I Doing THIS?" << std::endl;
           nodeAlg.add_kernel<ScalarMassBDFNodeKernel>(realm_.bulk_data(), tke_);
-
+        }
         // TODO: Add kSGS/SST/SST_DES source terms here
+        if ( realm_.solutionOptions_->turbulenceModel_ == TAMS_KEPS ) {
+          NaluEnv::self().naluOutputP0() << "...and THIS?" << std::endl;
+          nodeAlg.add_kernel<TurbKineticEnergyTAMSKEpsSrcNodeKernel>(realm_.bulk_data(), *realm_.solutionOptions_);
+        }
+        if ( realm_.solutionOptions_->turbulenceModel_ == TAMS_SST )
+          nodeAlg.add_kernel<TurbKineticEnergyTAMSSSTSrcNodeKernel>(realm_.bulk_data(), *realm_.solutionOptions_);
       },
       [&](AssembleNGPNodeSolverAlgorithm& /* nodeAlg */, std::string& /* srcName */) {
         // No source terms available yet
@@ -347,6 +356,7 @@ TurbKineticEnergyEquationSystem::register_interior_algorithm(
       solverAlgDriver_->solverAlgMap_.find(algMass);
     if ( itsm == solverAlgDriver_->solverAlgMap_.end() ) {
       // create the solver alg
+      NaluEnv::self().naluOutputP0() << "... and finally THIS?" << std::endl;
       AssembleNodeSolverAlgorithm *theAlg
         = new AssembleNodeSolverAlgorithm(realm_, part, this);
       solverAlgDriver_->solverAlgMap_[algMass] = theAlg;
@@ -376,7 +386,8 @@ TurbKineticEnergyEquationSystem::register_interior_algorithm(
         break;
       case TAMS_SST: case TAMS_KEPS:
         {
-           throw std::runtime_error("TAMS is only supported using the consolidated kernel approach");
+           //Handled above
+           //throw std::runtime_error("TAMS is only supported using the consolidated kernel approach");
         }
         break;
       default:
@@ -1013,21 +1024,28 @@ TurbKineticEnergyEquationSystem::solve_and_update()
     isInit_ = false;
   }
 
+    NaluEnv::self().naluOutputP0() << "ScalarEdgeNGP Run..." << std::endl;
+
   // compute effective viscosity
   compute_effective_diff_flux_coeff();
+
+     NaluEnv::self().naluOutputP0() << "ScalarEdgeNGP effdiff..." << std::endl;
 
   // deal with any special wall function approach
   compute_wall_model_parameters();
 
+      NaluEnv::self().naluOutputP0() << "ScalarEdgeNGP wallmodel..." << std::endl;
   // start the iteration loop
   for ( int k = 0; k < maxIterations_; ++k ) {
 
     NaluEnv::self().naluOutputP0() << " " << k+1 << "/" << maxIterations_
                     << std::setw(15) << std::right << userSuppliedName_ << std::endl;
 
+       NaluEnv::self().naluOutputP0() << "ScalarEdgeNGP b4solve" << std::endl;
     // tke assemble, load_complete and solve
     assemble_and_solve(kTmp_);
 
+        NaluEnv::self().naluOutputP0() << "ScalarEdgeNGP Solved..." << std::endl;
     // update
     double timeA = NaluEnv::self().nalu_time();
     update_and_clip();

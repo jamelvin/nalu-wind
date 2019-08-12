@@ -65,6 +65,7 @@
 
 // UT Austin Hybird TAMS kernel
 #include <kernel/SpecificDissipationRateSSTTAMSSrcElemKernel.h>
+#include <node_kernels/SpecificDissipationRateTAMSSSTSrcNodeKernel.h>
 
 // nso
 #include <nso/ScalarNSOElemKernel.h>
@@ -307,6 +308,8 @@ SpecificDissipationRateEquationSystem::register_interior_algorithm(
           nodeAlg.add_kernel<ScalarMassBDFNodeKernel>(realm_.bulk_data(), sdr_);
 
         // TODO: Add SST source terms here
+        if ( realm_.solutionOptions_->turbulenceModel_ == TAMS_SST )
+          nodeAlg.add_kernel<SpecificDissipationRateTAMSSSTSrcNodeKernel>(realm_.bulk_data(), *realm_.solutionOptions_);
       },
       [&](AssembleNGPNodeSolverAlgorithm& /* nodeAlg */, std::string& /* srcName */) {
         // No source terms available yet

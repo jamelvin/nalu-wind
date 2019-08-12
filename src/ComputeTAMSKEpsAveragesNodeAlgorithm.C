@@ -179,6 +179,7 @@ void ComputeTAMSKEpsAveragesNodeAlgorithm::execute() {
       avgProd[k] = weightAvg * avgProd[k] + weightInst * instProd;
     }
   }
+    NaluEnv::self().naluOutputP0() << "TAMS Averaging done" << std::endl;
 }
 
 } // namespace nalu

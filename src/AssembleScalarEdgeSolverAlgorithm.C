@@ -63,7 +63,7 @@ AssembleScalarEdgeSolverAlgorithm::AssembleScalarEdgeSolverAlgorithm(
   coordinates_ = meta_data.get_field<VectorFieldType>(stk::topology::NODE_RANK, realm_.get_coordinates_name());
   density_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "density");
   if (useAvgMdot) {
-    massFlowRate_ = meta_data.get_field<ScalarFieldType>(stk::topology::EDGE_RANK, "average_mass_flow_rate_scs");
+    massFlowRate_ = meta_data.get_field<ScalarFieldType>(stk::topology::EDGE_RANK, "average_mass_flow_rate");
   } else {
     massFlowRate_ = meta_data.get_field<ScalarFieldType>(stk::topology::EDGE_RANK, "mass_flow_rate");
   }

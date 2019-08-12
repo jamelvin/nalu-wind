@@ -54,7 +54,7 @@ ScalarUpwAdvDiffElemKernel<AlgTraits>::ScalarUpwAdvDiffElemKernel(
   const stk::mesh::MetaData& metaData = bulkData.mesh_meta_data();
   coordinates_ = get_field_ordinal(metaData, solnOpts.get_coordinates_name());
   if (useAvgMdot) {
-    massFlowRate_ = get_field_ordinal(metaData, "average_mass_flow_rate", stk::topology::ELEM_RANK);
+    massFlowRate_ = get_field_ordinal(metaData, "average_mass_flow_rate_scs", stk::topology::ELEM_RANK);
   } else {
     massFlowRate_ = get_field_ordinal(metaData, "mass_flow_rate_scs", stk::topology::ELEM_RANK);
   }
