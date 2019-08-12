@@ -352,7 +352,7 @@ TurbKineticEnergyEquationSystem::register_interior_algorithm(
         // No source terms available yet
       });
 
-    std::map<AlgorithmType, SolverAlgorithm *>::iterator itsm =
+    /*std::map<AlgorithmType, SolverAlgorithm *>::iterator itsm =
       solverAlgDriver_->solverAlgMap_.find(algMass);
     if ( itsm == solverAlgDriver_->solverAlgMap_.end() ) {
       // create the solver alg
@@ -381,11 +381,13 @@ TurbKineticEnergyEquationSystem::register_interior_algorithm(
         break;
       case KEPS:
         {
+          NaluEnv::self().naluOutputP0() << "... Shouldn't be here..." << std::endl;
           theSrc = new TurbKineticEnergyChienKEpsNodeSourceSuppAlg(realm_);
         }
         break;
       case TAMS_SST: case TAMS_KEPS:
         {
+           NaluEnv::self().naluOutputP0() << "... Should be here..." << std::endl;
            //Handled above
            //throw std::runtime_error("TAMS is only supported using the consolidated kernel approach");
         }
@@ -393,7 +395,9 @@ TurbKineticEnergyEquationSystem::register_interior_algorithm(
       default:
         throw std::runtime_error("Unsupported turbulence model in TurbKe: only KEPS, SST, SST_DES and Ksgs supported");
       }
-      theAlg->supplementalAlg_.push_back(theSrc);
+      if (theSrc != NULL) {
+          theAlg->supplementalAlg_.push_back(theSrc);
+      }
       
       // Add nodal src term supp alg...; limited number supported
       std::map<std::string, std::vector<std::string> >::iterator isrc 
@@ -420,6 +424,7 @@ TurbKineticEnergyEquationSystem::register_interior_algorithm(
     else {
       itsm->second->partVec_.push_back(part);
     }
+*/
   }
   else {
     // Homogeneous kernel implementation
@@ -1024,28 +1029,21 @@ TurbKineticEnergyEquationSystem::solve_and_update()
     isInit_ = false;
   }
 
-    NaluEnv::self().naluOutputP0() << "ScalarEdgeNGP Run..." << std::endl;
-
   // compute effective viscosity
   compute_effective_diff_flux_coeff();
-
-     NaluEnv::self().naluOutputP0() << "ScalarEdgeNGP effdiff..." << std::endl;
 
   // deal with any special wall function approach
   compute_wall_model_parameters();
 
-      NaluEnv::self().naluOutputP0() << "ScalarEdgeNGP wallmodel..." << std::endl;
   // start the iteration loop
   for ( int k = 0; k < maxIterations_; ++k ) {
 
     NaluEnv::self().naluOutputP0() << " " << k+1 << "/" << maxIterations_
                     << std::setw(15) << std::right << userSuppliedName_ << std::endl;
 
-       NaluEnv::self().naluOutputP0() << "ScalarEdgeNGP b4solve" << std::endl;
     // tke assemble, load_complete and solve
     assemble_and_solve(kTmp_);
 
-        NaluEnv::self().naluOutputP0() << "ScalarEdgeNGP Solved..." << std::endl;
     // update
     double timeA = NaluEnv::self().nalu_time();
     update_and_clip();

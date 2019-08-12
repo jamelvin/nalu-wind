@@ -69,7 +69,7 @@ TurbKineticEnergyTAMSKEpsSrcNodeKernel::execute(
 
   //  NaluEnv::self().naluOutputP0() << "RHS?" << std::endl;
   rhs(0) += (Pk - Dk + Lk) * dualVolume;
-      NaluEnv::self().naluOutputP0() << "LHS?" << std::endl;
+  //    NaluEnv::self().naluOutputP0() << "LHS?" << std::endl;
   //FIXME: Is this lhs(0) or lhs(0,0)? Or something else...
   lhs(0, 0) += lFac * dualVolume;
   //    NaluEnv::self().naluOutputP0() << "Not Here?" << std::endl;

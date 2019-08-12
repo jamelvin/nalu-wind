@@ -156,29 +156,23 @@ ChienKEpsilonEquationSystem::solve_and_update()
     }
   }
 
-    NaluEnv::self().naluOutputP0() << "ScalarEdgeNGP Run..." << std::endl;
-
   // KEps effective viscosity for k and epsilon 
   tkeEqSys_->compute_effective_diff_flux_coeff();
   tdrEqSys_->compute_effective_diff_flux_coeff();
 
-     NaluEnv::self().naluOutputP0() << "ScalarEdgeNGP Run..." << std::endl;
   // start the iteration loop
   for ( int k = 0; k < maxIterations_; ++k ) {
 
     NaluEnv::self().naluOutputP0() << " " << k+1 << "/" << maxIterations_
                     << std::setw(15) << std::right << name_ << std::endl;
 
-       NaluEnv::self().naluOutputP0() << "ScalarEdgeNGP Run..." << std::endl;
     // tke and tdr assemble, load_complete and solve; Jacobi iteration
     tkeEqSys_->assemble_and_solve(tkeEqSys_->kTmp_);
-         NaluEnv::self().naluOutputP0() << "ScalarEdgeNGP Run..." << std::endl;
     tdrEqSys_->assemble_and_solve(tdrEqSys_->eTmp_);
 
-         NaluEnv::self().naluOutputP0() << "ScalarEdgeNGP Run..." << std::endl;
     // update each
     update_and_clip();
-           NaluEnv::self().naluOutputP0() << "ScalarEdgeNGP Run..." << std::endl;
+
     // compute projected nodal gradients
     tkeEqSys_->compute_projected_nodal_gradient();
     tdrEqSys_->assemble_nodal_gradient();

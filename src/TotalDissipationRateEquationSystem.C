@@ -311,7 +311,7 @@ TotalDissipationRateEquationSystem::register_interior_algorithm(
       });
 
 
-    std::map<AlgorithmType, SolverAlgorithm*>::iterator itsm =
+/*    std::map<AlgorithmType, SolverAlgorithm*>::iterator itsm =
       solverAlgDriver_->solverAlgMap_.find(algMass);
     if (itsm == solverAlgDriver_->solverAlgMap_.end()) {
       // create the solver alg
@@ -360,6 +360,7 @@ TotalDissipationRateEquationSystem::register_interior_algorithm(
     else {
       itsm->second->partVec_.push_back(part);
     }
+*/
   }
   else {
     // Homogeneous kernel implementation

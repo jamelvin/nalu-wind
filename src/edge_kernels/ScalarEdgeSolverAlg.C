@@ -75,8 +75,6 @@ ScalarEdgeSolverAlg::execute()
   // Local pointer for device capture
   auto* pecFunc = pecletFunction_;
 
-  NaluEnv::self().naluOutputP0() << "ScalarEdgeNGP Run..." << std::endl;
-
   run_algorithm(
     realm_.bulk_data(),
     KOKKOS_LAMBDA(
@@ -196,7 +194,6 @@ ScalarEdgeSolverAlg::execute()
       smdata.lhs(1, 0) -= alhsfac;
       smdata.lhs(1, 1) -= alhsfac / relaxFac;
     });
-    NaluEnv::self().naluOutputP0() << "ScalarEdgeNGP End..." << std::endl;
 }
 
 }  // nalu
