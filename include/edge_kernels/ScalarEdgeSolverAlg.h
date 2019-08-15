@@ -43,6 +43,7 @@ private:
   PecletFunction<AssembleEdgeSolverAlgorithm::DblType>* pecletFunction_{nullptr};
 
   std::string dofName_;
+  FILE * tmpFile;
 };
 
 }  // nalu

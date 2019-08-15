@@ -29,7 +29,7 @@ public:
   MomentumTAMSKEpsForcingNodeKernel() = default;
 
   KOKKOS_FUNCTION
-  virtual ~MomentumTAMSKEpsForcingNodeKernel() = default;
+  virtual ~MomentumTAMSKEpsForcingNodeKernel();
 
   virtual void setup(Realm&) override;
 
@@ -78,6 +78,8 @@ private:
   double time_;
   double dt_;
   int step_;
+
+  FILE* tmpFile;
 };
 
 }  // nalu

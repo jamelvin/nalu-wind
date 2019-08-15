@@ -45,6 +45,13 @@ MomentumTAMSKEpsForcingNodeKernel::MomentumTAMSKEpsForcingNodeKernel(
   avgTimeID_ = get_field_ordinal(meta, "average_time");
   // FIXME: Need to make "avg..." a nodal quantity
   avgResAdeqID_ =  get_field_ordinal(meta, "avg_res_adequacy_parameter");
+
+  tmpFile = fopen("edgeForcingField.txt", "a");
+}
+
+MomentumTAMSKEpsForcingNodeKernel::~MomentumTAMSKEpsForcingNodeKernel()
+{
+//  fclose(tmpFile);
 }
 
 void MomentumTAMSKEpsForcingNodeKernel::setup(Realm& realm)
@@ -90,8 +97,8 @@ MomentumTAMSKEpsForcingNodeKernel::execute(
   const NodeKernelTraits::DblType mu = viscosity_.get(node, 0);
   const NodeKernelTraits::DblType tvisc = tvisc_.get(node, 0);
   const NodeKernelTraits::DblType rho = density_.get(node, 0);
-  const NodeKernelTraits::DblType tke = tke_.get(node, 0);
-  const NodeKernelTraits::DblType tdr = tdr_.get(node, 0);
+  const NodeKernelTraits::DblType tke = stk::math::max(tke_.get(node, 0), 1.0e-12);
+  const NodeKernelTraits::DblType tdr = stk::math::max(tdr_.get(node, 0), 1.0e-12);
   const NodeKernelTraits::DblType alpha = alpha_.get(node, 0);
   const NodeKernelTraits::DblType wallDist = minDist_.get(node, 0);
   const NodeKernelTraits::DblType avgRho = avgDensity_.get(node, 0);
@@ -241,6 +248,131 @@ MomentumTAMSKEpsForcingNodeKernel::execute(
   NodeKernelTraits::DblType gX = norm * hX;
   NodeKernelTraits::DblType gY = norm * hY;
   NodeKernelTraits::DblType gZ = norm * hZ;
+
+  if ((step_ % 1000000) == 0)
+  {
+      fprintf(tmpFile,"[ ");
+      for (int simdIndex = 0; simdIndex < stk::simd::ndoubles; ++simdIndex) {
+        fprintf(tmpFile, "%11.8f", stk::simd::get_data(coords[0], simdIndex)); 
+        if(simdIndex < stk::simd::ndoubles - 1)
+          fprintf(tmpFile, ", ");
+        else
+          fprintf(tmpFile, " ]");
+      }
+      fprintf(tmpFile,"[ ");
+      for (int simdIndex = 0; simdIndex < stk::simd::ndoubles; ++simdIndex) {
+        fprintf(tmpFile, "%11.8f", stk::simd::get_data(coords[1], simdIndex)); 
+        if(simdIndex < stk::simd::ndoubles - 1)
+          fprintf(tmpFile, ", ");
+        else
+          fprintf(tmpFile, " ]");
+      }
+      fprintf(tmpFile,"[ ");
+      for (int simdIndex = 0; simdIndex < stk::simd::ndoubles; ++simdIndex) {
+        fprintf(tmpFile, "%11.8f", stk::simd::get_data(coords[2], simdIndex)); 
+        if(simdIndex < stk::simd::ndoubles - 1)
+          fprintf(tmpFile, ", ");
+        else
+          fprintf(tmpFile, " ]");
+      }
+      fprintf(tmpFile,"[ ");
+      for (int simdIndex = 0; simdIndex < stk::simd::ndoubles; ++simdIndex) {
+        fprintf(tmpFile, "%11.8f", stk::simd::get_data(gX, simdIndex)); 
+        if(simdIndex < stk::simd::ndoubles - 1)
+          fprintf(tmpFile, ", ");
+        else
+          fprintf(tmpFile, " ]");
+      }
+      fprintf(tmpFile,"[ ");
+      for (int simdIndex = 0; simdIndex < stk::simd::ndoubles; ++simdIndex) {
+        fprintf(tmpFile, "%11.8f", stk::simd::get_data(gY, simdIndex)); 
+        if(simdIndex < stk::simd::ndoubles - 1)
+          fprintf(tmpFile, ", ");
+        else
+          fprintf(tmpFile, " ]");
+      }
+      fprintf(tmpFile,"[ ");
+      for (int simdIndex = 0; simdIndex < stk::simd::ndoubles; ++simdIndex) {
+        fprintf(tmpFile, "%11.8f", stk::simd::get_data(gZ, simdIndex)); 
+        if(simdIndex < stk::simd::ndoubles - 1)
+          fprintf(tmpFile, ", ");
+        else
+          fprintf(tmpFile, " ]");
+      }
+      fprintf(tmpFile,"[ ");
+      for (int simdIndex = 0; simdIndex < stk::simd::ndoubles; ++simdIndex) {
+        fprintf(tmpFile, "%11.8f", stk::simd::get_data(norm, simdIndex)); 
+        if(simdIndex < stk::simd::ndoubles - 1)
+          fprintf(tmpFile, ", ");
+        else
+          fprintf(tmpFile, " ]");
+      }
+      fprintf(tmpFile,"[ ");
+      for (int simdIndex = 0; simdIndex < stk::simd::ndoubles; ++simdIndex) {
+        fprintf(tmpFile, "%11.8f", stk::simd::get_data(F_target, simdIndex)); 
+        if(simdIndex < stk::simd::ndoubles - 1)
+          fprintf(tmpFile, ", ");
+        else
+          fprintf(tmpFile, " ]");
+      }
+      fprintf(tmpFile,"[ ");
+      for (int simdIndex = 0; simdIndex < stk::simd::ndoubles; ++simdIndex) {
+        fprintf(tmpFile, "%11.8f", stk::simd::get_data(alpha, simdIndex)); 
+        if(simdIndex < stk::simd::ndoubles - 1)
+          fprintf(tmpFile, ", ");
+        else
+          fprintf(tmpFile, " ]");
+      }
+      fprintf(tmpFile,"[ ");
+      for (int simdIndex = 0; simdIndex < stk::simd::ndoubles; ++simdIndex) {
+        fprintf(tmpFile, "%11.8f", stk::simd::get_data(prod_r, simdIndex)); 
+        if(simdIndex < stk::simd::ndoubles - 1)
+          fprintf(tmpFile, ", ");
+        else
+          fprintf(tmpFile, " ]");
+      }
+      fprintf(tmpFile,"[ ");
+      for (int simdIndex = 0; simdIndex < stk::simd::ndoubles; ++simdIndex) {
+        fprintf(tmpFile, "%11.8f", stk::simd::get_data(arg, simdIndex)); 
+        if(simdIndex < stk::simd::ndoubles - 1)
+          fprintf(tmpFile, ", ");
+        else
+          fprintf(tmpFile, " ]");
+      }
+      fprintf(tmpFile,"[ ");
+      for (int simdIndex = 0; simdIndex < stk::simd::ndoubles; ++simdIndex) {
+        fprintf(tmpFile, "%11.8f", stk::simd::get_data(fd_temp, simdIndex)); 
+        if(simdIndex < stk::simd::ndoubles - 1)
+          fprintf(tmpFile, ", ");
+        else
+          fprintf(tmpFile, " ]");
+      }
+      fprintf(tmpFile,"[ ");
+      for (int simdIndex = 0; simdIndex < stk::simd::ndoubles; ++simdIndex) {
+        fprintf(tmpFile, "%11.8f", stk::simd::get_data(tke, simdIndex)); 
+        if(simdIndex < stk::simd::ndoubles - 1)
+          fprintf(tmpFile, ", ");
+        else
+          fprintf(tmpFile, " ]");
+      }
+      fprintf(tmpFile,"[ ");
+      for (int simdIndex = 0; simdIndex < stk::simd::ndoubles; ++simdIndex) {
+        fprintf(tmpFile, "%11.8f", stk::simd::get_data(tdr, simdIndex)); 
+        if(simdIndex < stk::simd::ndoubles - 1)
+          fprintf(tmpFile, ", ");
+        else
+          fprintf(tmpFile, " ]");
+      }
+      fprintf(tmpFile,"[ ");
+      for (int simdIndex = 0; simdIndex < stk::simd::ndoubles; ++simdIndex) {
+        fprintf(tmpFile, "%11.8f", stk::simd::get_data(avgTime, simdIndex)); 
+        if(simdIndex < stk::simd::ndoubles - 1)
+          fprintf(tmpFile, ", ");
+        else
+          fprintf(tmpFile, " ]");
+      }
+      fprintf(tmpFile, "\n");
+  }
 
   // TODO: Assess viability of first approach where we don't solve a poisson
   // problem and allow the field be divergent, which should get projected out

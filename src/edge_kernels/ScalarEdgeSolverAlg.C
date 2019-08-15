@@ -44,6 +44,8 @@ ScalarEdgeSolverAlg::ScalarEdgeSolverAlg(
   }
 
   pecletFunction_ = eqSystem->ngp_create_peclet_function<double>(dofName_);
+
+  tmpFile = fopen("edgeMdot.txt", "a");
 }
 
 void
@@ -102,6 +104,47 @@ ScalarEdgeSolverAlg::execute()
 
       const DblType viscIp = 0.5 * (viscosityL + viscosityR);
       const DblType diffIp = 0.5 * (viscosityL / densityL + viscosityR / densityR);
+
+      const DblType coordsX = 0.5 * (coordinates.get(nodeR, 0) + coordinates.get(nodeL, 0));
+      const DblType coordsY = 0.5 * (coordinates.get(nodeR, 1) + coordinates.get(nodeL, 1));
+      const DblType coordsZ = 0.5 * (coordinates.get(nodeR, 2) + coordinates.get(nodeL, 2));
+
+      //if ((_ % 1) == 0)
+      //{
+          fprintf(tmpFile,"[ ");
+          for (int simdIndex = 0; simdIndex < stk::simd::ndoubles; ++simdIndex) {
+            fprintf(tmpFile, "%11.8f", stk::simd::get_data(coordsX, simdIndex));
+            if(simdIndex < stk::simd::ndoubles - 1)
+              fprintf(tmpFile, ", ");
+            else
+              fprintf(tmpFile, " ]");
+          }
+          fprintf(tmpFile,"[ ");
+          for (int simdIndex = 0; simdIndex < stk::simd::ndoubles; ++simdIndex) {
+            fprintf(tmpFile, "%11.8f", stk::simd::get_data(coordsY, simdIndex));
+            if(simdIndex < stk::simd::ndoubles - 1)
+              fprintf(tmpFile, ", ");
+            else
+              fprintf(tmpFile, " ]");
+          }
+          fprintf(tmpFile,"[ ");
+          for (int simdIndex = 0; simdIndex < stk::simd::ndoubles; ++simdIndex) {
+            fprintf(tmpFile, "%11.8f", stk::simd::get_data(coordsZ, simdIndex));
+            if(simdIndex < stk::simd::ndoubles - 1)
+              fprintf(tmpFile, ", ");
+            else
+              fprintf(tmpFile, " ]");
+          }
+          fprintf(tmpFile,"[ ");
+          for (int simdIndex = 0; simdIndex < stk::simd::ndoubles; ++simdIndex) {
+            fprintf(tmpFile, "%11.8f", stk::simd::get_data(mdot, simdIndex));
+            if(simdIndex < stk::simd::ndoubles - 1)
+              fprintf(tmpFile, ", ");
+            else
+              fprintf(tmpFile, " ]");
+          }
+          fprintf(tmpFile, "\n");
+      //}
 
       // Compute area vector related quantities and (U dot areaVec)
       DblType axdx = 0.0;

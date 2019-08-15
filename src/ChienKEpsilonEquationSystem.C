@@ -10,6 +10,7 @@
 #include <AlgorithmDriver.h>
 #include <FieldFunctions.h>
 #include <master_element/MasterElement.h>
+#include <master_element/MasterElementFactory.h>
 #include <NaluEnv.h>
 #include <TotalDissipationRateEquationSystem.h>
 #include <SolutionOptions.h>
@@ -146,6 +147,11 @@ ChienKEpsilonEquationSystem::solve_and_update()
     // FIXME: This needs to be done every timestep dynamically once utau issue
     //        is resolved...
     compute_dplus_function();
+
+    // FIXME: Figure out a way to do this properly in TAMS Eqn System, so that 
+    //        they are decoupled
+    if (realm_.solutionOptions_->turbulenceModel_ == TAMS_KEPS) 
+        initialize_mdot();
     
     isInit_ = false;
   } else if (realm_.has_mesh_motion()) {
@@ -376,6 +382,75 @@ ChienKEpsilonEquationSystem::compute_dplus_function()
     }
   }
 }
+
+//--------------------------------------------------------------------------
+//-------- initialize_mdot -------------------------------------------------
+//--------------------------------------------------------------------------
+void
+ChienKEpsilonEquationSystem::initialize_mdot()
+{
+  //FIXME: Don't do this if it's a restart and average_mdot has been defined...
+
+  stk::mesh::MetaData & meta_data = realm_.meta_data();
+  if (realm_.realmUsesEdges_) {
+    ScalarFieldType *massFlowRate_ = meta_data.get_field<ScalarFieldType>(stk::topology::EDGE_RANK, "mass_flow_rate");
+    ScalarFieldType *avgMdot_ = meta_data.get_field<ScalarFieldType>(stk::topology::EDGE_RANK, "average_mass_flow_rate");
+
+    // FIXME: Is this selector right?
+    stk::mesh::Selector s_locally_owned_union = (meta_data.locally_owned_part()
+      | meta_data.globally_shared_part())
+      &stk::mesh::selectField(*avgMdot_);
+
+    stk::mesh::BucketVector const& edge_buckets =
+      realm_.get_buckets( stk::topology::EDGE_RANK, s_locally_owned_union );
+    for ( stk::mesh::BucketVector::const_iterator ib = edge_buckets.begin();
+          ib != edge_buckets.end() ; ++ib ) {
+      stk::mesh::Bucket & b = **ib ;
+      const stk::mesh::Bucket::size_type length   = b.size();
+
+      const double * mdot = stk::mesh::field_data(*massFlowRate_, b);
+      double * avgMdot    = stk::mesh::field_data(*avgMdot_, b);
+
+      for ( stk::mesh::Bucket::size_type k = 0 ; k < length ; ++k )
+        avgMdot[k] = mdot[k];
+    }
+  }
+  else {
+    GenericFieldType *massFlowRateScs_ = meta_data.get_field<GenericFieldType>(stk::topology::ELEMENT_RANK, "mass_flow_rate_scs");
+    GenericFieldType *avgMdotScs_ = meta_data.get_field<GenericFieldType>(stk::topology::ELEMENT_RANK, "average_mass_flow_rate_scs");
+
+    // FIXME: Hack since setting an element field to a constant using Aux doesn't seem to work...
+    // required fields
+
+    // define some common selectors
+    stk::mesh::Selector s_all_elem
+      = (meta_data.locally_owned_part() | meta_data.globally_shared_part())
+      &stk::mesh::selectField(*avgMdotScs_);
+
+    stk::mesh::BucketVector const& elem_buckets =
+      realm_.get_buckets( stk::topology::ELEMENT_RANK, s_all_elem );
+    for ( stk::mesh::BucketVector::const_iterator ib = elem_buckets.begin();
+          ib != elem_buckets.end() ; ++ib ) {
+      stk::mesh::Bucket & b = **ib ;
+      const stk::mesh::Bucket::size_type length = b.size();
+
+      // extract master element
+      MasterElement *meSCS = sierra::nalu::MasterElementRepo::get_surface_master_element(b.topology());
+
+      // extract master element specifics
+      const int numScsIp = meSCS->num_integration_points();
+
+      for ( stk::mesh::Bucket::size_type k = 0 ; k < length ; ++k ) {
+         double *avgMdotScs = stk::mesh::field_data(*avgMdotScs_, b, k);
+         const double *mdotScs = stk::mesh::field_data(*massFlowRateScs_, b, k);
+
+         for (int ip = 0; ip < numScsIp; ip++)
+           avgMdotScs[ip] = mdotScs[ip];
+      }
+    }
+  }
+}
+
 
 } // namespace nalu
 } // namespace Sierra

@@ -60,19 +60,17 @@ TurbKineticEnergyTAMSKEpsSrcNodeKernel::execute(
   const stk::mesh::FastMeshIndex& node)
 {
   const NodeKernelTraits::DblType Pk = prod_.get(node, 0);
-  const NodeKernelTraits::DblType Dk = rho_.get(node, 0) * tdr_.get(node, 0);
+  const NodeKernelTraits::DblType Dk = rho_.get(node, 0) * stk::math::max(tdr_.get(node, 0), 1.0e-12); 
   const NodeKernelTraits::DblType minDist = minDist_.get(node, 0);
   const NodeKernelTraits::DblType lFac = 2.0 * viscosity_.get(node, 0) / minDist / minDist;
-  const NodeKernelTraits::DblType Lk = -lFac * tke_.get(node, 0);
+  const NodeKernelTraits::DblType Lk = -lFac * stk::math::max(tke_.get(node, 0), 1.0e-12); 
 
   const NodeKernelTraits::DblType dualVolume = dualNodalVolume_.get(node, 0);
 
-  //  NaluEnv::self().naluOutputP0() << "RHS?" << std::endl;
   rhs(0) += (Pk - Dk + Lk) * dualVolume;
-  //    NaluEnv::self().naluOutputP0() << "LHS?" << std::endl;
+  
   //FIXME: Is this lhs(0) or lhs(0,0)? Or something else...
   lhs(0, 0) += lFac * dualVolume;
-  //    NaluEnv::self().naluOutputP0() << "Not Here?" << std::endl;
 }
 
 }  // nalu

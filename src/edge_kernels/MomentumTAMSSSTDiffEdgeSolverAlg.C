@@ -111,7 +111,9 @@ MomentumTAMSSSTDiffEdgeSolverAlg::execute()
         0.5 * (avgDensity.get(nodeL, 0) + avgDensity.get(nodeR, 0));
       const DblType fluctRhoIp =
         0.5 * (density.get(nodeL, 0) + density.get(nodeR, 0)) - avgRhoIp;
-      const DblType tkeIp = 0.5 * (tke.get(nodeL, 0) + tke.get(nodeR, 0));
+      const DblType tkeIp = 0.5 * (stk::math::max(tke.get(nodeL, 0), 1.0e-12) +
+                                   stk::math::max(tke.get(nodeR, 0), 1.0e-12));
+
       const DblType sdrIp = 0.5 * (sdr.get(nodeL, 0) + sdr.get(nodeR, 0));
       const DblType alphaIp = 0.5 * (alpha.get(nodeL, 0) + alpha.get(nodeR, 0));
       DblType avgdUidxj[nDimMax_][nDimMax_];

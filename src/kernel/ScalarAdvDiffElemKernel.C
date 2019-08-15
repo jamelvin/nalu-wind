@@ -66,6 +66,8 @@ ScalarAdvDiffElemKernel<AlgTraits>::ScalarAdvDiffElemKernel(
 
   if (skewSymmetric_)
     dataPreReqs.add_master_element_call(SCS_SHIFTED_SHAPE_FCN, CURRENT_COORDINATES);
+
+  tmpFile = fopen("elemMdot.txt", "a");
 }
 
 template<typename AlgTraits>
@@ -75,6 +77,9 @@ ScalarAdvDiffElemKernel<AlgTraits>::execute(
   SharedMemView<DoubleType*, DeviceShmem>& rhs,
   ScratchViews<DoubleType, DeviceTeamHandleType, DeviceShmem>& scratchViews)
 {
+  NALU_ALIGNED DoubleType w_coordScs[AlgTraits::nDim_];
+
+  auto& v_coords = scratchViews.get_scratch_view_2D(coordinates_);
   auto& v_scalarQ = scratchViews.get_scratch_view_1D(scalarQ_);
   auto& v_diffFluxCoeff = scratchViews.get_scratch_view_1D(diffFluxCoeff_);
   auto& v_mdot = scratchViews.get_scratch_view_1D(massFlowRate_);
@@ -97,12 +102,56 @@ ScalarAdvDiffElemKernel<AlgTraits>::execute(
     // save off mdot
     const DoubleType tmdot = v_mdot(ip);
 
+    for (int j = 0; j < AlgTraits::nDim_; ++j) {
+      w_coordScs[j] = 0.0;
+    }
+
     // compute ip property and
     DoubleType diffFluxCoeffIp = 0.0;
     for ( int ic = 0; ic < AlgTraits::nodesPerElement_; ++ic ) {
       const DoubleType r = v_shape_function(ip,ic);
       diffFluxCoeffIp += r*v_diffFluxCoeff(ic);
+      for (int i = 0; i < AlgTraits::nDim_; ++i) {
+          w_coordScs[i] += r * v_coords(ic, i);
+      }
     }
+
+      //if (_ % 1) == 0)
+      //{
+          fprintf(tmpFile,"[ ");
+          for (int simdIndex = 0; simdIndex < stk::simd::ndoubles; ++simdIndex) {
+            fprintf(tmpFile, "%11.8f", stk::simd::get_data(w_coordScs[0], simdIndex));
+            if(simdIndex < stk::simd::ndoubles - 1)
+              fprintf(tmpFile, ", ");
+            else
+              fprintf(tmpFile, " ]");
+          }
+          fprintf(tmpFile,"[ ");
+          for (int simdIndex = 0; simdIndex < stk::simd::ndoubles; ++simdIndex) {
+            fprintf(tmpFile, "%11.8f", stk::simd::get_data(w_coordScs[1], simdIndex));
+            if(simdIndex < stk::simd::ndoubles - 1)
+              fprintf(tmpFile, ", ");
+            else
+              fprintf(tmpFile, " ]");
+          }
+          fprintf(tmpFile,"[ ");
+          for (int simdIndex = 0; simdIndex < stk::simd::ndoubles; ++simdIndex) {
+            fprintf(tmpFile, "%11.8f", stk::simd::get_data(w_coordScs[2], simdIndex));
+            if(simdIndex < stk::simd::ndoubles - 1)
+              fprintf(tmpFile, ", ");
+            else
+              fprintf(tmpFile, " ]");
+          }
+          fprintf(tmpFile,"[ ");
+          for (int simdIndex = 0; simdIndex < stk::simd::ndoubles; ++simdIndex) {
+            fprintf(tmpFile, "%11.8f", stk::simd::get_data(tmdot, simdIndex));
+            if(simdIndex < stk::simd::ndoubles - 1)
+              fprintf(tmpFile, ", ");
+            else
+              fprintf(tmpFile, " ]");
+          }
+          fprintf(tmpFile, "\n");
+      //}
 
     // advection and diffusion
     DoubleType qAdv = 0.0;

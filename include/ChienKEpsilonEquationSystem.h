@@ -53,6 +53,7 @@ public:
 
   void initial_work();
   void post_adapt_work();
+  void initialize_mdot();
 
   void compute_dplus_function();
   void update_and_clip();

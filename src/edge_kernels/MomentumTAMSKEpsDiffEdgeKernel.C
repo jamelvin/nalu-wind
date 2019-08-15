@@ -117,8 +117,12 @@ MomentumTAMSKEpsDiffEdgeKernel::execute(
   const EdgeKernelTraits::DblType muIp = 0.5 * (tvisc_.get(nodeL, 0) + tvisc_.get(nodeR, 0));
   const EdgeKernelTraits::DblType avgRhoIp = 0.5 * (avgDensity_.get(nodeL, 0) + avgDensity_.get(nodeR, 0));
   const EdgeKernelTraits::DblType fluctRhoIp = 0.5 * (density_.get(nodeL, 0) + density_.get(nodeR, 0)) - avgRhoIp;
-  const EdgeKernelTraits::DblType tkeIp = 0.5 * (tke_.get(nodeL, 0) + tke_.get(nodeR, 0));
-  const EdgeKernelTraits::DblType tdrIp = 0.5 * (tdr_.get(nodeL, 0) + tdr_.get(nodeR, 0));
+  const EdgeKernelTraits::DblType tkeIp = 0.5 * (stk::math::max(tke_.get(nodeL, 0), 1.0e-12) + 
+                                                 stk::math::max(tke_.get(nodeR, 0), 1.0e-12));
+
+  const EdgeKernelTraits::DblType tdrIp = 0.5 * (stk::math::max(tdr_.get(nodeL, 0), 1.0e-12) + 
+                                                 stk::math::max(tdr_.get(nodeR, 0), 1.0e-12));
+
   const EdgeKernelTraits::DblType alphaIp = 0.5 * (alpha_.get(nodeL, 0) + alpha_.get(nodeR, 0));
   EdgeKernelTraits::DblType avgdUidxj[3][3];
   EdgeKernelTraits::DblType fluctdUidxj[3][3];
