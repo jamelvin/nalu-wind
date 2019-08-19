@@ -92,8 +92,8 @@ MomentumTAMSKEpsForcingNodeKernel::execute(
   const NodeKernelTraits::DblType mu = viscosity_.get(node, 0);
   const NodeKernelTraits::DblType tvisc = tvisc_.get(node, 0);
   const NodeKernelTraits::DblType rho = density_.get(node, 0);
-  const NodeKernelTraits::DblType tke = tke_.get(node, 0);
-  const NodeKernelTraits::DblType tdr = tdr_.get(node, 0);
+  const NodeKernelTraits::DblType tke = stk::math::max(tke_.get(node, 0), 1.0e-12);
+  const NodeKernelTraits::DblType tdr = stk::math::max(tdr_.get(node, 0), 1.0e-12);
   const NodeKernelTraits::DblType alpha = alpha_.get(node, 0);
   const NodeKernelTraits::DblType wallDist = minDist_.get(node, 0);
   const NodeKernelTraits::DblType avgRho = avgDensity_.get(node, 0);

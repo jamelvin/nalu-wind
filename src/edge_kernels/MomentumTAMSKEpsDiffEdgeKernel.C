@@ -117,7 +117,7 @@ MomentumTAMSKEpsDiffEdgeKernel::execute(
   }
 
   // Compute CM43
-  EdgeKernelTraits::DblType CM43 = tams_utils::get_M43_constant(D, CMdeg_);
+  EdgeKernelTraits::DblType CM43 = tams_utils::get_M43_constant<EdgeKernelTraits::DblType, 3>(D, CMdeg_);
 
   const EdgeKernelTraits::DblType muIp =
     0.5 * (tvisc_.get(nodeL, 0) + tvisc_.get(nodeR, 0));
@@ -125,12 +125,13 @@ MomentumTAMSKEpsDiffEdgeKernel::execute(
     0.5 * (avgDensity_.get(nodeL, 0) + avgDensity_.get(nodeR, 0));
   const EdgeKernelTraits::DblType fluctRhoIp =
     0.5 * (density_.get(nodeL, 0) + density_.get(nodeR, 0)) - avgRhoIp;
-  const EdgeKernelTraits::DblType tkeIp =
-    0.5 * (tke_.get(nodeL, 0) + tke_.get(nodeR, 0));
-  const EdgeKernelTraits::DblType tdrIp =
-    0.5 * (tdr_.get(nodeL, 0) + tdr_.get(nodeR, 0));
+  const EdgeKernelTraits::DblType tkeIp = 0.5 * (stk::math::max(tke_.get(nodeL, 0), 1.0e-12) + 
+                                                 stk::math::max(tke_.get(nodeR, 0), 1.0e-12));
+  const EdgeKernelTraits::DblType tdrIp = 0.5 * (stk::math::max(tdr_.get(nodeL, 0), 1.0e-12) + 
+                                                 stk::math::max(tdr_.get(nodeR, 0), 1.0e-12));
   const EdgeKernelTraits::DblType alphaIp =
     0.5 * (alpha_.get(nodeL, 0) + alpha_.get(nodeR, 0));
+
   EdgeKernelTraits::DblType avgdUidxj[3][3];
   EdgeKernelTraits::DblType fluctdUidxj[3][3];
 
@@ -225,7 +226,7 @@ MomentumTAMSKEpsDiffEdgeKernel::execute(
 
       // SGRS (average) term, scaled by alpha
       const EdgeKernelTraits::DblType rhsSGRCfacDiff_i =
-        -alphaIp * muIp * avgdUidxj[i][j] * av[i];
+        -alphaIp * muIp * avgdUidxj[i][j] * av[j];
 
       smdata.rhs(0 + i) -= rhsfacDiff_i + rhsSGRCfacDiff_i;
       smdata.rhs(3 + i) += rhsfacDiff_i + rhsSGRCfacDiff_i;
@@ -240,7 +241,7 @@ MomentumTAMSKEpsDiffEdgeKernel::execute(
 
       // SGRS (average) term, scaled by alpha
       const EdgeKernelTraits::DblType rhsSGRCfacDiff_j =
-        -alphaIp * muIp * avgdUidxj[j][i] * av[i];
+        -alphaIp * muIp * avgdUidxj[j][i] * av[j];
 
       smdata.rhs(0 + i) -= rhsfacDiff_j + rhsSGRCfacDiff_j;
       smdata.rhs(3 + i) += rhsfacDiff_j + rhsSGRCfacDiff_j;

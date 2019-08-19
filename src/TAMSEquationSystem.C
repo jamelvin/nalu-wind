@@ -597,7 +597,7 @@ TAMSEquationSystem::solve_and_update()
   if (isInit_) {
     // compute_projected_nodal_gradient();
     // compute_metric_tensor();
-    initialize_mdot();
+    //initialize_mdot();
     isInit_ = false;
   }
 
@@ -753,10 +753,12 @@ TAMSEquationSystem::initial_work()
   }
 
   compute_averages();
-  initialize_mdot();
+  // FIXME: Had to move this to SST and KEps Eqn Systems for now since mdot is not 
+  //        able to be calculated during intial_work phase...
+  //initialize_mdot();
   compute_alpha();
   compute_resolution_adequacy_parameters();
-  compute_avgMdot();
+  //compute_avgMdot();
 }
 
 //--------------------------------------------------------------------------

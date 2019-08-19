@@ -62,7 +62,7 @@ TKETAMSSSTNodeKernel::execute(
 
   const NodeKernelTraits::DblType tkeFac =
     betaStar_ * rho_.get(node, 0) * sdr_.get(node, 0);
-  NodeKernelTraits::DblType Dk = tkeFac * tke_.get(node, 0);
+  NodeKernelTraits::DblType Dk = tkeFac * stk::math::max(tke_.get(node, 0), 1.0e-12);
 
   Pk = stk::math::min(Pk, tkeProdLimitRatio_ * Dk);
 

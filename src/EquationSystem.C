@@ -277,9 +277,7 @@ EquationSystem::assemble_and_solve(
 
   // apply all flux and dirichlet algs
   timeA = NaluEnv::self().nalu_time();
-  NaluEnv::self().naluOutputP0() << "solverAlgDriver BEGIN" << std::endl;
   solverAlgDriver_->execute();
-  NaluEnv::self().naluOutputP0() << "solverAlgDriver END..." << std::endl;
   timeB = NaluEnv::self().nalu_time();
   timerAssemble_ += (timeB-timeA);
 

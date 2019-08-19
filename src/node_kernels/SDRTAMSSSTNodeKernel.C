@@ -68,7 +68,7 @@ SDRTAMSSSTNodeKernel::execute(
 {
   const NodeKernelTraits::DblType rho = rho_.get(node, 0);
   const NodeKernelTraits::DblType sdr = sdr_.get(node, 0);
-  const NodeKernelTraits::DblType tke = tke_.get(node, 0);
+  const NodeKernelTraits::DblType tke = stk::math::max(tke_.get(node, 0), 1.0e-12);
   const NodeKernelTraits::DblType tvisc = tvisc_.get(node, 0);
   const NodeKernelTraits::DblType fOneBlend = fOneBlend_.get(node, 0);
 
