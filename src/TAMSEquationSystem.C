@@ -738,7 +738,7 @@ TAMSEquationSystem::initial_work()
   //initialize_mdot();
   compute_alpha();
   compute_resolution_adequacy_parameters();
-  compute_avgMdot();
+  //compute_avgMdot();
 }
 
 //--------------------------------------------------------------------------

@@ -94,8 +94,6 @@ MomentumTAMSKEpsDiffElemKernel<AlgTraits>::execute(
   SharedMemView<DoubleType*>& rhs,
   ScratchViews<DoubleType>& scratchViews)
 {
-  NALU_ALIGNED DoubleType w_mutijScs[AlgTraits::nDim_ * AlgTraits::nDim_];
-
   SharedMemView<DoubleType**>& v_uNp1 =
     scratchViews.get_scratch_view_2D(velocityNp1_);
   SharedMemView<DoubleType*>& v_rhoNp1 =
@@ -167,14 +165,6 @@ MomentumTAMSKEpsDiffElemKernel<AlgTraits>::execute(
     // save off some offsets
     const int ilNdim = il * AlgTraits::nDim_;
     const int irNdim = ir * AlgTraits::nDim_;
-
-    // zero out vector that prevail over all components
-    for (int i = 0; i < AlgTraits::nDim_; ++i) {
-      const int offset = i * AlgTraits::nDim_;
-      for (int j = 0; j < AlgTraits::nDim_; ++j) {
-        w_mutijScs[offset + j] = 0.0;
-      }
-    }
 
     DoubleType muScs = 0.0;
     DoubleType fluctRhoScs = 0.0;

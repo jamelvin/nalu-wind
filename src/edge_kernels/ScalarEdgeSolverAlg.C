@@ -108,7 +108,7 @@ ScalarEdgeSolverAlg::execute()
       const DblType coordsX = 0.5 * (coordinates.get(nodeR, 0) + coordinates.get(nodeL, 0));
       const DblType coordsY = 0.5 * (coordinates.get(nodeR, 1) + coordinates.get(nodeL, 1));
       const DblType coordsZ = 0.5 * (coordinates.get(nodeR, 2) + coordinates.get(nodeL, 2));
-
+/*
       //if ((_ % 1) == 0)
       //{
           fprintf(tmpFile,"[ ");
@@ -145,7 +145,7 @@ ScalarEdgeSolverAlg::execute()
           }
           fprintf(tmpFile, "\n");
       //}
-
+*/
       // Compute area vector related quantities and (U dot areaVec)
       DblType axdx = 0.0;
       DblType asq = 0.0;

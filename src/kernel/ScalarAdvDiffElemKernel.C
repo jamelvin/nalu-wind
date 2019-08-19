@@ -115,7 +115,7 @@ ScalarAdvDiffElemKernel<AlgTraits>::execute(
           w_coordScs[i] += r * v_coords(ic, i);
       }
     }
-
+/*
       //if (_ % 1) == 0)
       //{
           fprintf(tmpFile,"[ ");
@@ -152,7 +152,7 @@ ScalarAdvDiffElemKernel<AlgTraits>::execute(
           }
           fprintf(tmpFile, "\n");
       //}
-
+*/
     // advection and diffusion
     DoubleType qAdv = 0.0;
     DoubleType qDiff = 0.0;

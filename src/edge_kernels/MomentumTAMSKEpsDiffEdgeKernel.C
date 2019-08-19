@@ -112,7 +112,7 @@ MomentumTAMSKEpsDiffEdgeKernel::execute(
   }
 
   // Compute CM43
-  EdgeKernelTraits::DblType CM43 = tams_utils::get_M43_constant(D, CMdeg_);
+  EdgeKernelTraits::DblType CM43 = tams_utils::get_M43_constant<EdgeKernelTraits::DblType, 3>(D, CMdeg_);
 
   const EdgeKernelTraits::DblType muIp = 0.5 * (tvisc_.get(nodeL, 0) + tvisc_.get(nodeR, 0));
   const EdgeKernelTraits::DblType avgRhoIp = 0.5 * (avgDensity_.get(nodeL, 0) + avgDensity_.get(nodeR, 0));
@@ -124,6 +124,8 @@ MomentumTAMSKEpsDiffEdgeKernel::execute(
                                                  stk::math::max(tdr_.get(nodeR, 0), 1.0e-12));
 
   const EdgeKernelTraits::DblType alphaIp = 0.5 * (alpha_.get(nodeL, 0) + alpha_.get(nodeR, 0));
+
+
   EdgeKernelTraits::DblType avgdUidxj[3][3];
   EdgeKernelTraits::DblType fluctdUidxj[3][3];
 
@@ -182,6 +184,10 @@ MomentumTAMSKEpsDiffEdgeKernel::execute(
     avgDivU += avgdUidxj[i][i];
   }
 
+  // diffusion LHS term
+  const EdgeKernelTraits::DblType dlhsfac = -muIp * asq * inv_axdx;
+
+
   // FIXME: Does this need a rho in it?
   const EdgeKernelTraits::DblType epsilon13Ip = stk::math::pow(tdrIp, 1.0 / 3.0);
 
@@ -216,7 +222,7 @@ MomentumTAMSKEpsDiffEdgeKernel::execute(
 
       // SGRS (average) term, scaled by alpha
       const EdgeKernelTraits::DblType rhsSGRCfacDiff_i =
-        -alphaIp * muIp * avgdUidxj[i][j] * av[i];
+        -alphaIp * muIp * avgdUidxj[i][j] * av[j];
 
       smdata.rhs(0 + i) -= rhsfacDiff_i + rhsSGRCfacDiff_i;
       smdata.rhs(3 + i) += rhsfacDiff_i + rhsSGRCfacDiff_i;
@@ -231,10 +237,29 @@ MomentumTAMSKEpsDiffEdgeKernel::execute(
 
       // SGRS (average) term, scaled by alpha
       const EdgeKernelTraits::DblType rhsSGRCfacDiff_j =
-        -alphaIp * muIp * avgdUidxj[j][i] * av[i];
+        -alphaIp * muIp * avgdUidxj[j][i] * av[j];
 
       smdata.rhs(0 + i) -= rhsfacDiff_j + rhsSGRCfacDiff_j;
       smdata.rhs(3 + i) += rhsfacDiff_j + rhsSGRCfacDiff_j;
+
+      // TODO: Add implicitness by understanding what these terms do...
+      // Diffusion terms
+      //smdata.lhs(rowL, rowL) -= dlhsfac / relaxFacU;
+      //smdata.lhs(rowL, rowR) += dlhsfac;
+      //smdata.lhs(rowR, rowL) += dlhsfac;
+      //smdata.lhs(rowR, rowR) -= dlhsfac / relaxFacU;
+      //for (int j=0; j < ndim; ++j) {
+      //  const DblType lhsfacNS = -viscIp * av[i] * av[j] * inv_axdx;
+
+      //  const int colL = j;
+      //  const int colR = j + ndim;
+
+      //  smdata.lhs(rowL, colL) -= lhsfacNS / relaxFacU;
+      //  smdata.lhs(rowL, colR) += lhsfacNS;
+      //  smdata.lhs(rowR, colL) += lhsfacNS;
+      //  smdata.lhs(rowR, colR) -= lhsfacNS / relaxFacU;
+      //}
+
     }
   }
 }

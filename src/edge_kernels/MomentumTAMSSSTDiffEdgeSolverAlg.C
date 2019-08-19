@@ -211,7 +211,7 @@ MomentumTAMSSSTDiffEdgeSolverAlg::execute()
 
           // SGRS (average) term, scaled by alpha
           const DblType rhsSGRCfacDiff_i =
-            -alphaIp * muIp * avgdUidxj[i][j] * av[i];
+            -alphaIp * muIp * avgdUidxj[i][j] * av[j];
 
           smdata.rhs(0 + i) -= rhsfacDiff_i + rhsSGRCfacDiff_i;
           smdata.rhs(3 + i) += rhsfacDiff_i + rhsSGRCfacDiff_i;
@@ -226,7 +226,7 @@ MomentumTAMSSSTDiffEdgeSolverAlg::execute()
 
           // SGRS (average) term, scaled by alpha
           const DblType rhsSGRCfacDiff_j =
-            -alphaIp * muIp * avgdUidxj[j][i] * av[i];
+            -alphaIp * muIp * avgdUidxj[j][i] * av[j];
 
           smdata.rhs(0 + i) -= rhsfacDiff_j + rhsSGRCfacDiff_j;
           smdata.rhs(3 + i) += rhsfacDiff_j + rhsSGRCfacDiff_j;
