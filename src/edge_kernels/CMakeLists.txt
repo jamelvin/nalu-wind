@@ -7,6 +7,7 @@ add_sources(GlobalSourceList
   MomentumTAMSKEpsDiffEdgeSolverAlg.C
   MomentumTAMSKEpsDiffEdgeKernel.C
   MomentumTAMSSSTDiffEdgeSolverAlg.C
+  MomentumTAMSSSTDiffEdgeKernel.C
   ScalarEdgeSolverAlg.C
   WallDistEdgeSolverAlg.C
   # Face/edge BC kernels
