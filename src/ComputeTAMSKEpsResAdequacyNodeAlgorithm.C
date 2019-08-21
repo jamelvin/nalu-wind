@@ -93,17 +93,23 @@ void ComputeTAMSKEpsResAdequacyNodeAlgorithm::execute() {
   stk::mesh::MetaData &meta_data = realm_.meta_data();
 
   const double dt = realm_.get_time_step();
+  const int step = realm_.get_time_step_count();
 
   // fill in elemental values
   //stk::mesh::Selector s_locally_owned_union =
   //    meta_data.locally_owned_part() & stk::mesh::selectUnion(partVec_);
 
   // fill in elemental values
-     stk::mesh::Selector s_locally_owned_union =
-           stk::mesh::selectUnion(partVec_);
+  //   stk::mesh::Selector s_locally_owned_union =
+  //         stk::mesh::selectUnion(partVec_);
+
+  // fill in nodal values
+  stk::mesh::Selector s_all_nodes
+    = (meta_data.locally_owned_part() | meta_data.globally_shared_part())
+    &stk::mesh::selectField(*avgResAdeq_);
 
   stk::mesh::BucketVector const &node_buckets =
-      realm_.get_buckets(stk::topology::NODE_RANK, s_locally_owned_union);
+      realm_.get_buckets(stk::topology::NODE_RANK, s_all_nodes);
   for (stk::mesh::BucketVector::const_iterator ib = node_buckets.begin();
        ib != node_buckets.end(); ++ib) {
     stk::mesh::Bucket &b = **ib;
@@ -113,12 +119,14 @@ void ComputeTAMSKEpsResAdequacyNodeAlgorithm::execute() {
     tauSGRS.resize(nDim_ * nDim_);
     tau.resize(nDim_ * nDim_);
     Psgs.resize(nDim_ * nDim_);
+    nuSF.resize(nDim_ * nDim_);
 
     // pointers to the local storage vectors
     double *p_tauSGET = &tauSGET[0];
     double *p_tauSGRS = &tauSGRS[0];
     double *p_tau = &tau[0];
     double *p_Psgs = &Psgs[0];
+    double *p_nuSF = &nuSF[0];
 
     // Get scalars
     const double *mut     = stk::mesh::field_data(*turbVisc_, b);
@@ -182,6 +190,7 @@ void ComputeTAMSKEpsResAdequacyNodeAlgorithm::execute() {
           p_tauSGET[i*nDim_ + j] = 0.0;
           p_tau[i*nDim_ + j] = 0.0;
           p_Psgs[i*nDim_ + j] = 0.0;
+          p_nuSF[i*nDim_ + j] = 0.0;
         }
       }
 
@@ -198,6 +207,7 @@ void ComputeTAMSKEpsResAdequacyNodeAlgorithm::execute() {
           const double coeffSGRS = alpha[k] * mut[k];
           p_tauSGRS[i*nDim_ + j] = avgDudx[i*nDim_ + j] + avgDudx[j*nDim_ + i];
           p_tauSGRS[i*nDim_ + j] *= coeffSGRS;
+          p_nuSF[i*nDim_ + j] = CM43 * epsilon13 * M43[i][j];
 
           for (unsigned l = 0; l < nDim_; ++l) {
             // Calculate tauSGET_ij = CM43*<eps>^(1/3)*(M43_ik*dkuj' + M43_jkdkui')
@@ -241,33 +251,42 @@ void ComputeTAMSKEpsResAdequacyNodeAlgorithm::execute() {
 
       // Scale PM first
       const double T_ke = avgTime[k]; //tkeScs / tdrScs;
-      const double v2 = 1.0/0.22 * (mut[k] / T_ke);
+      const double v2 = 1.0/0.22 * (mut[k] / std::max(T_ke, 1.0e-16));
       const double PMscale = std::pow(1.5*alpha[k]*v2,-1.5);
-      if (v2 == 0.0)
-        throw std::runtime_error("TAMSKEResAdequacy: v2 is 0, will cause NaN");
+
+      if (T_ke == 0.0 && alpha[k] < 1.0)
+        throw std::runtime_error("ERROR: TAMSKEResAdequacy: at wall, but alpha isn't 1.0...");
+
       for (unsigned i = 0; i < nDim_; ++i)
         for (unsigned j = 0; j < nDim_; ++j)
           PM[i][j] = PM[i][j] * PMscale;
 
-      //FIXME: PM is not symmetric....
-      EigenDecomposition::unsym_matrix_force_sym<double>(PM, Q, D);
+      if (T_ke == 0.0) {
+        resAdeq[k] = 1.0;
+      } 
+      else {
+        //FIXME: PM is not symmetric....
+        EigenDecomposition::unsym_matrix_force_sym<double>(PM, Q, D);
 
-      const double maxPM = std::max(std::abs(D[0][0]), std::max(std::abs(D[1][1]), std::abs(D[2][2])));
+        const double maxPM = std::max(std::abs(D[0][0]), std::max(std::abs(D[1][1]), std::abs(D[2][2])));
 
-      //tmpFile << coords[0] << " " << coords[1] << " " << coords[2] << " " << PM[0][0] << " " << PM[0][1] << " " << PM[0][2] << " " << PM[1][0] << " " << PM[1][1] << " " << PM[1][2] << " " << PM[2][0] << " " << PM[2][1] << " " << PM[2][2] << " " << Mij[0][0] << " " << Mij[1][1] << " " << Mij[2][2] << " " << Mij[1][2] << std::endl;        
-        
-      // Update the instantaneous resAdeq field
-      resAdeq[k] = maxPM;
-      // FIXME: Limiters as in CDP...
-      resAdeq[k] = std::min(resAdeq[k],30.0);
+        // Update the instantaneous resAdeq field
+        resAdeq[k] = maxPM;
+        // FIXME: Limiters as in CDP...
+        resAdeq[k] = std::min(resAdeq[k],30.0);
       
-      if (alpha[k] >= 1.0)
-        resAdeq[k] = std::min(resAdeq[k],1.0);
+        if (alpha[k] >= 1.0)
+          resAdeq[k] = std::min(resAdeq[k],1.0);
 
-      const double weightAvg = std::max(1.0 - dt/T_ke, 0.0);
-      const double weightInst = std::min(dt/T_ke, 1.0);
+        const double weightAvg = std::max(1.0 - dt/T_ke, 0.0);
+        const double weightInst = std::min(dt/T_ke, 1.0);
 
-      avgResAdeq[k] = weightAvg * avgResAdeq[k] + weightInst * resAdeq[k]; 
+        avgResAdeq[k] = weightAvg * avgResAdeq[k] + weightInst * resAdeq[k];
+      }
+
+      //if (step % 1 == 0) {
+      //    tmpFile << coords[0] << " " << coords[1] << " " << coords[2] << " " << resAdeq[k] << " " << 0.0 << " " << T_ke << " " << v2 << " " << alpha[k] << " " << mut[k] << " " << tdr[k] << " " << tke[k] << " " << dudx[0] << " " << dudx[1] << " " << dudx[2] << " " << dudx[3] << " " << dudx[4] << " " << dudx[5] << " " << dudx[6] << " " << dudx[7] << " " << dudx[8] << " " << avgDudx[0] << " " << avgDudx[1] << " " << avgDudx[2] << " " << avgDudx[3] << " " << avgDudx[4] << " " << avgDudx[5] << " " << avgDudx[6] << " " << avgDudx[7] << " " << avgDudx[8] << " " << nuSF[0] << " " << nuSF[1] << " " << nuSF[2] << " " << nuSF[3] << " " << nuSF[4] << " " << nuSF[5] << " " << nuSF[6] << " " << nuSF[7] << " " << nuSF[8] << " " << Mij[0][0] << " " << Mij[1][1] << " " << Mij[2][2] << " " << std::endl;
+      //}
     }
   }
 }

@@ -69,7 +69,13 @@ int main( int argc, char ** argv )
   sierra::nalu::NaluEnv &naluEnv = sierra::nalu::NaluEnv::self();
   Kokkos::initialize(argc, argv);
   {
-  
+ 
+  //int aa = 10;
+  //while (aa != 100) {
+  //  aa++; 
+  //  aa--;
+  //}
+ 
   stk::diag::setEnabledTimerMetricsMask(stk::diag::METRICS_CPU_TIME | stk::diag::METRICS_WALL_TIME);
 
   sierra::nalu::Simulation::rootTimer().start();

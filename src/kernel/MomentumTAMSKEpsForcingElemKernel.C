@@ -38,6 +38,7 @@ MomentumTAMSKEpsForcingElemKernel<AlgTraits>::MomentumTAMSKEpsForcingElemKernel(
     viscosity_(viscosity->mesh_meta_data_ordinal()),
     turbViscosity_(turbViscosity->mesh_meta_data_ordinal()),
     betaStar_(solnOpts.get_turb_model_constant(TM_betaStar)),
+    forceFactor_(solnOpts.get_turb_model_constant(TM_ForFac)),
     ipNodeMap_(sierra::nalu::MasterElementRepo::get_volume_master_element(
                  AlgTraits::topo_)
                  ->ipNodeMap())
@@ -89,6 +90,8 @@ MomentumTAMSKEpsForcingElemKernel<AlgTraits>::MomentumTAMSKEpsForcingElemKernel(
 
   // master element data
   dataPreReqs.add_master_element_call(SCV_VOLUME, CURRENT_COORDINATES);
+
+  NaluEnv::self().naluOutputP0() << "Forcing Factor set to: " << forceFactor_ << std::endl;
 
   tmpFile.open("forcingField.txt", std::fstream::app);
 }
@@ -212,7 +215,7 @@ MomentumTAMSKEpsForcingElemKernel<AlgTraits>::execute(
     const double Ct = 6.0;
     const double BL_T = 1.0;
     const double BL_KOL = 1.0;
-    const double FORCING_FACTOR = 8.0;
+    const double FORCING_FACTOR = forceFactor_; //8.0;
 
     const DoubleType periodicForcingLengthX = pi_;
     const DoubleType periodicForcingLengthY = 0.25;
@@ -369,7 +372,7 @@ MomentumTAMSKEpsForcingElemKernel<AlgTraits>::execute(
     DoubleType gY = norm * hY; //* 10.0;// / dt_;
     DoubleType gZ = norm * hZ; //* 10.0;// / dt_;
 
-    if (((step_ % 10000) == 9000) || ((step_ % 10000) == 4000))
+    if (((step_ % 1000000) == 9000) || ((step_ % 1000000) == 4000))
     { 
       tmpFile << w_coordScs[0] << w_coordScs[1] << w_coordScs[2] << gX << gY << gZ << norm << alphaScs << v2Scs << tkeScs << tdrScs << fd_temp << Sa << a_kol << a_sign << std::endl;
     }

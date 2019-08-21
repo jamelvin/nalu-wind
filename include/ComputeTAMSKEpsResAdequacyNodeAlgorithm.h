@@ -47,7 +47,7 @@ public:
   std::vector<double> tauSGRS;
   std::vector<double> tau;
   std::vector<double> Psgs;
-
+  std::vector<double> nuSF;
 };
 
 } // namespace nalu

@@ -268,7 +268,7 @@ TurbKineticEnergyEquationSystem::register_interior_algorithm(
     if ( itsi == solverAlgDriver_->solverAlgMap_.end() ) {
       SolverAlgorithm *theAlg = NULL;
       if ( realm_.realmUsesEdges_ ) {
-        const bool useAvgMdot = (turbulenceModel_ == TAMS_SST && turbulenceModel_ == TAMS_KEPS) ? true : false;
+        const bool useAvgMdot = ((turbulenceModel_ == TAMS_SST) || (turbulenceModel_ == TAMS_KEPS)) ? true : false;
         theAlg = new ScalarEdgeSolverAlg(realm_, part, this, tke_, dkdx_, evisc_, useAvgMdot);
       }
       else {

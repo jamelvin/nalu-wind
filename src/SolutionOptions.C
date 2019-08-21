@@ -648,6 +648,7 @@ SolutionOptions::initialize_turbulence_constants()
   turbModelConstantMap_[TM_sigmaK] = 1.0;
   turbModelConstantMap_[TM_sigmaEps] = 1.3;
   turbModelConstantMap_[TM_CMdeg] = 0.13;
+  turbModelConstantMap_[TM_ForFac] = 8.0;
 }
 
 

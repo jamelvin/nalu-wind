@@ -38,8 +38,10 @@ ScalarEdgeSolverAlg::ScalarEdgeSolverAlg(
   density_ = get_field_ordinal(meta, "density", stk::mesh::StateNP1);
   edgeAreaVec_ = get_field_ordinal(meta, "edge_area_vector", stk::topology::EDGE_RANK);
   if (useAvgMdot) {
+    NaluEnv::self().naluOutputP0() << "Mean average mass_flow_rate"<< std::endl; 
     massFlowRate_ = get_field_ordinal(meta, "average_mass_flow_rate", stk::topology::EDGE_RANK);
   } else {
+    NaluEnv::self().naluOutputP0() << "Using regular mass_flow_rate"<< std::endl;
     massFlowRate_ = get_field_ordinal(meta, "mass_flow_rate", stk::topology::EDGE_RANK);
   }
 
