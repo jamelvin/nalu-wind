@@ -40,6 +40,8 @@ public:
     const stk::mesh::FastMeshIndex&) override;
 
 private:
+  const double forceFactor_;
+
   ngp::Field<double> dualNodalVolume_;
 
   ngp::Field<double> coordinates_;

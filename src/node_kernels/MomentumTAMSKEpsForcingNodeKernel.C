@@ -20,6 +20,7 @@ MomentumTAMSKEpsForcingNodeKernel::MomentumTAMSKEpsForcingNodeKernel(
   const stk::mesh::BulkData& bulk,
   const SolutionOptions & solnOpts 
 ) : NGPNodeKernel<MomentumTAMSKEpsForcingNodeKernel>(),
+    forceFactor_(solnOpts.get_turb_model_constant(TM_ForFac)),
     nDim_(bulk.mesh_meta_data().spatial_dimension())
 {
   const auto& meta = bulk.mesh_meta_data();
@@ -117,7 +118,7 @@ MomentumTAMSKEpsForcingNodeKernel::execute(
   const double Ct = 6.0;
   const double BL_T = 1.0;
   const double BL_KOL = 1.0;
-  const double FORCING_FACTOR = 8.0;
+  const double FORCING_FACTOR = forceFactor_; //8.0;
 
   const NodeKernelTraits::DblType periodicForcingLengthX = pi_;
   const NodeKernelTraits::DblType periodicForcingLengthY = 0.25;
