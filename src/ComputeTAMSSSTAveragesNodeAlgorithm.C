@@ -87,8 +87,10 @@ void ComputeTAMSSSTAveragesNodeAlgorithm::execute() {
   VectorFieldType &velocityNp1 = velocityRTM_->field_of_state(stk::mesh::StateNP1);
   ScalarFieldType &densityNp1 = density_->field_of_state(stk::mesh::StateNP1);   
   
-  // select and loop through all nodes
-  stk::mesh::Selector s_all_nodes = stk::mesh::selectUnion(partVec_);
+  // fill in nodal values
+  stk::mesh::Selector s_all_nodes
+    = (meta_data.locally_owned_part() | meta_data.globally_shared_part())
+    &stk::mesh::selectField(*avgVelocity_);
 
   stk::mesh::BucketVector const &node_buckets =
       realm_.get_buckets(stk::topology::NODE_RANK, s_all_nodes);
@@ -121,62 +123,64 @@ void ComputeTAMSSSTAveragesNodeAlgorithm::execute() {
       const double * dudx = stk::mesh::field_data(*dudx_, b[k]);
       double * avgVel = stk::mesh::field_data(*avgVelocity_, b[k]);
       double * avgDudx = stk::mesh::field_data(*avgDudx_, b[k]);
+      
+      if (avgTime[k] > 0.0) {
+        const double weightAvg = std::max(1.0 - dt/avgTime[k], 0.0);
+        const double weightInst = std::min(dt/avgTime[k], 1.0);
 
-      const double weightAvg = std::max(1.0 - dt/avgTime[k], 0.0);
-      const double weightInst = std::min(dt/avgTime[k], 1.0);
+        for (int i = 0; i < nDim; ++i)
+          avgVel[i] = weightAvg * avgVel[i] + weightInst * vel[i];
 
-      for (int i = 0; i < nDim; ++i)
-        avgVel[i] = weightAvg * avgVel[i] + weightInst * vel[i];
-
-      double tkeRes = 0.0;
-      for (int i = 0; i < nDim; ++i) {
-        tkeRes += (vel[i] - avgVel[i])*(vel[i] - avgVel[i]);
-        for (int j = 0; j < nDim; ++j) {
-          avgDudx[i*nDim + j] = weightAvg * avgDudx[i*nDim + j] + weightInst * dudx[i*nDim + j];
-        }
-      }
-
-      // FIXME: Should I be doing Favre averaging?????
-      avgPres[k] = weightAvg * avgPres[k] + weightInst * pres[k];
-      avgRho[k]  = weightAvg * avgRho[k]  + weightInst * rho[k];
-      avgTkeRes[k] = weightAvg * avgTkeRes[k] + weightInst * 0.5*tkeRes;
-
-      // Production averaging
-      double tij[nDim][nDim];
-      for (int i = 0; i < nDim; ++i) {
-        for (int j = 0; j < nDim; ++j) {
-          const double avgSij = 0.5*(avgDudx[i*nDim+j] + avgDudx[j*nDim+i]);
-          tij[i][j] = 2.0*alpha[k]*tvisc[k]*avgSij;
-        }
-        tij[i][i] -= 2.0/3.0 * alpha[k] * tke[k];
-      }
-
-      double Pij[nDim][nDim];
-      for (int i = 0; i < nDim; ++i) {
-        for (int j = 0; j < nDim; ++j) {
-          Pij[i][j] = 0.0;
-          for (int m = 0; m < nDim; ++m) {
-             Pij[i][j] += avgDudx[i*nDim + m] * tij[j][m] + avgDudx[j*nDim + m] * tij[i][m];
+        double tkeRes = 0.0;
+        for (int i = 0; i < nDim; ++i) {
+          tkeRes += (vel[i] - avgVel[i])*(vel[i] - avgVel[i]);
+          for (int j = 0; j < nDim; ++j) {
+            avgDudx[i*nDim + j] = weightAvg * avgDudx[i*nDim + j] + weightInst * dudx[i*nDim + j];
           }
-          Pij[i][j] *= 0.5;
         }
-      }
 
-      double P_res = 0.0;
-      for (int i = 0; i < nDim; ++i) {
-        for (int j = 0; j < nDim; ++j) {
-          P_res += avgDudx[i*nDim + j] * ((avgVel[i] - vel[i])*(avgVel[j] - vel[j]));
+        // FIXME: Should I be doing Favre averaging?????
+        avgPres[k] = weightAvg * avgPres[k] + weightInst * pres[k];
+        avgRho[k]  = weightAvg * avgRho[k]  + weightInst * rho[k];
+        avgTkeRes[k] = weightAvg * avgTkeRes[k] + weightInst * 0.5*tkeRes;
+
+        // Production averaging
+        double tij[nDim][nDim];
+        for (int i = 0; i < nDim; ++i) {
+          for (int j = 0; j < nDim; ++j) {
+            const double avgSij = 0.5*(avgDudx[i*nDim+j] + avgDudx[j*nDim+i]);
+            tij[i][j] = 2.0*alpha[k]*tvisc[k]*avgSij;
+          }
+          tij[i][i] -= 2.0/3.0 * alpha[k] * tke[k];
         }
+
+        double Pij[nDim][nDim];
+        for (int i = 0; i < nDim; ++i) {
+          for (int j = 0; j < nDim; ++j) {
+            Pij[i][j] = 0.0;
+            for (int m = 0; m < nDim; ++m) {
+               Pij[i][j] += avgDudx[i*nDim + m] * tij[j][m] + avgDudx[j*nDim + m] * tij[i][m];
+            }
+            Pij[i][j] *= 0.5;
+          }
+        }
+
+        double P_res = 0.0;
+        for (int i = 0; i < nDim; ++i) {
+          for (int j = 0; j < nDim; ++j) {
+            P_res += avgDudx[i*nDim + j] * ((avgVel[i] - vel[i])*(avgVel[j] - vel[j]));
+          }
+        }
+
+        double instProd = 0.0;
+        for (int i = 0; i < nDim; ++i)
+          instProd += Pij[i][i];
+
+        instProd -= P_res;
+
+        // FIXME: Need a different averaging timescale for production...
+        avgProd[k] = weightAvg * avgProd[k] + weightInst * instProd;
       }
-
-      double instProd = 0.0;
-      for (int i = 0; i < nDim; ++i)
-        instProd += Pij[i][i];
-
-      instProd -= P_res;
-
-      // FIXME: Need a different averaging timescale for production...
-      avgProd[k] = weightAvg * avgProd[k] + weightInst * instProd;
     }
   }
 }

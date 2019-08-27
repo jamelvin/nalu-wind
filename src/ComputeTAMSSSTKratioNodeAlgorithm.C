@@ -57,8 +57,10 @@ void ComputeTAMSSSTKratioNodeAlgorithm::execute() {
 
   const int nDim = meta_data.spatial_dimension();
 
-  // select and loop through all nodes
-  stk::mesh::Selector s_all_nodes = stk::mesh::selectUnion(partVec_);
+  // fill in nodal values
+  stk::mesh::Selector s_all_nodes
+    = (meta_data.locally_owned_part() | meta_data.globally_shared_part())
+    &stk::mesh::selectField(*alpha_);
 
   stk::mesh::BucketVector const &node_buckets =
       realm_.get_buckets(stk::topology::NODE_RANK, s_all_nodes);
@@ -92,8 +94,9 @@ void ComputeTAMSSSTKratioNodeAlgorithm::execute() {
          //const double v2 = 1.0/0.22 * (tvisc[k] * tdr[k]) / std::max(tke[k], 1.0e-16);
          // FIXME: What to do with a_kol in SST?
          const double a_kol = 0.01; //std::min(1.5*v2/tke[k]*std::sqrt(visc[k]*epsilon)/tke[k],1.0);
-
-         alpha[k] = std::max(alpha[k], a_kol);
+         
+         if (T_sst > 0.0)
+           alpha[k] = std::max(alpha[k], a_kol);
       }
     }
   }

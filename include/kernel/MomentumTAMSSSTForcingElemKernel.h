@@ -78,6 +78,7 @@ private:
 
   // master element
   const double betaStar_;
+  const double forceFactor_;
 
   const int* ipNodeMap_;
 

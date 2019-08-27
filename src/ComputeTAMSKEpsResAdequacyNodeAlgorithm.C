@@ -99,10 +99,6 @@ void ComputeTAMSKEpsResAdequacyNodeAlgorithm::execute() {
   //stk::mesh::Selector s_locally_owned_union =
   //    meta_data.locally_owned_part() & stk::mesh::selectUnion(partVec_);
 
-  // fill in elemental values
-  //   stk::mesh::Selector s_locally_owned_union =
-  //         stk::mesh::selectUnion(partVec_);
-
   // fill in nodal values
   stk::mesh::Selector s_all_nodes
     = (meta_data.locally_owned_part() | meta_data.globally_shared_part())

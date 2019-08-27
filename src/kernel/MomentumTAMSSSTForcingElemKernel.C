@@ -38,6 +38,7 @@ MomentumTAMSSSTForcingElemKernel<AlgTraits>::MomentumTAMSSSTForcingElemKernel(
     viscosity_(viscosity->mesh_meta_data_ordinal()),
     turbViscosity_(turbViscosity->mesh_meta_data_ordinal()),
     betaStar_(solnOpts.get_turb_model_constant(TM_betaStar)),
+    forceFactor_(solnOpts.get_turb_model_constant(TM_ForFac)),
     ipNodeMap_(sierra::nalu::MasterElementRepo::get_volume_master_element(
                  AlgTraits::topo_)
                  ->ipNodeMap())
@@ -215,7 +216,7 @@ MomentumTAMSSSTForcingElemKernel<AlgTraits>::execute(
     const double Ct = 6.0;
     const double BL_T = 1.0;
     const double BL_KOL = 1.0;
-    const double FORCING_FACTOR = 8.0;
+    const double FORCING_FACTOR = forceFactor_; //8.0;
 
     const DoubleType periodicForcingLengthX = pi_;
     const DoubleType periodicForcingLengthY = 0.25;

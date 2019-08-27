@@ -43,8 +43,8 @@ TotalDissipationRateTAMSKEpsSrcElemKernel<AlgTraits>::
 
   tkeNp1_ = get_field_ordinal(metaData, "turbulent_ke");
   tdrNp1_ = get_field_ordinal(metaData, "total_dissipation_rate");
-  densityNp1_ = get_field_ordinal(metaData, "density");
-  velocityNp1_ = get_field_ordinal(metaData, "velocity");
+  densityNp1_ = get_field_ordinal(metaData, "average_density");
+  velocityNp1_ = get_field_ordinal(metaData, "average_velocity");
   visc_ = get_field_ordinal(metaData, "viscosity");
   tvisc_ = get_field_ordinal(metaData, "turbulent_viscosity");
   dplus_ = get_field_ordinal(metaData, "dplus_wall_function");
