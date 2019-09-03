@@ -21,6 +21,7 @@ namespace nalu {
 class SolutionOptions;
 class MasterElement;
 class ElemDataRequests;
+class TimeIntegrator;
 
 template <typename AlgTraits>
 class TotalDissipationRateTAMSKEpsSrcElemKernel : public Kernel
@@ -33,6 +34,9 @@ public:
     const bool);
 
   virtual ~TotalDissipationRateTAMSKEpsSrcElemKernel();
+
+  // Perform pre-timestep work for the computational kernel
+   virtual void setup(const TimeIntegrator&);
 
   /** Execute the kernel within a Kokkos loop and populate the LHS and RHS for
    *  the linear solve
@@ -67,6 +71,8 @@ private:
   const double fOne_;
 
   const int* ipNodeMap_;
+
+  std::ofstream tmpFile;
 
   // scratch space
   AlignedViewType<DoubleType[AlgTraits::numScvIp_][AlgTraits::nodesPerElement_]>

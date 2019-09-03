@@ -20,6 +20,7 @@ MomentumTAMSSSTForcingNodeKernel::MomentumTAMSSSTForcingNodeKernel(
   const stk::mesh::BulkData& bulk,
   const SolutionOptions & solnOpts
 ) : NGPNodeKernel<MomentumTAMSSSTForcingNodeKernel>(),
+    forceFactor_(solnOpts.get_turb_model_constant(TM_ForFac)),
     betaStar_(solnOpts.get_turb_model_constant(TM_betaStar)),
     nDim_(bulk.mesh_meta_data().spatial_dimension())
 {
@@ -113,7 +114,7 @@ MomentumTAMSSSTForcingNodeKernel::execute(
   const double Ct = 6.0;
   const double BL_T = 1.0;
   const double BL_KOL = 1.0;
-  const double FORCING_FACTOR = 8.0;
+  const double FORCING_FACTOR = forceFactor_; //8.0;
 
   const NodeKernelTraits::DblType periodicForcingLengthX = pi_;
   const NodeKernelTraits::DblType periodicForcingLengthY = 0.25;
@@ -186,7 +187,12 @@ MomentumTAMSSSTForcingNodeKernel::execute(
   const NodeKernelTraits::DblType v2 = tvisc * betaStar_ * sdr / (0.22 * rho);
   const NodeKernelTraits::DblType F_target = FORCING_FACTOR * stk::math::sqrt(alpha * v2) / T_alpha;
 
-  const NodeKernelTraits::DblType prod_r = (F_target*dt_)*(hX*fluctU[0] + hY*fluctU[1] + hZ*fluctU[2]);
+  const NodeKernelTraits::DblType prod_r_temp = (F_target*dt_)*(hX*fluctU[0] + hY*fluctU[1] + hZ*fluctU[2]);
+
+  const NodeKernelTraits::DblType prod_r_sgn = stk::math::if_then_else(prod_r_temp < 0.0, -1.0, 1.0);
+  const NodeKernelTraits::DblType prod_r_abs = prod_r_sgn * prod_r_temp;
+
+  const NodeKernelTraits::DblType prod_r = stk::math::if_then_else(prod_r_abs >= 1.0e-15, prod_r_temp, 0.0);
 
   const NodeKernelTraits::DblType arg1 = stk::math::sqrt(avgResAdeq) - 1.0;
   const NodeKernelTraits::DblType arg = stk::math::if_then_else(arg1 < 0.0, 1.0 - 1.0 /

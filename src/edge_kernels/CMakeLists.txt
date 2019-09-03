@@ -6,6 +6,7 @@ add_sources(GlobalSourceList
   MomentumEdgeSolverAlg.C
   MomentumTAMSKEpsDiffEdgeSolverAlg.C
   MomentumTAMSKEpsDiffEdgeKernel.C
+  MomentumTAMSSSTDiffEdgeKernel.C
   MomentumTAMSSSTDiffEdgeSolverAlg.C
   ScalarEdgeSolverAlg.C
   WallDistEdgeSolverAlg.C

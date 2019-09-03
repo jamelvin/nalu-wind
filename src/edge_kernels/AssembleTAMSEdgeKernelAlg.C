@@ -18,7 +18,12 @@ AssembleTAMSEdgeKernelAlg::AssembleTAMSEdgeKernelAlg(
 ) : AssembleEdgeKernelAlg(realm, part, eqSystem)
 {
   // Register TAMS Kernels directly
-  add_kernel<MomentumTAMSKEpsDiffEdgeKernel>(realm_.bulk_data(), *realm_.solutionOptions_);
+  if (realm.solutionOptions_->turbulenceModel_ == TAMS_KEPS)
+    add_kernel<MomentumTAMSKEpsDiffEdgeKernel>(realm_.bulk_data(), *realm_.solutionOptions_);
+  else if (realm.solutionOptions_->turbulenceModel_ == TAMS_SST)
+    add_kernel<MomentumTAMSSSTDiffEdgeKernel>(realm_.bulk_data(), *realm_.solutionOptions_);
+  else
+    throw std::runtime_error("Invalid turbulence model in AssembleTAMSEdgeKernelAlg");
 }
 
 }  // nalu

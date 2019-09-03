@@ -10,8 +10,10 @@
 
 #include "AssembleEdgeSolverAlgorithm.h"
 #include "MomentumTAMSKEpsDiffEdgeKernel.h"
+#include "MomentumTAMSSSTDiffEdgeKernel.h"
 #include "AssembleEdgeKernelAlg.h"
 #include "nalu_make_unique.h"
+#include "SolutionOptions.h"
 
 #include <vector>
 #include <memory>
@@ -19,6 +21,7 @@
 namespace sierra {
 namespace nalu {
 
+class SolutionOptions;
 class Realm;
 
 class AssembleTAMSEdgeKernelAlg : public AssembleEdgeKernelAlg

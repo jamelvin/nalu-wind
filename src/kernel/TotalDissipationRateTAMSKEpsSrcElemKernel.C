@@ -89,12 +89,14 @@ TotalDissipationRateTAMSKEpsSrcElemKernel<AlgTraits>::
       SCV_SHIFTED_GRAD_OP, CURRENT_COORDINATES);
   else
     dataPreReqs.add_master_element_call(SCV_GRAD_OP, CURRENT_COORDINATES);
+
+  tmpFile.open("tdrSource.txt", std::fstream::app);
 }
 
 template <typename AlgTraits>
-TotalDissipationRateTAMSKEpsSrcElemKernel<
-  AlgTraits>::~TotalDissipationRateTAMSKEpsSrcElemKernel()
+TotalDissipationRateTAMSKEpsSrcElemKernel<AlgTraits>::~TotalDissipationRateTAMSKEpsSrcElemKernel()
 {
+  tmpFile.close();
 }
 
 template <typename AlgTraits>
@@ -218,15 +220,8 @@ TotalDissipationRateTAMSKEpsSrcElemKernel<AlgTraits>::execute(
       2.0 * visc * stk::math::exp(-0.5 * dplus) / minD / minD;
     const DoubleType Le = -LeFac * tdr;
 
-    // std::ofstream tmpFile;
-    // tmpFile.open("TDRsrc.txt");
-
-    // tmpFile << " (" << w_coords[0] << ", "<< w_coords[1] << ", " <<
-    // w_coords[2] << ") " << tdr <<" " << tke << " " << Pe << " " << De << " "
-    // << Le << " " << minD << " " << dplus << " " << tvisc << std::endl;
-
-    // tmpFile.close();
-
+    tmpFile << w_coords[0] << w_coords[1] << w_coords[2] << Pk << Pe << De << Le << tke << tdr << Re_t << fTwo << time << std::endl;
+    
     // const DoubleType extraFac = -cEpsTwo_ * stk::math::exp(-Re_t*Re_t / 36.0)
     // * rho * rho * rho * tke * tke * tke / 81.0 / visc / visc /
     // stk::math::max(tdr, 1.0e-16);
