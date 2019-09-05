@@ -8,6 +8,7 @@
 #include "kernel/TotalDissipationRateTAMSKEpsSrcElemKernel.h"
 #include "FieldTypeDef.h"
 #include "SolutionOptions.h"
+#include "TimeIntegrator.h"
 
 #include "BuildTemplates.h"
 #include "ScratchViews.h"
@@ -97,6 +98,17 @@ template <typename AlgTraits>
 TotalDissipationRateTAMSKEpsSrcElemKernel<AlgTraits>::~TotalDissipationRateTAMSKEpsSrcElemKernel()
 {
   tmpFile.close();
+}
+
+template <typename AlgTraits>
+void
+TotalDissipationRateTAMSKEpsSrcElemKernel<AlgTraits>::setup(
+  const TimeIntegrator& timeIntegrator)
+{
+  // FIXME: Hack to match CDP time
+  time_ = timeIntegrator.get_current_time() - 440.0;
+  dt_ = timeIntegrator.get_time_step();
+  step_ = timeIntegrator.get_time_step_count();
 }
 
 template <typename AlgTraits>
@@ -220,7 +232,7 @@ TotalDissipationRateTAMSKEpsSrcElemKernel<AlgTraits>::execute(
       2.0 * visc * stk::math::exp(-0.5 * dplus) / minD / minD;
     const DoubleType Le = -LeFac * tdr;
 
-    tmpFile << w_coords[0] << w_coords[1] << w_coords[2] << Pk << Pe << De << Le << tke << tdr << Re_t << fTwo << time << std::endl;
+    //tmpFile << w_coords[0] << w_coords[1] << w_coords[2] << Pk << Pe << De << Le << tke << tdr << Re_t << fTwo << time << std::endl;
     
     // const DoubleType extraFac = -cEpsTwo_ * stk::math::exp(-Re_t*Re_t / 36.0)
     // * rho * rho * rho * tke * tke * tke / 81.0 / visc / visc /
