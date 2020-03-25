@@ -222,6 +222,10 @@ TAMSAlgDriver::initial_production()
 
     const auto tvisc = fieldMgr.get_field<double>(
       get_field_ordinal(meta, "turbulent_viscosity"));
+    const auto density = fieldMgr.get_field<double>(
+      get_field_ordinal(meta, "density"));
+    const auto tke = fieldMgr.get_field<double>(
+      get_field_ordinal(meta, "turbulent_ke"));
     auto avgDudx =
       fieldMgr.get_field<double>(avgDudx_->mesh_meta_data_ordinal());
 
@@ -239,6 +243,7 @@ TAMSAlgDriver::initial_production()
                                           avgDudx.get(mi, j * nDim + i));
             tij[i * nDim + j] = 2.0 * tvisc.get(mi, 0) * avgSij;
           }
+          tij[i * nDim + i] -= 2.0/3.0 * tke.get(mi, 0) * density.get(mi, 0);
         }
 
         NALU_ALIGNED DblType Pij[nalu_ngp::NDimMax * nalu_ngp::NDimMax];

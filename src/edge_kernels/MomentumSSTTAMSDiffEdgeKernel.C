@@ -49,6 +49,7 @@ MomentumSSTTAMSDiffEdgeKernel::MomentumSSTTAMSDiffEdgeKernel(
   // average quantities
   avgVelocityID_ = get_field_ordinal(meta, "average_velocity");
   avgDudxID_ = get_field_ordinal(meta, "average_dudx");
+  avgResAdeqID_ = get_field_ordinal(meta, "avg_res_adequacy_parameter");
 
   const std::string dofName = "velocity";
   relaxFacU_ = solnOpts.get_relaxation_factor(dofName);
@@ -70,6 +71,7 @@ MomentumSSTTAMSDiffEdgeKernel::setup(Realm& realm)
   dudx_ = fieldMgr.get_field<double>(dudxID_);
   avgVelocity_ = fieldMgr.get_field<double>(avgVelocityID_);
   avgDudx_ = fieldMgr.get_field<double>(avgDudxID_);
+  avgResAdeq_ = fieldMgr.get_field<double>(avgResAdeqID_);
 }
 
 void
@@ -123,6 +125,11 @@ MomentumSSTTAMSDiffEdgeKernel::execute(
   // Compute CM43
   EdgeKernelTraits::DblType CM43 = tams_utils::get_M43_constant<
     EdgeKernelTraits::DblType, EdgeKernelTraits::NDimMax>(D, CMdeg_);
+
+  const EdgeKernelTraits::DblType CM43scale =
+        stk::math::max(stk::math::min(
+             0.5*(avgResAdeq_.get(nodeL, 0) + avgResAdeq_.get(nodeR, 0)), 
+             10.0),1.0);
 
   const EdgeKernelTraits::DblType muIp =
     0.5 * (tvisc_.get(nodeL, 0) + tvisc_.get(nodeR, 0));
@@ -225,9 +232,9 @@ MomentumSSTTAMSDiffEdgeKernel::execute(
       EdgeKernelTraits::DblType lhsfacDiff_i = 0.0;
       for (int k = 0; k < ndim; ++k) {
         lhsfacDiff_i +=
-          -rhoIp * CM43 * epsilon13Ip * M43[j][k] * av[k] * av[j] * inv_axdx;
+          -rhoIp * CM43scale * CM43 * epsilon13Ip * M43[j][k] * av[k] * av[j] * inv_axdx;
         rhsfacDiff_i +=
-          -rhoIp * CM43 * epsilon13Ip * M43[j][k] * fluctdUidxj[i][k] * av[j];
+          -rhoIp * CM43scale * CM43 * epsilon13Ip * M43[j][k] * fluctdUidxj[i][k] * av[j];
       }
 
       // Accumulate lhs
@@ -245,9 +252,9 @@ MomentumSSTTAMSDiffEdgeKernel::execute(
       EdgeKernelTraits::DblType lhsfacDiff_j = 0.0;
       for (int k = 0; k < ndim; ++k) {
         lhsfacDiff_j +=
-          -rhoIp * CM43 * epsilon13Ip * M43[i][k] * av[k] * av[j] * inv_axdx;
+          -rhoIp * CM43scale * CM43 * epsilon13Ip * M43[i][k] * av[k] * av[j] * inv_axdx;
         rhsfacDiff_j +=
-          -rhoIp * CM43 * epsilon13Ip * M43[i][k] * fluctdUidxj[j][k] * av[j];
+          -rhoIp * CM43scale * CM43 * epsilon13Ip * M43[i][k] * fluctdUidxj[j][k] * av[j];
       }
 
       // SGRS (average) term, scaled by alpha

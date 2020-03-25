@@ -59,6 +59,7 @@ private:
   stk::mesh::NgpField<double> dudx_;
   stk::mesh::NgpField<double> avgVelocity_;
   stk::mesh::NgpField<double> avgDudx_;
+  stk::mesh::NgpField<double> avgResAdeq_;
 
   unsigned edgeAreaVecID_{stk::mesh::InvalidOrdinal};
   unsigned coordinatesID_{stk::mesh::InvalidOrdinal};
@@ -72,6 +73,7 @@ private:
   unsigned dudxID_{stk::mesh::InvalidOrdinal};
   unsigned avgVelocityID_{stk::mesh::InvalidOrdinal};
   unsigned avgDudxID_{stk::mesh::InvalidOrdinal};
+  unsigned avgResAdeqID_{stk::mesh::InvalidOrdinal};
 
   const double includeDivU_;
   

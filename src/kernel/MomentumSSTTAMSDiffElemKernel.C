@@ -73,6 +73,7 @@ MomentumSSTTAMSDiffElemKernel<AlgTraits>::MomentumSSTTAMSDiffElemKernel(
   dataPreReqs.add_gathered_nodal_field(alpha_, 1);
   dataPreReqs.add_gathered_nodal_field(
     Mij_, AlgTraits::nDim_, AlgTraits::nDim_);
+  dataPreReqs.add_gathered_nodal_field(avgResAdeq_, 1);
 
   // master element data
   dataPreReqs.add_master_element_call(SCS_AREAV, CURRENT_COORDINATES);
@@ -99,6 +100,7 @@ MomentumSSTTAMSDiffElemKernel<AlgTraits>::execute(
   const auto& v_avgU = scratchViews.get_scratch_view_2D(avgVelocity_);
   const auto& v_alpha = scratchViews.get_scratch_view_1D(alpha_);
   const auto& v_Mij = scratchViews.get_scratch_view_3D(Mij_);
+  const auto& v_avgResAdeq = scratchViews.get_scratch_view_1D(avgResAdeq_);
 
   const auto& meViews = scratchViews.get_me_views(CURRENT_COORDINATES);
   const auto& v_scs_areav = meViews.scs_areav;
@@ -161,6 +163,7 @@ MomentumSSTTAMSDiffElemKernel<AlgTraits>::execute(
     DoubleType sdrScs = 0.0;
     DoubleType alphaScs = 0.0;
     DoubleType avgDivU = 0.0;
+    DoubleType avgResAdeqScs = 0.0;
 
     // determine scs values of interest
     for (int ic = 0; ic < AlgTraits::nodesPerElement_; ++ic) {
@@ -173,12 +176,16 @@ MomentumSSTTAMSDiffElemKernel<AlgTraits>::execute(
       tkeScs += r * v_tkeNp1(ic);
       sdrScs += r * v_sdrNp1(ic);
       alphaScs += r * v_alpha(ic);
+      avgResAdeqScs += r * v_avgResAdeq(ic);
 
       for (int j = 0; j < AlgTraits::nDim_; ++j) {
         const DoubleType avgUj = v_avgU(ic, j);
         avgDivU += avgUj * v_dndx(ip, ic, j);
       }
     }
+
+    const DoubleType CM43scale =
+        stk::math::max(stk::math::min(avgResAdeqScs, 10.0),1.0);
 
     // This is the divU term for the average quantities in the model for
     // tau_ij^SGRS Since we are letting SST calculate it's normal mu_t, we need
@@ -218,7 +225,7 @@ MomentumSSTTAMSDiffElemKernel<AlgTraits>::execute(
           // -mut^jk*dui/dxk*A_j; fixed i over j loop; see below..
           DoubleType lhsfacDiff_i = 0.0;
           for (int k = 0; k < AlgTraits::nDim_; ++k) {
-            lhsfacDiff_i += -rhoScs * CM43 * epsilon13Scs * M43[j][k] *
+            lhsfacDiff_i += -rhoScs * CM43scale * CM43 * epsilon13Scs * M43[j][k] *
                             v_dndx(ip, ic, k) * axj;
           }
 
@@ -233,7 +240,7 @@ MomentumSSTTAMSDiffElemKernel<AlgTraits>::execute(
           // -mut^ik*duj/dxk*A_j
           DoubleType lhsfacDiff_j = 0.0;
           for (int k = 0; k < AlgTraits::nDim_; ++k) {
-            lhsfacDiff_j += -rhoScs * CM43 * epsilon13Scs * M43[i][k] *
+            lhsfacDiff_j += -rhoScs * CM43scale * CM43 * epsilon13Scs * M43[i][k] *
                             v_dndx(ip, ic, k) * axj;
           }
 

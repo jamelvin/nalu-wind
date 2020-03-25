@@ -37,9 +37,10 @@ private:
   const DblType CMdeg_;
   const DblType v2cMu_;
   const bool meshMotion_;
+  const DblType aspectRatioSwitch_;
 
   // FIXME: What to do with alpha_kol in SST? This needs some thought...
-  static constexpr double alpha_kol = 0.1;
+  static constexpr double alpha_kol = 0.01;
 
   unsigned velocity_{stk::mesh::InvalidOrdinal};
   unsigned density_{stk::mesh::InvalidOrdinal};

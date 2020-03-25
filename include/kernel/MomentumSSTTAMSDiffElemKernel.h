@@ -60,6 +60,7 @@ private:
   unsigned mutij_{stk::mesh::InvalidOrdinal};
   unsigned coordinates_{stk::mesh::InvalidOrdinal};
   unsigned Mij_{stk::mesh::InvalidOrdinal};
+  unsigned avgResAdeq_{stk::mesh::InvalidOrdinal};
 
   unsigned avgVelocity_{stk::mesh::InvalidOrdinal};
 

@@ -122,28 +122,30 @@ MomentumSSTTAMSForcingNodeKernel::execute(
   length = stk::math::max(
     length,
     Ceta_ * (stk::math::pow(mu / rho, 0.75) / stk::math::pow(eps, 0.25)));
-  length = stk::math::min(length, wallDist);
+  // FIXME: Make this aware of wall direction...
+  const NodeKernelTraits::DblType lengthY = 
+    stk::math::min(length, wallDist);
 
   NodeKernelTraits::DblType T_alpha = alpha * tke / eps;
   T_alpha = stk::math::max(T_alpha, Ct_ * stk::math::sqrt(mu / rho / eps));
   T_alpha = blT_ * T_alpha;
 
-  const NodeKernelTraits::DblType Mij_00 = Mij_.get(node, 0);
-  const NodeKernelTraits::DblType Mij_11 = Mij_.get(node, 4);
-  const NodeKernelTraits::DblType Mij_22 = Mij_.get(node, 8);
-  const NodeKernelTraits::DblType ceilLengthX =
-    stk::math::max(length, 2.0 * Mij_00);
-  const NodeKernelTraits::DblType ceilLengthY =
-    stk::math::max(length, 2.0 * Mij_11);
-  const NodeKernelTraits::DblType ceilLengthZ =
-    stk::math::max(length, 2.0 * Mij_22);
+  //const NodeKernelTraits::DblType Mij_00 = Mij_.get(node, 0);
+  //const NodeKernelTraits::DblType Mij_11 = Mij_.get(node, 4);
+  //const NodeKernelTraits::DblType Mij_22 = Mij_.get(node, 8);
+  //const NodeKernelTraits::DblType ceilLengthX =
+  //  stk::math::max(length, 2.0 * Mij_00);
+  //const NodeKernelTraits::DblType ceilLengthY =
+  //  stk::math::max(length, 2.0 * Mij_11);
+  //const NodeKernelTraits::DblType ceilLengthZ =
+  //  stk::math::max(length, 2.0 * Mij_22);
 
   const NodeKernelTraits::DblType clipLengthX =
-    stk::math::min(ceilLengthX, periodicForcingLengthX);
+    stk::math::min(length, periodicForcingLengthX);
   const NodeKernelTraits::DblType clipLengthY =
-    stk::math::min(ceilLengthY, periodicForcingLengthY);
+    stk::math::min(lengthY, periodicForcingLengthY);
   const NodeKernelTraits::DblType clipLengthZ =
-    stk::math::min(ceilLengthZ, periodicForcingLengthZ);
+    stk::math::min(length, periodicForcingLengthZ);
 
   const NodeKernelTraits::DblType ratioX =
     std::floor(periodicForcingLengthX / clipLengthX + 0.5);
@@ -197,14 +199,21 @@ MomentumSSTTAMSForcingNodeKernel::execute(
   const NodeKernelTraits::DblType a_kol =
     stk::math::min(blKol_ * stk::math::sqrt(mu * eps / rho) / tke, 1.0);
 
-  const NodeKernelTraits::DblType Sa = stk::math::if_then_else(
-    (a_sign < 0.0),
-    stk::math::if_then_else(
-      (alpha <= a_kol), a_sign - (1.0 + a_kol - alpha) * a_sign, a_sign),
-    stk::math::if_then_else((alpha >= 1.0), a_sign - alpha * a_sign, a_sign));
+  //const NodeKernelTraits::DblType Sa = stk::math::if_then_else(
+  //  (a_sign < 0.0),
+  //  stk::math::if_then_else(
+  //    (alpha <= a_kol), a_sign - (1.0 + a_kol - alpha) * a_sign, a_sign),
+  //  stk::math::if_then_else((alpha >= 1.0), a_sign - alpha * a_sign, a_sign));
+
+  const NodeKernelTraits::DblType ahat = (1.0 - alpha)/(1.0 - a_kol);
+  const NodeKernelTraits::DblType Fr = alpha * stk::math::max(a_sign, 0.0);
+  const NodeKernelTraits::DblType Dr = stk::math::min(a_sign, 0.0) * 
+                                      (stk::math::tanh(10.0 * (ahat-1.0)) + 1.0);
+
+  const NodeKernelTraits::DblType C_F_tmp = stk::math::min(a_sign-Dr-Fr, 0.0);
 
   const NodeKernelTraits::DblType C_F = stk::math::if_then_else(
-    ((avgResAdeq < 1.0) && (prod_r >= 0.0)), -1.0 * F_target * Sa, 0.0);
+    prod_r >= 0.0, -1.0 * F_target * C_F_tmp, 0.0);
 
   // Now we determine the actual forcing field
   NodeKernelTraits::DblType gX = C_F * hX;

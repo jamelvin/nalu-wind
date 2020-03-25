@@ -508,7 +508,7 @@ SolutionOptions::initialize_turbulence_constants()
   turbModelConstantMap_[TM_ci] = 0.9;
   turbModelConstantMap_[TM_elog] = 9.8;
   turbModelConstantMap_[TM_yplus_crit] = 11.63;
-  turbModelConstantMap_[TM_CMdeg] = 0.13;
+  turbModelConstantMap_[TM_CMdeg] = 0.11;
   turbModelConstantMap_[TM_forCl] = 4.0;
   turbModelConstantMap_[TM_forCeta] = 70.0;
   turbModelConstantMap_[TM_forCt] = 6.0;
@@ -516,6 +516,7 @@ SolutionOptions::initialize_turbulence_constants()
   turbModelConstantMap_[TM_forBlKol] = 1.0;
   turbModelConstantMap_[TM_forFac] = 8.0;
   turbModelConstantMap_[TM_v2cMu] = 0.22;
+  turbModelConstantMap_[TM_aspRatSwitch] = 64.0;
 }
 
 
