@@ -133,17 +133,15 @@ SSTTAMSAveragesAlg::execute()
         }
       }
 
-      // FIXME: Double check if nu instead of mu is correct here
       // Production averaging
       DblType tij[nalu_ngp::NDimMax][nalu_ngp::NDimMax];
       for (int i = 0; i < nDim; ++i) {
         for (int j = 0; j < nDim; ++j) {
           const DblType avgSij = 0.5 * (avgDudx.get(mi, i * nDim + j) +
                                         avgDudx.get(mi, j * nDim + i));
-          tij[i][j] = 2.0 * alpha.get(mi, 0) * (2.0-alpha.get(mi, 0)) * tvisc.get(mi, 0) * avgSij / 
-                      density.get(mi, 0);
+          tij[i][j] = 2.0 * alpha.get(mi, 0) * (2.0-alpha.get(mi, 0)) * tvisc.get(mi, 0) * avgSij; 
         }
-        tij[i][i] -= 2.0/3.0 * alpha.get(mi, 0) * tke.get(mi, 0);
+        tij[i][i] -= 2.0/3.0 * alpha.get(mi, 0) * density.get(mi, 0) * tke.get(mi, 0);
       }
 
       DblType Pij[nalu_ngp::NDimMax][nalu_ngp::NDimMax];
@@ -158,11 +156,10 @@ SSTTAMSAveragesAlg::execute()
         }
       }
 
-      // FIXME: Double check if no rho is correct here
       DblType P_res = 0.0;
       for (int i = 0; i < nDim; ++i) {
         for (int j = 0; j < nDim; ++j) {
-          P_res += avgDudx.get(mi, i * nDim + j) *
+          P_res += density.get(mi, 0) * avgDudx.get(mi, i * nDim + j) *
                    ((avgVel.get(mi, i) - vel.get(mi, i)) *
                     (avgVel.get(mi, j) - vel.get(mi, j)));
         }
@@ -248,8 +245,7 @@ SSTTAMSAveragesAlg::execute()
       const DblType arScale = stk::math::if_then_else(aspectRatio > aspectRatioSwitch,      
         1.0 - stk::math::tanh((aspectRatio - aspectRatioSwitch)/10.0), 1.0);
 
-      const DblType arInvScale = stk::math::if_then_else(aspectRatio > aspectRatioSwitch,
-        stk::math::tanh((aspectRatio - aspectRatioSwitch)/10.0), 0.0);
+      const DblType arInvScale = 1.0 - arScale; 
 
       for (int i = 0; i < nDim; ++i) {
         for (int j = 0; j < nDim; ++j) {
@@ -257,7 +253,8 @@ SSTTAMSAveragesAlg::execute()
           // the SST model and <S_ij> is the strain rate tensor based on the
           // mean quantities... i.e this is (tauSGRS = alpha*tauSST)
           // The 2 in the coeff cancels with the 1/2 in the strain rate tensor
-          const DblType coeffSGRS = alpha.get(mi, 0) * (2.0 - alpha.get(mi,0)) * tvisc.get(mi, 0);
+          const DblType coeffSGRS = alpha.get(mi, 0) * (2.0 - alpha.get(mi,0)) * tvisc.get(mi, 0)
+					 / density.get(mi, 0);
           tauSGRS[i][j] =
             avgDudx.get(mi, i * nDim + j) + avgDudx.get(mi, j * nDim + i);
           tauSGRS[i][j] *= coeffSGRS;
@@ -267,7 +264,7 @@ SSTTAMSAveragesAlg::execute()
             // M43_jkdkui') where <eps> is the mean dissipation backed out from
             // the SST mean k and mean omega and dkuj' is the fluctuating
             // velocity gradients.
-            const DblType coeffSGET = density.get(mi, 0) * CM43scale * CM43 * epsilon13;
+            const DblType coeffSGET = CM43scale * CM43 * epsilon13;
             const DblType fluctDudx_jl =
               dudx.get(mi, j * nDim + l) - avgDudx.get(mi, j * nDim + l);
             const DblType fluctDudx_il =
@@ -275,7 +272,7 @@ SSTTAMSAveragesAlg::execute()
             tauSGET[i][j] +=
               coeffSGET * arScale * (M43[i][l] * fluctDudx_jl + M43[j][l] * fluctDudx_il);
           }
-          tauSGET[i][j] += arInvScale * tvisc.get(mi, 0) * (
+          tauSGET[i][j] += arInvScale * tvisc.get(mi, 0) / density.get(mi, 0) * (
               dudx.get(mi, i * nDim + j) - avgDudx.get(mi, i * nDim + j) +
               dudx.get(mi, j * nDim + i) - avgDudx.get(mi, j * nDim + i));
         }
@@ -285,9 +282,7 @@ SSTTAMSAveragesAlg::execute()
       for (int i = 0; i < nDim; ++i)
         for (int j = 0; j < nDim; ++j)
           tau[i][j] = tauSGRS[i][j] + tauSGET[i][j]  -
-                      ((i == j) ? 2.0 / 3.0 * density.get(mi, 0) *
-                                    alpha.get(mi, 0) * tke.get(mi, 0)
-                                : 0.0);
+                      ((i == j) ? 2.0 / 3.0 * alpha.get(mi, 0) * tke.get(mi, 0) : 0.0);
 
       // Calculate the SGS production PSGS_ij = 1/2(tau_ik*djuk + tau_jk*diuk)
       // where diuj is the instantaneous velocity gradients
@@ -326,7 +321,7 @@ SSTTAMSAveragesAlg::execute()
         DblType PMmag = 0.0;
         for (int i = 0; i < nDim; ++i)
           for (int j = 0; j < nDim; ++j)
-            PMmag += PM[i][i]*PM[i][j];
+            PMmag += PM[i][j]*PM[i][j];
 
         PMmag = stk::math::sqrt(PMmag);
 

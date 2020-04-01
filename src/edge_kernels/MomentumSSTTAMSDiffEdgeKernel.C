@@ -19,6 +19,8 @@
 #include "utils/TAMSUtils.h"
 #include <SimdInterface.h>
 
+#include "NaluEnv.h"
+
 namespace sierra {
 namespace nalu {
 
@@ -28,6 +30,7 @@ MomentumSSTTAMSDiffEdgeKernel::MomentumSSTTAMSDiffEdgeKernel(
     includeDivU_(solnOpts.includeDivU_),
     betaStar_(solnOpts.get_turb_model_constant(TM_betaStar)),
     CMdeg_(solnOpts.get_turb_model_constant(TM_CMdeg)),
+    aspectRatioSwitch_(solnOpts.get_turb_model_constant(TM_aspRatSwitch)),
     nDim_(bulk.mesh_meta_data().spatial_dimension())
 {
   const auto& meta = bulk.mesh_meta_data();
@@ -121,6 +124,18 @@ MomentumSSTTAMSDiffEdgeKernel::execute(
       }
     }
   }
+
+  // Compute cell aspect ratio blending
+  const EdgeKernelTraits::DblType maxEigM = stk::math::max(D[0][0], 
+ 					    stk::math::max(D[1][1], D[2][2]));
+  const EdgeKernelTraits::DblType minEigM = stk::math::min(D[0][0], 
+					    stk::math::min(D[1][1], D[2][2]));
+  const EdgeKernelTraits::DblType aspectRatio = maxEigM/minEigM;
+
+  const EdgeKernelTraits::DblType arScale = stk::math::if_then_else(
+	  aspectRatio > aspectRatioSwitch_,  1.0 - stk::math::tanh(
+	  (aspectRatio - aspectRatioSwitch_)/10.0), 1.0);
+  const EdgeKernelTraits::DblType arInvScale = 1.0 - arScale;
 
   // Compute CM43
   EdgeKernelTraits::DblType CM43 = tams_utils::get_M43_constant<
@@ -217,7 +232,7 @@ MomentumSSTTAMSDiffEdgeKernel::execute(
     // tau_ij^SGRS Since we are letting SST calculate it's normal mu_t, we
     // need to scale by alpha here
     const EdgeKernelTraits::DblType avgDivUstress =
-      2.0 / 3.0 * alphaIp * muIp * avgDivU * av[i] * includeDivU_;
+      2.0 / 3.0 * alphaIp * (2.0 - alphaIp) * muIp * avgDivU * av[i] * includeDivU_;
     smdata.rhs(rowL) -= avgDivUstress;
     smdata.rhs(rowR) += avgDivUstress;
 
@@ -232,17 +247,20 @@ MomentumSSTTAMSDiffEdgeKernel::execute(
       EdgeKernelTraits::DblType lhsfacDiff_i = 0.0;
       for (int k = 0; k < ndim; ++k) {
         lhsfacDiff_i +=
-          -rhoIp * CM43scale * CM43 * epsilon13Ip * M43[j][k] * av[k] * av[j] * inv_axdx;
+          -rhoIp * CM43scale * CM43 * epsilon13Ip * arScale * M43[j][k] * av[k] * av[j] * inv_axdx;
         rhsfacDiff_i +=
-          -rhoIp * CM43scale * CM43 * epsilon13Ip * M43[j][k] * fluctdUidxj[i][k] * av[j];
+          -rhoIp * CM43scale * CM43 * epsilon13Ip * arScale * M43[j][k] * fluctdUidxj[i][k] * av[j];
       }
+      
+      lhsfacDiff_i += -arInvScale * muIp * av[j] * av[j] * inv_axdx;
+      rhsfacDiff_i += -arInvScale * muIp * fluctdUidxj[i][j] * av[j];
 
       // Accumulate lhs
       lhs_riC_i += lhsfacDiff_i;
 
       // SGRS (average) term, scaled by alpha
       const EdgeKernelTraits::DblType rhsSGRCfacDiff_i =
-        -alphaIp * muIp * avgdUidxj[i][j] * av[j];
+        -alphaIp * (2.0 - alphaIp) * muIp * avgdUidxj[i][j] * av[j];
 
       smdata.rhs(rowL) -= rhsfacDiff_i + rhsSGRCfacDiff_i;
       smdata.rhs(rowR) += rhsfacDiff_i + rhsSGRCfacDiff_i;
@@ -252,14 +270,17 @@ MomentumSSTTAMSDiffEdgeKernel::execute(
       EdgeKernelTraits::DblType lhsfacDiff_j = 0.0;
       for (int k = 0; k < ndim; ++k) {
         lhsfacDiff_j +=
-          -rhoIp * CM43scale * CM43 * epsilon13Ip * M43[i][k] * av[k] * av[j] * inv_axdx;
+          -rhoIp * CM43scale * CM43 * epsilon13Ip * arScale * M43[i][k] * av[k] * av[j] * inv_axdx;
         rhsfacDiff_j +=
-          -rhoIp * CM43scale * CM43 * epsilon13Ip * M43[i][k] * fluctdUidxj[j][k] * av[j];
+          -rhoIp * CM43scale * CM43 * epsilon13Ip * arScale * M43[i][k] * fluctdUidxj[j][k] * av[j];
       }
+
+      lhsfacDiff_j += -arInvScale * muIp * av[j] * av[j] * inv_axdx;
+      rhsfacDiff_j += -arInvScale * muIp * fluctdUidxj[j][i] * av[j];
 
       // SGRS (average) term, scaled by alpha
       const EdgeKernelTraits::DblType rhsSGRCfacDiff_j =
-        -alphaIp * muIp * avgdUidxj[j][i] * av[j];
+        -alphaIp * (2.0 - alphaIp) * muIp * avgdUidxj[j][i] * av[j];
 
       smdata.rhs(rowL) -= rhsfacDiff_j + rhsSGRCfacDiff_j;
       smdata.rhs(rowR) += rhsfacDiff_j + rhsSGRCfacDiff_j;

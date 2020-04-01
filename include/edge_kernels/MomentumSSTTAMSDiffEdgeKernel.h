@@ -79,6 +79,7 @@ private:
   
   const double betaStar_;
   const double CMdeg_;
+  const double aspectRatioSwitch_;
 
   const int nDim_;
 

@@ -243,7 +243,7 @@ TAMSAlgDriver::initial_production()
                                           avgDudx.get(mi, j * nDim + i));
             tij[i * nDim + j] = 2.0 * tvisc.get(mi, 0) * avgSij;
           }
-          tij[i * nDim + i] -= 2.0/3.0 * tke.get(mi, 0) * density.get(mi, 0);
+          tij[i * nDim + i] -= 2.0/3.0 * density.get(mi, 0) * tke.get(mi, 0);
         }
 
         NALU_ALIGNED DblType Pij[nalu_ngp::NDimMax * nalu_ngp::NDimMax];

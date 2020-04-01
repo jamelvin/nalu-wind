@@ -16,6 +16,8 @@
 #include "utils/StkHelpers.h"
 #include <SimdInterface.h>
 
+#include "NaluEnv.h"
+
 namespace sierra {
 namespace nalu {
 
@@ -205,7 +207,8 @@ MomentumSSTTAMSForcingNodeKernel::execute(
   //    (alpha <= a_kol), a_sign - (1.0 + a_kol - alpha) * a_sign, a_sign),
   //  stk::math::if_then_else((alpha >= 1.0), a_sign - alpha * a_sign, a_sign));
 
-  const NodeKernelTraits::DblType ahat = (1.0 - alpha)/(1.0 - a_kol);
+  const NodeKernelTraits::DblType ahat = stk::math::if_then_else((1.0 - a_kol) > 0.0,
+     (1.0 - alpha)/(1.0 - a_kol), 0.0);
   const NodeKernelTraits::DblType Fr = alpha * stk::math::max(a_sign, 0.0);
   const NodeKernelTraits::DblType Dr = stk::math::min(a_sign, 0.0) * 
                                       (stk::math::tanh(10.0 * (ahat-1.0)) + 1.0);
