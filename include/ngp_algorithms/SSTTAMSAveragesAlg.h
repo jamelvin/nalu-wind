@@ -48,6 +48,7 @@ private:
   unsigned resAdeq_{stk::mesh::InvalidOrdinal};
   unsigned turbKineticEnergy_{stk::mesh::InvalidOrdinal};
   unsigned specDissipationRate_{stk::mesh::InvalidOrdinal};
+  unsigned coordinates_{stk::mesh::InvalidOrdinal};
   unsigned avgVelocity_{stk::mesh::InvalidOrdinal};
   unsigned avgDudx_{stk::mesh::InvalidOrdinal};
   unsigned avgTkeRes_{stk::mesh::InvalidOrdinal};

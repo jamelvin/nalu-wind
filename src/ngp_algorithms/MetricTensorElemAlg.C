@@ -86,10 +86,12 @@ MetricTensorElemAlg<AlgTraits>::execute()
         const int nearestNode = ipNodeMap[ip];
 
         for (int i = 0; i < AlgTraits::nDim_; ++i)
-          for (int j = 0; j < AlgTraits::nDim_; ++j)
+          for (int j = 0; j < AlgTraits::nDim_; ++j) {
             MijOps(edata, nearestNode, i * AlgTraits::nDim_ + j) +=
               v_scv_mij(ip, i, j) * v_scv_volume(ip) / v_dnv(ip);
+          }
       }
+
     });
 }
 

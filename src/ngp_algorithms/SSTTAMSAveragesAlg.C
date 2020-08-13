@@ -14,7 +14,7 @@
 #include "ngp_utils/NgpFieldManager.h"
 #include "Realm.h"
 #include "utils/StkHelpers.h"
-
+#include "NaluEnv.h"
 #include "stk_mesh/base/MetaData.hpp"
 #include "stk_mesh/base/NgpMesh.hpp"
 #include "EigenDecomposition.h"
@@ -31,6 +31,7 @@ SSTTAMSAveragesAlg::SSTTAMSAveragesAlg(Realm& realm, stk::mesh::Part* part)
     aspectRatioSwitch_(realm.get_turb_model_constant(TM_aspRatSwitch)),
     meshMotion_(realm.does_mesh_move()),
     velocity_(get_field_ordinal(realm.meta_data(), "velocity")),
+    coordinates_(get_field_ordinal(realm.meta_data(), realm.get_coordinates_name())),
     density_(get_field_ordinal(realm.meta_data(), "density")),
     dudx_(get_field_ordinal(realm.meta_data(), "dudx")),
     resAdeq_(
@@ -60,6 +61,10 @@ SSTTAMSAveragesAlg::execute()
   const DblType dt = realm_.get_time_step();
   const int nDim = meta.spatial_dimension();
 
+  // JAM: Debugging
+  const int timestep = realm_.get_time_step_count();
+  const int iter = realm_.currentNonlinearIteration_;
+
   const stk::mesh::Selector sel =
     (meta.locally_owned_part() | meta.globally_shared_part()) &
     stk::mesh::selectField(
@@ -82,6 +87,7 @@ SSTTAMSAveragesAlg::execute()
   const auto vel = fieldMgr.get_field<double>(velocity_);
   const auto dudx = fieldMgr.get_field<double>(dudx_);
   auto avgVel = fieldMgr.get_field<double>(avgVelocity_);
+  const auto coords = fieldMgr.get_field<double>(coordinates_);  
   auto avgDudx = fieldMgr.get_field<double>(avgDudx_);
   const auto Mij = fieldMgr.get_field<double>(Mij_);
 
@@ -325,8 +331,7 @@ SSTTAMSAveragesAlg::execute()
 
         PMmag = stk::math::sqrt(PMmag);
 
-        // FIXME: PM is not symmetric
-        EigenDecomposition::unsym_matrix_force_sym<DblType>(PM, Q, D);
+        EigenDecomposition::general_eigenvalues<DblType>(PM, Q, D);
 
         DblType maxPM = stk::math::max(
           stk::math::abs(D[0][0]), stk::math::max(stk::math::abs(D[1][1]), stk::math::abs(D[2][2])));
@@ -336,14 +341,21 @@ SSTTAMSAveragesAlg::execute()
 
         resAdeq.get(mi, 0) = stk::math::min(resAdeq.get(mi, 0), 30.0);
 
-        if (alpha.get(mi, 0) >= 1.0)
+        if (alpha.get(mi, 0) >= 1.0) {
           resAdeq.get(mi, 0) = stk::math::min(resAdeq.get(mi, 0), 1.0);
+        }
 
-        if (alpha.get(mi, 0) <= alpha_kol_local)
+        //const DblType a_kol = stk::math::min(stk::math::sqrt(.0000943396226415 * betaStar * tke.get(mi, 0) * sdr.get(mi, 0))/tke.get(mi, 0), 1.0);
+
+        const DblType a_kol = 0.01;
+
+        if (alpha.get(mi, 0) <= a_kol)
           resAdeq.get(mi, 0) = stk::math::max(resAdeq.get(mi, 0), 1.0);
+
       }
       avgResAdeq.get(mi, 0) =
         weightAvg * avgResAdeq.get(mi, 0) + weightInst * resAdeq.get(mi, 0);
+ 
     });
 }
 

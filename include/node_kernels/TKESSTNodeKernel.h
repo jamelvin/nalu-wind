@@ -13,7 +13,7 @@
 
 #include "node_kernels/NodeKernel.h"
 #include "FieldTypeDef.h"
-
+#include "NaluEnv.h"
 #include "stk_mesh/base/BulkData.hpp"
 #include "stk_mesh/base/Ngp.hpp"
 #include "stk_mesh/base/NgpField.hpp"
@@ -49,6 +49,7 @@ private:
   stk::mesh::NgpField<double> density_;
   stk::mesh::NgpField<double> tvisc_;
   stk::mesh::NgpField<double> dudx_;
+  stk::mesh::NgpField<double> coords_;
   stk::mesh::NgpField<double> dualNodalVolume_;
 
   unsigned tkeID_             {stk::mesh::InvalidOrdinal};
@@ -56,11 +57,16 @@ private:
   unsigned densityID_         {stk::mesh::InvalidOrdinal};
   unsigned tviscID_           {stk::mesh::InvalidOrdinal};
   unsigned dudxID_            {stk::mesh::InvalidOrdinal};
+  unsigned coordinatesID_     {stk::mesh::InvalidOrdinal};
   unsigned dualNodalVolumeID_ {stk::mesh::InvalidOrdinal};
 
   NodeKernelTraits::DblType betaStar_;
   NodeKernelTraits::DblType tkeProdLimitRatio_;
   NodeKernelTraits::DblType relaxFac_;
+
+  // JAM: Debugging
+  int timestep_;
+  int iter_;
 
   const int nDim_;
 };

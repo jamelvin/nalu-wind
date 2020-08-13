@@ -32,6 +32,7 @@
 // stk_util
 #include <stk_util/parallel/Parallel.hpp>
 #include "utils/StkHelpers.h"
+#include <stk_util/parallel/ParallelReduce.hpp>
 
 // stk_mesh/base/fem
 #include <stk_mesh/base/BulkData.hpp>
@@ -355,7 +356,7 @@ ShearStressTransportEquationSystem::update_and_clip()
 
   nalu_ngp::run_entity_algorithm(
     "SST::update_and_clip", ngpMesh, stk::topology::NODE_RANK, sel,
-    KOKKOS_LAMBDA(const MeshIndex& mi) {
+    KOKKOS_LAMBDA(const MeshIndex& mi, size_t& nClip) {
       const double tkeNew = tkeNp1.get(mi, 0) + kTmp.get(mi, 0);
       const double sdrNew = sdrNp1.get(mi, 0) + wTmp.get(mi, 0);
 
@@ -392,6 +393,47 @@ ShearStressTransportEquationSystem::clip_sst(
     });
   tke.modify_on_device();
   sdr.modify_on_device();
+=======
+      if ((tkeNew >= 0.0) && (sdrNew >= 0.0)) {
+        tkeNp1.get(mi, 0) = tkeNew;
+        sdrNp1.get(mi, 0) = sdrNew;
+      } else if ((tkeNew < 0.0) && (sdrNew < 0.0)) {
+        // both negative; set TKE to small value, tvisc to molecular visc and use
+        // Prandtl/Kolm for SDR
+        tkeNp1.get(mi, 0) = clipValue;
+        turbVisc.get(mi, 0) = viscosity.get(mi, 0);
+        sdrNp1.get(mi, 0) = density.get(mi, 0) * clipValue / viscosity.get(mi, 0);
+        nClip++;
+      } else if (tkeNew < 0.0) {
+        // only TKE is off; reset turbulent viscosity to molecular vis and
+        // compute new TKE based on SDR and tvisc
+        turbVisc.get(mi, 0) = viscosity.get(mi, 0);
+        sdrNp1.get(mi, 0) = sdrNew;
+        tkeNp1.get(mi, 0) = viscosity.get(mi, 0) * sdrNew / density.get(mi, 0);
+      } else {
+        // Only SDR is off; reset turbulent viscosity to molecular visc and
+        // compute new SDR based on others
+        turbVisc.get(mi, 0) = viscosity.get(mi, 0);
+        tkeNp1.get(mi, 0) = tkeNew;
+        sdrNp1.get(mi, 0) = density.get(mi, 0) * tkeNew / viscosity.get(mi, 0);
+        nClip++;
+      }
+    }, numClip);
+
+  tkeNp1.modify_on_device();
+  sdrNp1.modify_on_device();
+  turbVisc.modify_on_device();
+
+  // parallel assemble clipped value
+    size_t g_numClip = 0;
+    stk::ParallelMachine comm =  NaluEnv::self().parallel_comm();
+    stk::all_reduce_sum(comm, &numClip, &g_numClip, 1);
+
+    //if ( g_numClip > 0 ) {
+      NaluEnv::self().naluOutputP0() << "tke clipped " << g_numClip << " times " << std::endl;
+    //}
+
+>>>>>>> Added general eigenvalues solver for 3x3 and added wedge geom NGP deriv for Mij.
 }
 
 //--------------------------------------------------------------------------

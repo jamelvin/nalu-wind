@@ -63,6 +63,8 @@ MomentumSSTTAMSForcingNodeKernel::setup(Realm& realm)
   // Time information
   dt_ = realm.get_time_step();
   time_ = realm.get_current_time();
+  timestep_ = realm.get_time_step_count();
+  iter_ = realm.currentNonlinearIteration_;
 
   const auto& fieldMgr = realm.ngp_field_manager();
   dualNodalVolume_ = fieldMgr.get_field<double>(dualNodalVolumeID_);

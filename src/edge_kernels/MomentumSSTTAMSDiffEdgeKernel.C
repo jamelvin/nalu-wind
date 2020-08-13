@@ -262,6 +262,9 @@ MomentumSSTTAMSDiffEdgeKernel::execute(
       const EdgeKernelTraits::DblType rhsSGRCfacDiff_i =
         -alphaIp * (2.0 - alphaIp) * muIp * avgdUidxj[i][j] * av[j];
 
+      // DEBUG: Adding for implicit option of mean
+      //lhs_riC_SGRS_i += -alphaIp * (2.0 - alphaIp) * muIp * av[j] * av[j];
+
       smdata.rhs(rowL) -= rhsfacDiff_i + rhsSGRCfacDiff_i;
       smdata.rhs(rowR) += rhsfacDiff_i + rhsSGRCfacDiff_i;
 
@@ -275,12 +278,14 @@ MomentumSSTTAMSDiffEdgeKernel::execute(
           -rhoIp * CM43scale * CM43 * epsilon13Ip * arScale * M43[i][k] * fluctdUidxj[j][k] * av[j];
       }
 
-      lhsfacDiff_j += -arInvScale * muIp * av[j] * av[j] * inv_axdx;
+      lhsfacDiff_j += -arInvScale * muIp * av[i] * av[j] * inv_axdx;
       rhsfacDiff_j += -arInvScale * muIp * fluctdUidxj[j][i] * av[j];
 
       // SGRS (average) term, scaled by alpha
       const EdgeKernelTraits::DblType rhsSGRCfacDiff_j =
         -alphaIp * (2.0 - alphaIp) * muIp * avgdUidxj[j][i] * av[j];
+
+      //lhsSGRSfacDiff_j = -alphaIp * (2.0 - alphaIp) * muIp * av[i] * av[j];
 
       smdata.rhs(rowL) -= rhsfacDiff_j + rhsSGRCfacDiff_j;
       smdata.rhs(rowR) += rhsfacDiff_j + rhsSGRCfacDiff_j;

@@ -14,7 +14,7 @@
 #include "ngp_utils/NgpFieldManager.h"
 #include "Realm.h"
 #include "utils/StkHelpers.h"
-
+#include "NaluEnv.h"
 #include "stk_mesh/base/MetaData.hpp"
 #include "stk_mesh/base/NgpMesh.hpp"
 
@@ -29,6 +29,7 @@ TurbViscSSTAlg::TurbViscSSTAlg(
 ) : Algorithm(realm, part),
     tviscField_(tvisc),
     density_(get_field_ordinal(realm.meta_data(), "density")),
+    coordinates_(get_field_ordinal(realm.meta_data(), realm.get_coordinates_name())),
     viscosity_(get_field_ordinal(realm.meta_data(), "viscosity")),
     tke_(get_field_ordinal(realm.meta_data(), "turbulent_ke")),
     sdr_(get_field_ordinal(realm.meta_data(), "specific_dissipation_rate")),
@@ -59,6 +60,7 @@ TurbViscSSTAlg::execute()
   const auto sdr = fieldMgr.get_field<double>(sdr_);
   const auto minD = fieldMgr.get_field<double>(minDistance_);
   const auto dudx = fieldMgr.get_field<double>(dudx_);
+  const auto coords = fieldMgr.get_field<double>(coordinates_);
   auto tvisc = fieldMgr.get_field<double>(tvisc_);
 
   const DblType aOne = aOne_;
@@ -86,6 +88,10 @@ TurbViscSSTAlg::execute()
       const DblType fTwo = stk::math::tanh(fArgTwo*fArgTwo);
 
       tvisc.get(meshIdx, 0) = aOne*density.get(meshIdx, 0)*tke.get(meshIdx, 0)/stk::math::max(aOne*sdr.get(meshIdx, 0), sijMag*fTwo);
+
+//      if ((coords.get(meshIdx,0) <= 2.0) && (coords.get(meshIdx,1) <= 1.0)) {
+//          NaluEnv::self().naluOutput() << coords.get(meshIdx, 0) << " " << coords.get(meshIdx, 1) << " " << coords.get(meshIdx, 2) << " " << tvisc.get(meshIdx, 0) << " " << sdr.get(meshIdx, 0) << " " << tke.get(meshIdx, 0) << " " << aOne*sdr.get(meshIdx, 0) << " " << sijMag*fTwo << " " << stk::math::max(aOne*sdr.get(meshIdx, 0), sijMag*fTwo) << std::endl;
+//      }      
     });
   tvisc.modify_on_device();
 }

@@ -40,6 +40,7 @@ private:
   ScalarFieldType* tviscField_ {nullptr};
   unsigned density_  {stk::mesh::InvalidOrdinal};
   unsigned viscosity_  {stk::mesh::InvalidOrdinal};
+  unsigned coordinates_{stk::mesh::InvalidOrdinal};
   unsigned tke_  {stk::mesh::InvalidOrdinal};
   unsigned sdr_  {stk::mesh::InvalidOrdinal};
   unsigned minDistance_  {stk::mesh::InvalidOrdinal};

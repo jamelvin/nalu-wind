@@ -28,6 +28,7 @@ TKESSTNodeKernel::TKESSTNodeKernel(
     densityID_(get_field_ordinal(meta, "density")),
     tviscID_(get_field_ordinal(meta, "turbulent_viscosity")),
     dudxID_(get_field_ordinal(meta, "dudx")),
+    coordinatesID_(get_field_ordinal(meta, "coordinates")),
     dualNodalVolumeID_(get_field_ordinal(meta, "dual_nodal_volume")),
     nDim_(meta.spatial_dimension())
 {}
@@ -42,11 +43,16 @@ TKESSTNodeKernel::setup(Realm& realm)
   density_         = fieldMgr.get_field<double>(densityID_);
   tvisc_           = fieldMgr.get_field<double>(tviscID_);
   dudx_            = fieldMgr.get_field<double>(dudxID_);
+  coords_	   = fieldMgr.get_field<double>(coordinatesID_);
   dualNodalVolume_ = fieldMgr.get_field<double>(dualNodalVolumeID_);
 
   const std::string dofName = "turbulent_ke";
   relaxFac_ = realm.solutionOptions_->get_relaxation_factor(dofName);
 
+  // JAM: Debugging
+  timestep_ = realm.get_time_step_count();
+  iter_ = realm.currentNonlinearIteration_;
+  
   // Update turbulence model constants
   betaStar_ = realm.get_turb_model_constant(TM_betaStar);
   tkeProdLimitRatio_ = realm.get_turb_model_constant(TM_tkeProdLimitRatio);
@@ -81,6 +87,10 @@ void TKESSTNodeKernel::execute(
 
   // Clip production term
   Pk = stk::math::min(tkeProdLimitRatio_ * Dk, Pk);
+
+  // if ((coords_.get(node,0) <= 2.0) && (coords_.get(node,1) <= 1.0)) {
+  //     NaluEnv::self().naluOutput() << timestep_ << " " << iter_ << " " << coords_.get(node, 0) << " " << coords_.get(node, 1) << " " << coords_.get(node, 2) << " " << tvisc << " " << sdr << " " << tke << " " << Pk << " " << tkeProdLimitRatio_ * Dk << " " << Dk << std::endl;
+  // }
 
   rhs(0) += (Pk - Dk) * dVol;
   lhs(0, 0) += betaStar_ * density * sdr * dVol;
