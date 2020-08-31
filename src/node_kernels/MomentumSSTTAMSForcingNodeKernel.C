@@ -144,12 +144,13 @@ MomentumSSTTAMSForcingNodeKernel::execute(
   //const NodeKernelTraits::DblType ceilLengthZ =
   //  stk::math::max(length, 2.0 * Mij_22);
 
+  // FIXME : Generalized using lengthY for all directions
   const NodeKernelTraits::DblType clipLengthX =
-    stk::math::min(length, periodicForcingLengthX);
+    stk::math::min(lengthY, periodicForcingLengthX);
   const NodeKernelTraits::DblType clipLengthY =
     stk::math::min(lengthY, periodicForcingLengthY);
   const NodeKernelTraits::DblType clipLengthZ =
-    stk::math::min(length, periodicForcingLengthZ);
+    stk::math::min(lengthY, periodicForcingLengthZ);
 
   const NodeKernelTraits::DblType ratioX =
     std::floor(periodicForcingLengthX / clipLengthX + 0.5);
