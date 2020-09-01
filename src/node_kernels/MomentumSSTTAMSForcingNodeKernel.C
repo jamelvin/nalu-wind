@@ -7,7 +7,6 @@
 // for more details.
 //
 
-
 #include "node_kernels/MomentumSSTTAMSForcingNodeKernel.h"
 #include "Realm.h"
 #include "SolutionOptions.h"
@@ -32,9 +31,12 @@ MomentumSSTTAMSForcingNodeKernel::MomentumSSTTAMSForcingNodeKernel(
     blKol_(solnOpts.get_turb_model_constant(TM_forBlKol)),
     forceFactor_(solnOpts.get_turb_model_constant(TM_forFac)),
     cMu_(solnOpts.get_turb_model_constant(TM_v2cMu)),
-    periodicForcingLengthX_(solnOpts.get_turb_model_constant(TM_periodicForcingLengthX)),
-    periodicForcingLengthY_(solnOpts.get_turb_model_constant(TM_periodicForcingLengthY)),
-    periodicForcingLengthZ_(solnOpts.get_turb_model_constant(TM_periodicForcingLengthZ)),
+    periodicForcingLengthX_(
+      solnOpts.get_turb_model_constant(TM_periodicForcingLengthX)),
+    periodicForcingLengthY_(
+      solnOpts.get_turb_model_constant(TM_periodicForcingLengthY)),
+    periodicForcingLengthZ_(
+      solnOpts.get_turb_model_constant(TM_periodicForcingLengthZ)),
     nDim_(bulk.mesh_meta_data().spatial_dimension())
 {
   const auto& meta = bulk.mesh_meta_data();
@@ -125,21 +127,20 @@ MomentumSSTTAMSForcingNodeKernel::execute(
     length,
     Ceta_ * (stk::math::pow(mu / rho, 0.75) / stk::math::pow(eps, 0.25)));
   // FIXME: Make this aware of wall direction...
-  const NodeKernelTraits::DblType lengthY = 
-    stk::math::min(length, wallDist);
+  const NodeKernelTraits::DblType lengthY = stk::math::min(length, wallDist);
 
   NodeKernelTraits::DblType T_alpha = alpha * tke / eps;
   T_alpha = stk::math::max(T_alpha, Ct_ * stk::math::sqrt(mu / rho / eps));
   T_alpha = blT_ * T_alpha;
 
-  //const NodeKernelTraits::DblType Mij_00 = Mij_.get(node, 0);
-  //const NodeKernelTraits::DblType Mij_11 = Mij_.get(node, 4);
-  //const NodeKernelTraits::DblType Mij_22 = Mij_.get(node, 8);
-  //const NodeKernelTraits::DblType ceilLengthX =
+  // const NodeKernelTraits::DblType Mij_00 = Mij_.get(node, 0);
+  // const NodeKernelTraits::DblType Mij_11 = Mij_.get(node, 4);
+  // const NodeKernelTraits::DblType Mij_22 = Mij_.get(node, 8);
+  // const NodeKernelTraits::DblType ceilLengthX =
   //  stk::math::max(length, 2.0 * Mij_00);
-  //const NodeKernelTraits::DblType ceilLengthY =
+  // const NodeKernelTraits::DblType ceilLengthY =
   //  stk::math::max(length, 2.0 * Mij_11);
-  //const NodeKernelTraits::DblType ceilLengthZ =
+  // const NodeKernelTraits::DblType ceilLengthZ =
   //  stk::math::max(length, 2.0 * Mij_22);
 
   // FIXME : Generalized using lengthY for all directions
@@ -202,22 +203,23 @@ MomentumSSTTAMSForcingNodeKernel::execute(
   const NodeKernelTraits::DblType a_kol =
     stk::math::min(blKol_ * stk::math::sqrt(mu * eps / rho) / tke, 1.0);
 
-  //const NodeKernelTraits::DblType Sa = stk::math::if_then_else(
+  // const NodeKernelTraits::DblType Sa = stk::math::if_then_else(
   //  (a_sign < 0.0),
   //  stk::math::if_then_else(
   //    (alpha <= a_kol), a_sign - (1.0 + a_kol - alpha) * a_sign, a_sign),
   //  stk::math::if_then_else((alpha >= 1.0), a_sign - alpha * a_sign, a_sign));
 
-  const NodeKernelTraits::DblType ahat = stk::math::if_then_else((1.0 - a_kol) > 0.0,
-     (1.0 - alpha)/(1.0 - a_kol), 0.0);
+  const NodeKernelTraits::DblType ahat = stk::math::if_then_else(
+    (1.0 - a_kol) > 0.0, (1.0 - alpha) / (1.0 - a_kol), 0.0);
   const NodeKernelTraits::DblType Fr = alpha * stk::math::max(a_sign, 0.0);
-  const NodeKernelTraits::DblType Dr = stk::math::min(a_sign, 0.0) * 
-                                      (stk::math::tanh(10.0 * (ahat-1.0)) + 1.0);
+  const NodeKernelTraits::DblType Dr =
+    stk::math::min(a_sign, 0.0) * (stk::math::tanh(10.0 * (ahat - 1.0)) + 1.0);
 
-  const NodeKernelTraits::DblType C_F_tmp = stk::math::min(a_sign-Dr-Fr, 0.0);
+  const NodeKernelTraits::DblType C_F_tmp =
+    stk::math::min(a_sign - Dr - Fr, 0.0);
 
-  const NodeKernelTraits::DblType C_F = stk::math::if_then_else(
-    prod_r >= 0.0, -1.0 * F_target * C_F_tmp, 0.0);
+  const NodeKernelTraits::DblType C_F =
+    stk::math::if_then_else(prod_r >= 0.0, -1.0 * F_target * C_F_tmp, 0.0);
 
   // Now we determine the actual forcing field
   NodeKernelTraits::DblType gX = C_F * hX;

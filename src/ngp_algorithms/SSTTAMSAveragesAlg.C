@@ -7,7 +7,6 @@
 // for more details.
 //
 
-
 #include "ngp_algorithms/SSTTAMSAveragesAlg.h"
 #include "ngp_utils/NgpLoopUtils.h"
 #include "ngp_utils/NgpTypes.h"
@@ -31,7 +30,8 @@ SSTTAMSAveragesAlg::SSTTAMSAveragesAlg(Realm& realm, stk::mesh::Part* part)
     aspectRatioSwitch_(realm.get_turb_model_constant(TM_aspRatSwitch)),
     meshMotion_(realm.does_mesh_move()),
     velocity_(get_field_ordinal(realm.meta_data(), "velocity")),
-    coordinates_(get_field_ordinal(realm.meta_data(), realm.get_coordinates_name())),
+    coordinates_(
+      get_field_ordinal(realm.meta_data(), realm.get_coordinates_name())),
     density_(get_field_ordinal(realm.meta_data(), "density")),
     dudx_(get_field_ordinal(realm.meta_data(), "dudx")),
     resAdeq_(
@@ -87,7 +87,7 @@ SSTTAMSAveragesAlg::execute()
   const auto vel = fieldMgr.get_field<double>(velocity_);
   const auto dudx = fieldMgr.get_field<double>(dudx_);
   auto avgVel = fieldMgr.get_field<double>(avgVelocity_);
-  const auto coords = fieldMgr.get_field<double>(coordinates_);  
+  const auto coords = fieldMgr.get_field<double>(coordinates_);
   auto avgDudx = fieldMgr.get_field<double>(avgDudx_);
   const auto Mij = fieldMgr.get_field<double>(Mij_);
 
@@ -98,14 +98,14 @@ SSTTAMSAveragesAlg::execute()
   const DblType aspectRatioSwitch = aspectRatioSwitch_;
 
   nalu_ngp::run_entity_algorithm(
-    "SSTTAMSAveragesAlg_computeAverages",
-    ngpMesh, stk::topology::NODE_RANK, sel,
-    KOKKOS_LAMBDA(const Traits::MeshIndex& mi) {
+    "SSTTAMSAveragesAlg_computeAverages", ngpMesh, stk::topology::NODE_RANK,
+    sel, KOKKOS_LAMBDA(const Traits::MeshIndex& mi) {
       // Calculate alpha
       if (tke.get(mi, 0) == 0.0)
         alpha.get(mi, 0) = 1.0;
       else {
-        alpha.get(mi, 0) = (tke.get(mi,0) - avgTkeRes.get(mi, 0)) / tke.get(mi, 0);
+        alpha.get(mi, 0) =
+          (tke.get(mi, 0) - avgTkeRes.get(mi, 0)) / tke.get(mi, 0);
 
         // limiters
         alpha.get(mi, 0) = stk::math::min(alpha.get(mi, 0), 1.0);
@@ -117,7 +117,8 @@ SSTTAMSAveragesAlg::execute()
       avgTime.get(mi, 0) = 1.0 / (betaStar * sdr.get(mi, 0));
 
       // causal time average ODE: d<phi>/dt = 1/avgTime * (phi - <phi>)
-      const DblType weightAvg = stk::math::max(1.0 - dt / avgTime.get(mi, 0), 0.0);
+      const DblType weightAvg =
+        stk::math::max(1.0 - dt / avgTime.get(mi, 0), 0.0);
       const DblType weightInst = stk::math::min(dt / avgTime.get(mi, 0), 1.0);
 
       DblType tkeRes = 0.0;
@@ -145,9 +146,11 @@ SSTTAMSAveragesAlg::execute()
         for (int j = 0; j < nDim; ++j) {
           const DblType avgSij = 0.5 * (avgDudx.get(mi, i * nDim + j) +
                                         avgDudx.get(mi, j * nDim + i));
-          tij[i][j] = 2.0 * alpha.get(mi, 0) * (2.0-alpha.get(mi, 0)) * tvisc.get(mi, 0) * avgSij; 
+          tij[i][j] = 2.0 * alpha.get(mi, 0) * (2.0 - alpha.get(mi, 0)) *
+                      tvisc.get(mi, 0) * avgSij;
         }
-        tij[i][i] -= 2.0/3.0 * alpha.get(mi, 0) * density.get(mi, 0) * tke.get(mi, 0);
+        tij[i][i] -=
+          2.0 / 3.0 * alpha.get(mi, 0) * density.get(mi, 0) * tke.get(mi, 0);
       }
 
       DblType Pij[nalu_ngp::NDimMax][nalu_ngp::NDimMax];
@@ -220,10 +223,12 @@ SSTTAMSAveragesAlg::execute()
         }
       }
 
-      const DblType maxEigM = stk::math::max(D[0][0], stk::math::max(D[1][1], D[2][2]));
-      const DblType minEigM = stk::math::min(D[0][0], stk::math::min(D[1][1], D[2][2]));
+      const DblType maxEigM =
+        stk::math::max(D[0][0], stk::math::max(D[1][1], D[2][2]));
+      const DblType minEigM =
+        stk::math::min(D[0][0], stk::math::min(D[1][1], D[2][2]));
 
-      const DblType aspectRatio = maxEigM/minEigM;
+      const DblType aspectRatio = maxEigM / minEigM;
 
       // zeroing out tensors
       DblType tauSGRS[nalu_ngp::NDimMax][nalu_ngp::NDimMax];
@@ -242,16 +247,17 @@ SSTTAMSAveragesAlg::execute()
       const DblType CM43 =
         tams_utils::get_M43_constant<DblType, nalu_ngp::NDimMax>(D, CMdeg);
 
-      const DblType CM43scale = 
+      const DblType CM43scale =
         stk::math::max(stk::math::min(avgResAdeq.get(mi, 0), 10.0), 1.0);
 
       const DblType epsilon13 =
         stk::math::pow(betaStar * tke.get(mi, 0) * sdr.get(mi, 0), 1.0 / 3.0);
 
-      const DblType arScale = stk::math::if_then_else(aspectRatio > aspectRatioSwitch,      
-        1.0 - stk::math::tanh((aspectRatio - aspectRatioSwitch)/10.0), 1.0);
+      const DblType arScale = stk::math::if_then_else(
+        aspectRatio > aspectRatioSwitch,
+        1.0 - stk::math::tanh((aspectRatio - aspectRatioSwitch) / 10.0), 1.0);
 
-      const DblType arInvScale = 1.0 - arScale; 
+      const DblType arInvScale = 1.0 - arScale;
 
       for (int i = 0; i < nDim; ++i) {
         for (int j = 0; j < nDim; ++j) {
@@ -259,8 +265,9 @@ SSTTAMSAveragesAlg::execute()
           // the SST model and <S_ij> is the strain rate tensor based on the
           // mean quantities... i.e this is (tauSGRS = alpha*tauSST)
           // The 2 in the coeff cancels with the 1/2 in the strain rate tensor
-          const DblType coeffSGRS = alpha.get(mi, 0) * (2.0 - alpha.get(mi,0)) * tvisc.get(mi, 0)
-					 / density.get(mi, 0);
+          const DblType coeffSGRS = alpha.get(mi, 0) *
+                                    (2.0 - alpha.get(mi, 0)) *
+                                    tvisc.get(mi, 0) / density.get(mi, 0);
           tauSGRS[i][j] =
             avgDudx.get(mi, i * nDim + j) + avgDudx.get(mi, j * nDim + i);
           tauSGRS[i][j] *= coeffSGRS;
@@ -276,19 +283,22 @@ SSTTAMSAveragesAlg::execute()
             const DblType fluctDudx_il =
               dudx.get(mi, i * nDim + l) - avgDudx.get(mi, i * nDim + l);
             tauSGET[i][j] +=
-              coeffSGET * arScale * (M43[i][l] * fluctDudx_jl + M43[j][l] * fluctDudx_il);
+              coeffSGET * arScale *
+              (M43[i][l] * fluctDudx_jl + M43[j][l] * fluctDudx_il);
           }
-          tauSGET[i][j] += arInvScale * tvisc.get(mi, 0) / density.get(mi, 0) * (
-              dudx.get(mi, i * nDim + j) - avgDudx.get(mi, i * nDim + j) +
-              dudx.get(mi, j * nDim + i) - avgDudx.get(mi, j * nDim + i));
+          tauSGET[i][j] +=
+            arInvScale * tvisc.get(mi, 0) / density.get(mi, 0) *
+            (dudx.get(mi, i * nDim + j) - avgDudx.get(mi, i * nDim + j) +
+             dudx.get(mi, j * nDim + i) - avgDudx.get(mi, j * nDim + i));
         }
       }
 
       // Calculate the full subgrid stress including the isotropic portion
       for (int i = 0; i < nDim; ++i)
         for (int j = 0; j < nDim; ++j)
-          tau[i][j] = tauSGRS[i][j] + tauSGET[i][j]  -
-                      ((i == j) ? 2.0 / 3.0 * alpha.get(mi, 0) * tke.get(mi, 0) : 0.0);
+          tau[i][j] =
+            tauSGRS[i][j] + tauSGET[i][j] -
+            ((i == j) ? 2.0 / 3.0 * alpha.get(mi, 0) * tke.get(mi, 0) : 0.0);
 
       // Calculate the SGS production PSGS_ij = 1/2(tau_ik*djuk + tau_jk*diuk)
       // where diuj is the instantaneous velocity gradients
@@ -327,17 +337,19 @@ SSTTAMSAveragesAlg::execute()
         DblType PMmag = 0.0;
         for (int i = 0; i < nDim; ++i)
           for (int j = 0; j < nDim; ++j)
-            PMmag += PM[i][j]*PM[i][j];
+            PMmag += PM[i][j] * PM[i][j];
 
         PMmag = stk::math::sqrt(PMmag);
 
         EigenDecomposition::general_eigenvalues<DblType>(PM, Q, D);
 
         DblType maxPM = stk::math::max(
-          stk::math::abs(D[0][0]), stk::math::max(stk::math::abs(D[1][1]), stk::math::abs(D[2][2])));
+          stk::math::abs(D[0][0]),
+          stk::math::max(stk::math::abs(D[1][1]), stk::math::abs(D[2][2])));
 
         // Update the instantaneous resAdeq field
-        resAdeq.get(mi, 0) = stk::math::max(stk::math::min(maxPM, PMmag), 0.00000001);
+        resAdeq.get(mi, 0) =
+          stk::math::max(stk::math::min(maxPM, PMmag), 0.00000001);
 
         resAdeq.get(mi, 0) = stk::math::min(resAdeq.get(mi, 0), 30.0);
 
@@ -345,17 +357,17 @@ SSTTAMSAveragesAlg::execute()
           resAdeq.get(mi, 0) = stk::math::min(resAdeq.get(mi, 0), 1.0);
         }
 
-        //const DblType a_kol = stk::math::min(stk::math::sqrt(.0000943396226415 * betaStar * tke.get(mi, 0) * sdr.get(mi, 0))/tke.get(mi, 0), 1.0);
+        // const DblType a_kol =
+        // stk::math::min(stk::math::sqrt(.0000943396226415 * betaStar *
+        // tke.get(mi, 0) * sdr.get(mi, 0))/tke.get(mi, 0), 1.0);
 
         const DblType a_kol = 0.01;
 
         if (alpha.get(mi, 0) <= a_kol)
           resAdeq.get(mi, 0) = stk::math::max(resAdeq.get(mi, 0), 1.0);
-
       }
       avgResAdeq.get(mi, 0) =
         weightAvg * avgResAdeq.get(mi, 0) + weightInst * resAdeq.get(mi, 0);
- 
     });
 }
 

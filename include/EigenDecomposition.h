@@ -310,52 +310,77 @@ void unsym_matrix_force_sym(T (&A)[3][3], T (&Q)[3][3], T (&D)[3][3]) {
 //------------------ general_eigenvalues_3D -----------------------------
 //--------------------------------------------------------------------------
 template <class T>
-KOKKOS_FUNCTION
-void general_eigenvalues(T (&A)[3][3], T (&Q)[3][3], T (&D)[3][3]) {
+KOKKOS_FUNCTION void
+  general_eigenvalues(T (&A)[3][3], T (&Q)[3][3], T (&D)[3][3])
+{
 
   const T pi = stk::math::acos(-1.0);
 
-  // Characteristic equation for A is ax^3 + bx^2 + cx + d = 0 where x are the eigenvalues and
-  // a = 1, b = -trA, c = coFacA, d = -detA
-  const T trA = A[0][0] + A[1][1] + A[2][2]; 
-  const T detA = A[0][0]*A[1][1]*A[2][2] + A[0][1]*A[1][2]*A[2][0] + A[0][2]*A[1][0]*A[2][1] -
-		 A[0][0]*A[1][2]*A[2][1] - A[0][1]*A[1][0]*A[2][2] - A[0][2]*A[1][1]*A[2][0];
-  const T coFacA = A[0][0]*A[1][1] - A[0][1]*A[1][0] + 
-		   A[1][1]*A[2][2] - A[1][2]*A[2][1] +
-		   A[0][0]*A[2][2] - A[0][2]*A[2][0];
+  // Characteristic equation for A is ax^3 + bx^2 + cx + d = 0 where x are the
+  // eigenvalues and a = 1, b = -trA, c = coFacA, d = -detA
+  const T trA = A[0][0] + A[1][1] + A[2][2];
+  const T detA = A[0][0] * A[1][1] * A[2][2] + A[0][1] * A[1][2] * A[2][0] +
+                 A[0][2] * A[1][0] * A[2][1] - A[0][0] * A[1][2] * A[2][1] -
+                 A[0][1] * A[1][0] * A[2][2] - A[0][2] * A[1][1] * A[2][0];
+  const T coFacA = A[0][0] * A[1][1] - A[0][1] * A[1][0] + A[1][1] * A[2][2] -
+                   A[1][2] * A[2][1] + A[0][0] * A[2][2] - A[0][2] * A[2][0];
 
   // Check to make sure all eigenvalues are real
   // discriminant = (bc)^2 - 4ac^3 -4b^3d -27a^2d^2 + 18abcd where
   // a = 1, b = -trA, c = coFacA, d = -detA
-  const T disc = trA*trA * coFacA*coFacA - 4.0 * coFacA*coFacA*coFacA - 
-                 4.0 * trA*trA*trA*detA - 27.0 * detA*detA + 18.0 * trA * coFacA * detA;
+  const T disc = trA * trA * coFacA * coFacA - 4.0 * coFacA * coFacA * coFacA -
+                 4.0 * trA * trA * trA * detA - 27.0 * detA * detA +
+                 18.0 * trA * coFacA * detA;
 
-  const auto check_one = disc<0.0;
+  const auto check_one = disc < 0.0;
   const bool exit_now = stk::simd::are_all(check_one);
-  if (exit_now){
-     NaluEnv::self().naluOutputP0() << "Error, complex eigenvalues in EigenDecomposition::general_eigenvalues" << disc << "([[" << A[0][0] << "," << A[0][1] << "," << A[0][2] << "],[" << A[1][0] << "," << A[1][1] << "," << A[1][2] << "],[" << A[2][0] << "," << A[2][1] << "," << A[2][2] << "]])" << std::endl; 
-     throw std::runtime_error("Exiting... ");
+  if (exit_now) {
+    NaluEnv::self().naluOutputP0()
+      << "Error, complex eigenvalues in EigenDecomposition::general_eigenvalues"
+      << disc << "([[" << A[0][0] << "," << A[0][1] << "," << A[0][2] << "],["
+      << A[1][0] << "," << A[1][1] << "," << A[1][2] << "],[" << A[2][0] << ","
+      << A[2][1] << "," << A[2][2] << "]])" << std::endl;
+    throw std::runtime_error("Exiting... ");
   }
 
-  // Convert to depressed cubic (substitute x = t - b/3a = t + trA/3) 
-  // This leads to cubic: t^3 + pt + q  where the linear and constant coefficient are defined as below
-  const T linCoef = coFacA - trA*trA/3.0;
-  const T constCoef = coFacA*trA/3.0 - 2.0*trA*trA*trA/27.0 - detA;
+  // Convert to depressed cubic (substitute x = t - b/3a = t + trA/3)
+  // This leads to cubic: t^3 + pt + q  where the linear and constant
+  // coefficient are defined as below
+  const T linCoef = coFacA - trA * trA / 3.0;
+  const T constCoef = coFacA * trA / 3.0 - 2.0 * trA * trA * trA / 27.0 - detA;
 
-  // Solve roots of depressed cubic polynomial analytically (Francois Viete formula)
-  const T t1 = 2.0 * stk::math::sqrt(-linCoef/3.0) * stk::math::cos(stk::math::acos(3.0*constCoef*stk::math::sqrt(-3.0/linCoef)/(2.0*linCoef))/3.0);
-  const T t2 = 2.0 * stk::math::sqrt(-linCoef/3.0) * stk::math::cos(stk::math::acos(3.0*constCoef*stk::math::sqrt(-3.0/linCoef)/(2.0*linCoef))/3.0 - 2.0 * pi/3.0);
-  const T t3 = 2.0 * stk::math::sqrt(-linCoef/3.0) * stk::math::cos(stk::math::acos(3.0*constCoef*stk::math::sqrt(-3.0/linCoef)/(2.0*linCoef))/3.0 - 4.0 * pi/3.0);
+  // Solve roots of depressed cubic polynomial analytically (Francois Viete
+  // formula)
+  const T t1 =
+    2.0 * stk::math::sqrt(-linCoef / 3.0) *
+    stk::math::cos(
+      stk::math::acos(
+        3.0 * constCoef * stk::math::sqrt(-3.0 / linCoef) / (2.0 * linCoef)) /
+      3.0);
+  const T t2 =
+    2.0 * stk::math::sqrt(-linCoef / 3.0) *
+    stk::math::cos(
+      stk::math::acos(
+        3.0 * constCoef * stk::math::sqrt(-3.0 / linCoef) / (2.0 * linCoef)) /
+        3.0 -
+      2.0 * pi / 3.0);
+  const T t3 =
+    2.0 * stk::math::sqrt(-linCoef / 3.0) *
+    stk::math::cos(
+      stk::math::acos(
+        3.0 * constCoef * stk::math::sqrt(-3.0 / linCoef) / (2.0 * linCoef)) /
+        3.0 -
+      4.0 * pi / 3.0);
 
   // Convert roots of depressed polynomial back to the eigenvalues
-  D[0][0] = t1 + trA/3.0;
-  D[1][1] = t2 + trA/3.0;
-  D[2][2] = t3 + trA/3.0;
+  D[0][0] = t1 + trA / 3.0;
+  D[1][1] = t2 + trA / 3.0;
+  D[2][2] = t3 + trA / 3.0;
 
   // Zero out Q since this only returns eigenvalues
-  Q[0][0] = Q[0][1] = Q[0][2] = Q[1][0] = Q[1][1] = Q[1][2] = Q[2][0] = Q[2][1] = Q[2][2] = 0.0;
+  Q[0][0] = Q[0][1] = Q[0][2] = Q[1][0] = Q[1][1] = Q[1][2] = Q[2][0] =
+    Q[2][1] = Q[2][2] = 0.0;
 }
-
 
 } // namespace EigenDecomposition
 

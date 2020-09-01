@@ -7,7 +7,6 @@
 // for more details.
 //
 
-
 #include "kernel/MomentumSSTTAMSDiffElemKernel.h"
 #include "AlgTraits.h"
 #include "EigenDecomposition.h"
@@ -56,7 +55,8 @@ MomentumSSTTAMSDiffElemKernel<AlgTraits>::MomentumSSTTAMSDiffElemKernel(
 
   coordinates_ = get_field_ordinal(metaData, solnOpts.get_coordinates_name());
 
-  meSCS_ = sierra::nalu::MasterElementRepo::get_surface_master_element<AlgTraits>();
+  meSCS_ =
+    sierra::nalu::MasterElementRepo::get_surface_master_element<AlgTraits>();
 
   // add master elements
   dataPreReqs.add_cvfem_surface_me(meSCS_);
@@ -185,7 +185,7 @@ MomentumSSTTAMSDiffElemKernel<AlgTraits>::execute(
     }
 
     const DoubleType CM43scale =
-        stk::math::max(stk::math::min(avgResAdeqScs, 10.0),1.0);
+      stk::math::max(stk::math::min(avgResAdeqScs, 10.0), 1.0);
 
     // This is the divU term for the average quantities in the model for
     // tau_ij^SGRS Since we are letting SST calculate it's normal mu_t, we need
@@ -225,8 +225,8 @@ MomentumSSTTAMSDiffElemKernel<AlgTraits>::execute(
           // -mut^jk*dui/dxk*A_j; fixed i over j loop; see below..
           DoubleType lhsfacDiff_i = 0.0;
           for (int k = 0; k < AlgTraits::nDim_; ++k) {
-            lhsfacDiff_i += -rhoScs * CM43scale * CM43 * epsilon13Scs * M43[j][k] *
-                            v_dndx(ip, ic, k) * axj;
+            lhsfacDiff_i += -rhoScs * CM43scale * CM43 * epsilon13Scs *
+                            M43[j][k] * v_dndx(ip, ic, k) * axj;
           }
 
           // SGRS (average) term, scaled by alpha
@@ -240,8 +240,8 @@ MomentumSSTTAMSDiffElemKernel<AlgTraits>::execute(
           // -mut^ik*duj/dxk*A_j
           DoubleType lhsfacDiff_j = 0.0;
           for (int k = 0; k < AlgTraits::nDim_; ++k) {
-            lhsfacDiff_j += -rhoScs * CM43scale * CM43 * epsilon13Scs * M43[i][k] *
-                            v_dndx(ip, ic, k) * axj;
+            lhsfacDiff_j += -rhoScs * CM43scale * CM43 * epsilon13Scs *
+                            M43[i][k] * v_dndx(ip, ic, k) * axj;
           }
 
           // SGRS (average) term, scaled by alpha

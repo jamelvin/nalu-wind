@@ -7,7 +7,6 @@
 // for more details.
 //
 
-
 #ifndef TAMSUTILS_H
 #define TAMSUTILS_H
 
@@ -19,16 +18,15 @@ namespace nalu {
 namespace tams_utils {
 
 template <class T, int dim = 3>
-KOKKOS_FUNCTION
-T
+KOKKOS_FUNCTION T
 get_M43_constant(T D[dim][dim], const double CMdeg)
 {
   NGP_ThrowRequireMsg(dim == 3, "Compute of M43 constant requires 3D problem");
 
   // Coefficients for the polynomial
   double c[15] = {0.971903113666644,  0.065591700544879,  0.071103489538998,
-                  0.049918716158500, -0.056904657182031,  0.097974249406576,
-                 -0.015589487087603,  0.002003723064733,  0.002177318950949,
+                  0.049918716158500,  -0.056904657182031, 0.097974249406576,
+                  -0.015589487087603, 0.002003723064733,  0.002177318950949,
                   0.034227247973836,  0.001219656091495,  0.000417947294931,
                   0.000421085902741,  0.001223678414510,  0.003695127828465};
 

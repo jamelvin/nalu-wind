@@ -461,7 +461,7 @@ namespace nalu {
         jac[2][1] += referenceGradWeights(ip, n, 1) * coords(n, 2);
         jac[2][2] += referenceGradWeights(ip, n, 2) * coords(n, 2);
       }
-     
+
       // Here we calculate Mij^2 = J J^T
       ftype M[3][3];
       M[0][0] = jac[0][0] * jac[0][0] + jac[0][1] * jac[0][1] + jac[0][2] * jac[0][2];
