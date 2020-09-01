@@ -517,6 +517,9 @@ SolutionOptions::initialize_turbulence_constants()
   turbModelConstantMap_[TM_forFac] = 8.0;
   turbModelConstantMap_[TM_v2cMu] = 0.22;
   turbModelConstantMap_[TM_aspRatSwitch] = 64.0;
+  turbModelConstantMap_[TM_periodicForcingLengthX] = M_PI;
+  turbModelConstantMap_[TM_periodicForcingLengthY] = 0.25;
+  turbModelConstantMap_[TM_periodicForcingLengthZ] = 3.0 / 8.0 * M_PI;
 }
 
 

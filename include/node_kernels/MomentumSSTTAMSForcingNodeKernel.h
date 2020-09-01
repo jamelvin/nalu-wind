@@ -83,9 +83,11 @@ private:
   const double blKol_;
   const double forceFactor_;
   const double cMu_; 
+  const double periodicForcingLengthX_;
+  const double periodicForcingLengthY_;
+  const double periodicForcingLengthZ_;
   const int nDim_;
 
-  double pi_;
   double time_;
   double dt_;
   int timestep_;

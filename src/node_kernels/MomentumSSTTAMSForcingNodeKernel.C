@@ -32,10 +32,12 @@ MomentumSSTTAMSForcingNodeKernel::MomentumSSTTAMSForcingNodeKernel(
     blKol_(solnOpts.get_turb_model_constant(TM_forBlKol)),
     forceFactor_(solnOpts.get_turb_model_constant(TM_forFac)),
     cMu_(solnOpts.get_turb_model_constant(TM_v2cMu)),
+    periodicForcingLengthX_(solnOpts.get_turb_model_constant(TM_periodicForcingLengthX)),
+    periodicForcingLengthY_(solnOpts.get_turb_model_constant(TM_periodicForcingLengthY)),
+    periodicForcingLengthZ_(solnOpts.get_turb_model_constant(TM_periodicForcingLengthZ)),
     nDim_(bulk.mesh_meta_data().spatial_dimension())
 {
   const auto& meta = bulk.mesh_meta_data();
-  pi_ = stk::math::acos(-1.0);
 
   dualNodalVolumeID_ = get_field_ordinal(meta, "dual_nodal_volume");
 
@@ -117,10 +119,6 @@ MomentumSSTTAMSForcingNodeKernel::execute(
   const NodeKernelTraits::DblType eps = betaStar_ * tke * sdr;
 
   // First we calculate the a_i's
-  const NodeKernelTraits::DblType periodicForcingLengthX = pi_;
-  const NodeKernelTraits::DblType periodicForcingLengthY = 0.25;
-  const NodeKernelTraits::DblType periodicForcingLengthZ = 3.0 / 8.0 * pi_;
-
   NodeKernelTraits::DblType length =
     forceCl_ * stk::math::pow(alpha * tke, 1.5) / eps;
   length = stk::math::max(
@@ -146,26 +144,26 @@ MomentumSSTTAMSForcingNodeKernel::execute(
 
   // FIXME : Generalized using lengthY for all directions
   const NodeKernelTraits::DblType clipLengthX =
-    stk::math::min(lengthY, periodicForcingLengthX);
+    stk::math::min(lengthY, periodicForcingLengthX_);
   const NodeKernelTraits::DblType clipLengthY =
-    stk::math::min(lengthY, periodicForcingLengthY);
+    stk::math::min(lengthY, periodicForcingLengthY_);
   const NodeKernelTraits::DblType clipLengthZ =
-    stk::math::min(lengthY, periodicForcingLengthZ);
+    stk::math::min(lengthY, periodicForcingLengthZ_);
 
   const NodeKernelTraits::DblType ratioX =
-    std::floor(periodicForcingLengthX / clipLengthX + 0.5);
+    std::floor(periodicForcingLengthX_ / clipLengthX + 0.5);
   const NodeKernelTraits::DblType ratioY =
-    std::floor(periodicForcingLengthY / clipLengthY + 0.5);
+    std::floor(periodicForcingLengthY_ / clipLengthY + 0.5);
   const NodeKernelTraits::DblType ratioZ =
-    std::floor(periodicForcingLengthZ / clipLengthZ + 0.5);
+    std::floor(periodicForcingLengthZ_ / clipLengthZ + 0.5);
 
-  const NodeKernelTraits::DblType denomX = periodicForcingLengthX / ratioX;
-  const NodeKernelTraits::DblType denomY = periodicForcingLengthY / ratioY;
-  const NodeKernelTraits::DblType denomZ = periodicForcingLengthZ / ratioZ;
+  const NodeKernelTraits::DblType denomX = periodicForcingLengthX_ / ratioX;
+  const NodeKernelTraits::DblType denomY = periodicForcingLengthY_ / ratioY;
+  const NodeKernelTraits::DblType denomZ = periodicForcingLengthZ_ / ratioZ;
 
-  const NodeKernelTraits::DblType ax = pi_ / denomX;
-  const NodeKernelTraits::DblType ay = pi_ / denomY;
-  const NodeKernelTraits::DblType az = pi_ / denomZ;
+  const NodeKernelTraits::DblType ax = M_PI / denomX;
+  const NodeKernelTraits::DblType ay = M_PI / denomY;
+  const NodeKernelTraits::DblType az = M_PI / denomZ;
 
   // Then we calculate the arguments for the Taylor-Green Vortex
   const NodeKernelTraits::DblType xarg = ax * (coords[0] + avgU[0] * time_);

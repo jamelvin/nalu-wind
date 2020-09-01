@@ -214,7 +214,10 @@ enum TurbulenceModelConstant {
   TM_forFac = 31,
   TM_v2cMu = 32,
   TM_aspRatSwitch = 33,
-  TM_END = 34
+  TM_periodicForcingLengthX = 34,
+  TM_periodicForcingLengthY = 35,
+  TM_periodicForcingLengthZ = 36,
+  TM_END = 37
 };
 
 static const std::string TurbulenceModelConstantNames[] = {
@@ -252,6 +255,9 @@ static const std::string TurbulenceModelConstantNames[] = {
   "forcingFactor",
   "v2cMu",
   "aspectRatioSwitch",
+  "periodicForcingLengthX",
+  "periodicForcingLengthY",
+  "periodicForcingLengthZ",
   "END"};
 
 enum ActuatorType {
