@@ -54,7 +54,7 @@ private:
   stk::mesh::NgpField<double> density_;
   stk::mesh::NgpField<double> tke_;
   stk::mesh::NgpField<double> sdr_;
-  stk::mesh::NgpField<double> alpha_;
+  stk::mesh::NgpField<double> beta_;
   stk::mesh::NgpField<double> nodalMij_;
   stk::mesh::NgpField<double> dudx_;
   stk::mesh::NgpField<double> avgVelocity_;
@@ -68,7 +68,7 @@ private:
   unsigned densityNp1ID_{stk::mesh::InvalidOrdinal};
   unsigned tkeNp1ID_{stk::mesh::InvalidOrdinal};
   unsigned sdrNp1ID_{stk::mesh::InvalidOrdinal};
-  unsigned alphaID_{stk::mesh::InvalidOrdinal};
+  unsigned betaID_{stk::mesh::InvalidOrdinal};
   unsigned MijID_{stk::mesh::InvalidOrdinal};
   unsigned dudxID_{stk::mesh::InvalidOrdinal};
   unsigned avgVelocityID_{stk::mesh::InvalidOrdinal};

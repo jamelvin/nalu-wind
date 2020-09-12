@@ -44,7 +44,7 @@ MomentumSSTTAMSDiffEdgeKernel::MomentumSSTTAMSDiffEdgeKernel(
   tkeNp1ID_ = get_field_ordinal(meta, "turbulent_ke", stk::mesh::StateNP1);
   sdrNp1ID_ =
     get_field_ordinal(meta, "specific_dissipation_rate", stk::mesh::StateNP1);
-  alphaID_ = get_field_ordinal(meta, "k_ratio");
+  betaID_ = get_field_ordinal(meta, "k_ratio");
   MijID_ = get_field_ordinal(meta, "metric_tensor");
   dudxID_ = get_field_ordinal(meta, "dudx");
 
@@ -68,7 +68,7 @@ MomentumSSTTAMSDiffEdgeKernel::setup(Realm& realm)
   density_ = fieldMgr.get_field<double>(densityNp1ID_);
   tke_ = fieldMgr.get_field<double>(tkeNp1ID_);
   sdr_ = fieldMgr.get_field<double>(sdrNp1ID_);
-  alpha_ = fieldMgr.get_field<double>(alphaID_);
+  beta_ = fieldMgr.get_field<double>(betaID_);
   nodalMij_ = fieldMgr.get_field<double>(MijID_);
   dudx_ = fieldMgr.get_field<double>(dudxID_);
   avgVelocity_ = fieldMgr.get_field<double>(avgVelocityID_);
@@ -155,8 +155,11 @@ MomentumSSTTAMSDiffEdgeKernel::execute(
   const EdgeKernelTraits::DblType sdrIp =
     0.5 * (stk::math::max(sdr_.get(nodeL, 0), 1.0e-12) +
            stk::math::max(sdr_.get(nodeR, 0), 1.0e-12));
-  const EdgeKernelTraits::DblType alphaIp =
-    0.5 * (alpha_.get(nodeL, 0) + alpha_.get(nodeR, 0));
+  const EdgeKernelTraits::DblType betaIp =
+    0.5 * (beta_.get(nodeL, 0) + beta_.get(nodeR, 0));
+  const EdgeKernelTraits::DblType alphaIp = 
+    0.5 * (stk::math::pow(beta_.get(nodeL, 0), 1.7) + 
+           stk::math::pow(beta_.get(nodeR, 0), 1.7));
 
   EdgeKernelTraits::DblType avgdUidxj[EdgeKernelTraits::NDimMax]
                                      [EdgeKernelTraits::NDimMax];

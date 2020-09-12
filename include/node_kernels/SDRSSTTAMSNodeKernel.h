@@ -51,7 +51,7 @@ private:
   stk::mesh::NgpField<double> rho_;
   stk::mesh::NgpField<double> tke_;
   stk::mesh::NgpField<double> sdr_;
-  stk::mesh::NgpField<double> alpha_;
+  stk::mesh::NgpField<double> beta_;
   stk::mesh::NgpField<double> prod_;
   stk::mesh::NgpField<double> fOneBlend_;
   stk::mesh::NgpField<double> dkdx_;
@@ -62,7 +62,7 @@ private:
   unsigned tviscID_{stk::mesh::InvalidOrdinal};
   unsigned tkeNp1ID_{stk::mesh::InvalidOrdinal};
   unsigned sdrNp1ID_{stk::mesh::InvalidOrdinal};
-  unsigned alphaID_{stk::mesh::InvalidOrdinal};
+  unsigned betaID_{stk::mesh::InvalidOrdinal};
   unsigned fOneBlendID_{stk::mesh::InvalidOrdinal};
   unsigned dkdxID_{stk::mesh::InvalidOrdinal};
   unsigned dwdxID_{stk::mesh::InvalidOrdinal};

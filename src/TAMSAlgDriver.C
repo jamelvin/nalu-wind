@@ -31,7 +31,7 @@ TAMSAlgDriver::TAMSAlgDriver(Realm& realm)
     avgTkeResolved_(NULL),
     avgDudx_(NULL),
     metric_(NULL),
-    alpha_(NULL),
+    beta_(NULL),
     resAdequacy_(NULL),
     avgResAdequacy_(NULL),
     avgProduction_(NULL),
@@ -57,9 +57,9 @@ TAMSAlgDriver::register_nodal_fields(stk::mesh::Part* part)
   const int nDim = meta.spatial_dimension();
 
   // Nodal fields
-  alpha_ =
+  beta_ =
     &(meta.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "k_ratio"));
-  stk::mesh::put_field_on_mesh(*alpha_, *part, nullptr);
+  stk::mesh::put_field_on_mesh(*beta_, *part, nullptr);
 
   avgVelocity_ = &(meta.declare_field<VectorFieldType>(
     stk::topology::NODE_RANK, "average_velocity"));

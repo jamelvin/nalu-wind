@@ -27,6 +27,7 @@ SSTTAMSAveragesAlg::SSTTAMSAveragesAlg(Realm& realm, stk::mesh::Part* part)
     betaStar_(realm.get_turb_model_constant(TM_betaStar)),
     CMdeg_(realm.get_turb_model_constant(TM_CMdeg)),
     v2cMu_(realm.get_turb_model_constant(TM_v2cMu)),
+    Ct_(realm.get_turb_model_constant(TM_forCt)),
     aspectRatioSwitch_(realm.get_turb_model_constant(TM_aspRatSwitch)),
     meshMotion_(realm.does_mesh_move()),
     velocity_(get_field_ordinal(realm.meta_data(), "velocity")),
@@ -47,8 +48,10 @@ SSTTAMSAveragesAlg::SSTTAMSAveragesAlg(Realm& realm, stk::mesh::Part* part)
     avgResAdeq_(
       get_field_ordinal(realm.meta_data(), "avg_res_adequacy_parameter")),
     tvisc_(get_field_ordinal(realm.meta_data(), "turbulent_viscosity")),
-    alpha_(get_field_ordinal(realm.meta_data(), "k_ratio")),
-    Mij_(get_field_ordinal(realm.meta_data(), "metric_tensor"))
+    visc_(get_field_ordinal(realm.meta_data(), "viscosity")),
+    beta_(get_field_ordinal(realm.meta_data(), "k_ratio")),
+    Mij_(get_field_ordinal(realm.meta_data(), "metric_tensor")),
+    wallDist_(get_field_ordinal(realm.meta_data(), "minimum_distance_to_wall"))
 {
 }
 
@@ -75,10 +78,11 @@ SSTTAMSAveragesAlg::execute()
   const auto& fieldMgr = meshInfo.ngp_field_manager();
 
   const auto tvisc = fieldMgr.get_field<double>(tvisc_);
+  const auto visc = fieldMgr.get_field<double>(visc_);
   const auto tke = fieldMgr.get_field<double>(turbKineticEnergy_);
   const auto sdr = fieldMgr.get_field<double>(specDissipationRate_);
   const auto density = fieldMgr.get_field<double>(density_);
-  auto alpha = fieldMgr.get_field<double>(alpha_);
+  auto beta = fieldMgr.get_field<double>(beta_);
   auto avgProd = fieldMgr.get_field<double>(avgProd_);
   auto avgTkeRes = fieldMgr.get_field<double>(avgTkeRes_);
   auto avgTime = fieldMgr.get_field<double>(avgTime_);
@@ -90,11 +94,13 @@ SSTTAMSAveragesAlg::execute()
   const auto coords = fieldMgr.get_field<double>(coordinates_);
   auto avgDudx = fieldMgr.get_field<double>(avgDudx_);
   const auto Mij = fieldMgr.get_field<double>(Mij_);
+  const auto wallDist = fieldMgr.get_field<double>(wallDist_);
 
   const DblType betaStar = betaStar_;
+  const DblType Ct = Ct_;
   const DblType CMdeg = CMdeg_;
   const DblType v2cMu = v2cMu_;
-  const DblType alpha_kol_local = alpha_kol;
+  const DblType beta_kol_local = beta_kol;
   const DblType aspectRatioSwitch = aspectRatioSwitch_;
 
   nalu_ngp::run_entity_algorithm(
@@ -102,19 +108,26 @@ SSTTAMSAveragesAlg::execute()
     sel, KOKKOS_LAMBDA(const Traits::MeshIndex& mi) {
       // Calculate alpha
       if (tke.get(mi, 0) == 0.0)
-        alpha.get(mi, 0) = 1.0;
+        beta.get(mi, 0) = 1.0;
       else {
-        alpha.get(mi, 0) =
-          (tke.get(mi, 0) - avgTkeRes.get(mi, 0)) / tke.get(mi, 0);
+        beta.get(mi, 0) = (tke.get(mi,0) - avgTkeRes.get(mi, 0)) / tke.get(mi, 0);
 
         // limiters
-        alpha.get(mi, 0) = stk::math::min(alpha.get(mi, 0), 1.0);
+        beta.get(mi, 0) = stk::math::min(beta.get(mi, 0), 1.0);
 
-        alpha.get(mi, 0) = stk::math::max(alpha.get(mi, 0), alpha_kol_local);
+        beta.get(mi, 0) = stk::math::max(beta.get(mi, 0), beta_kol_local);
       }
+
+      const DblType alpha = stk::math::pow(beta.get(mi, 0), 1.7);
+
+      const DblType eps = betaStar * tke.get(mi, 0) * sdr.get(mi, 0);
 
       // store RANS time scale
       avgTime.get(mi, 0) = 1.0 / (betaStar * sdr.get(mi, 0));
+
+      // Add Clark's limiter for SST timescale
+      avgTime.get(mi, 0) = stk::math::max(avgTime.get(mi, 0), 
+        Ct * stk::math::sqrt(visc.get(mi, 0) / density.get(mi, 0) / eps));
 
       // causal time average ODE: d<phi>/dt = 1/avgTime * (phi - <phi>)
       const DblType weightAvg =
@@ -146,11 +159,9 @@ SSTTAMSAveragesAlg::execute()
         for (int j = 0; j < nDim; ++j) {
           const DblType avgSij = 0.5 * (avgDudx.get(mi, i * nDim + j) +
                                         avgDudx.get(mi, j * nDim + i));
-          tij[i][j] = 2.0 * alpha.get(mi, 0) * (2.0 - alpha.get(mi, 0)) *
-                      tvisc.get(mi, 0) * avgSij;
+          tij[i][j] = 2.0 * alpha * (2.0-alpha) * tvisc.get(mi, 0) * avgSij; 
         }
-        tij[i][i] -=
-          2.0 / 3.0 * alpha.get(mi, 0) * density.get(mi, 0) * tke.get(mi, 0);
+        tij[i][i] -= 2.0/3.0 * beta.get(mi, 0) * density.get(mi, 0) * tke.get(mi, 0);
       }
 
       DblType Pij[nalu_ngp::NDimMax][nalu_ngp::NDimMax];
@@ -247,8 +258,8 @@ SSTTAMSAveragesAlg::execute()
       const DblType CM43 =
         tams_utils::get_M43_constant<DblType, nalu_ngp::NDimMax>(D, CMdeg);
 
-      const DblType CM43scale =
-        stk::math::max(stk::math::min(avgResAdeq.get(mi, 0), 10.0), 1.0);
+      const DblType CM43scale = 
+        stk::math::max(stk::math::min(stk::math::pow(avgResAdeq.get(mi, 0),2.0), 30.0), 1.0);
 
       const DblType epsilon13 =
         stk::math::pow(betaStar * tke.get(mi, 0) * sdr.get(mi, 0), 1.0 / 3.0);
@@ -265,9 +276,8 @@ SSTTAMSAveragesAlg::execute()
           // the SST model and <S_ij> is the strain rate tensor based on the
           // mean quantities... i.e this is (tauSGRS = alpha*tauSST)
           // The 2 in the coeff cancels with the 1/2 in the strain rate tensor
-          const DblType coeffSGRS = alpha.get(mi, 0) *
-                                    (2.0 - alpha.get(mi, 0)) *
-                                    tvisc.get(mi, 0) / density.get(mi, 0);
+          const DblType coeffSGRS = alpha * (2.0 - alpha) * tvisc.get(mi, 0)
+					 / density.get(mi, 0);
           tauSGRS[i][j] =
             avgDudx.get(mi, i * nDim + j) + avgDudx.get(mi, j * nDim + i);
           tauSGRS[i][j] *= coeffSGRS;
@@ -293,12 +303,19 @@ SSTTAMSAveragesAlg::execute()
         }
       }
 
+      // Remove trace of tauSGET
+      DblType tauSGET_tr = 0.0;
+      for (int i = 0; i < nDim; ++i)
+        tauSGET_tr += tauSGET[i][i];
+
+      for (int i = 0; i < nDim; ++i)
+        tauSGET[i][i] -= tauSGET_tr/nDim;
+
       // Calculate the full subgrid stress including the isotropic portion
       for (int i = 0; i < nDim; ++i)
         for (int j = 0; j < nDim; ++j)
-          tau[i][j] =
-            tauSGRS[i][j] + tauSGET[i][j] -
-            ((i == j) ? 2.0 / 3.0 * alpha.get(mi, 0) * tke.get(mi, 0) : 0.0);
+          tau[i][j] = tauSGRS[i][j] + tauSGET[i][j]  -
+                      ((i == j) ? 2.0 / 3.0 * beta.get(mi, 0) * tke.get(mi, 0) : 0.0);
 
       // Calculate the SGS production PSGS_ij = 1/2(tau_ik*djuk + tau_jk*diuk)
       // where diuj is the instantaneous velocity gradients
@@ -324,7 +341,7 @@ SSTTAMSAveragesAlg::execute()
       const DblType v2 =
         1.0 / v2cMu *
         (tvisc.get(mi, 0) / density.get(mi, 0) / avgTime.get(mi, 0));
-      const DblType PMscale = stk::math::pow(1.5 * alpha.get(mi, 0) * v2, -1.5);
+      const DblType PMscale = stk::math::pow(1.5 * beta.get(mi, 0) * v2, -1.5);
 
       // Handle case where tke = 0, should only occur at a wall boundary
       if (tke.get(mi, 0) == 0.0)
@@ -343,9 +360,8 @@ SSTTAMSAveragesAlg::execute()
 
         EigenDecomposition::general_eigenvalues<DblType>(PM, Q, D);
 
-        DblType maxPM = stk::math::max(
-          stk::math::abs(D[0][0]),
-          stk::math::max(stk::math::abs(D[1][1]), stk::math::abs(D[2][2])));
+        // Take only positive eigenvalues of PM
+        DblType maxPM = stk::math::max(D[0][0], stk::math::max(D[1][1], D[2][2]));
 
         // Update the instantaneous resAdeq field
         resAdeq.get(mi, 0) =
@@ -353,7 +369,7 @@ SSTTAMSAveragesAlg::execute()
 
         resAdeq.get(mi, 0) = stk::math::min(resAdeq.get(mi, 0), 30.0);
 
-        if (alpha.get(mi, 0) >= 1.0) {
+        if (beta.get(mi, 0) >= 1.0) {
           resAdeq.get(mi, 0) = stk::math::min(resAdeq.get(mi, 0), 1.0);
         }
 
@@ -361,10 +377,15 @@ SSTTAMSAveragesAlg::execute()
         // stk::math::min(stk::math::sqrt(.0000943396226415 * betaStar *
         // tke.get(mi, 0) * sdr.get(mi, 0))/tke.get(mi, 0), 1.0);
 
-        const DblType a_kol = 0.01;
+        const DblType b_kol = 0.01;
 
-        if (alpha.get(mi, 0) <= a_kol)
+        if (beta.get(mi, 0) <= b_kol)
           resAdeq.get(mi, 0) = stk::math::max(resAdeq.get(mi, 0), 1.0);
+ 
+        //FIXME: Hack to see if we can fix issues with TKE near wall
+        if (wallDist.get(mi, 0) <= 0.0002)
+          resAdeq.get(mi, 0) = 1.0;
+
       }
       avgResAdeq.get(mi, 0) =
         weightAvg * avgResAdeq.get(mi, 0) + weightInst * resAdeq.get(mi, 0);

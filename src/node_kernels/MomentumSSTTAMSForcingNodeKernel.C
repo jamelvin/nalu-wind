@@ -52,7 +52,7 @@ MomentumSSTTAMSForcingNodeKernel::MomentumSSTTAMSForcingNodeKernel(
   tkeNp1ID_ = get_field_ordinal(meta, "turbulent_ke", stk::mesh::StateNP1);
   sdrNp1ID_ =
     get_field_ordinal(meta, "specific_dissipation_rate", stk::mesh::StateNP1);
-  alphaID_ = get_field_ordinal(meta, "k_ratio");
+  betaID_ = get_field_ordinal(meta, "k_ratio");
   MijID_ = get_field_ordinal(meta, "metric_tensor");
   minDistID_ = get_field_ordinal(meta, "minimum_distance_to_wall");
 
@@ -79,7 +79,7 @@ MomentumSSTTAMSForcingNodeKernel::setup(Realm& realm)
   density_ = fieldMgr.get_field<double>(densityNp1ID_);
   tke_ = fieldMgr.get_field<double>(tkeNp1ID_);
   sdr_ = fieldMgr.get_field<double>(sdrNp1ID_);
-  alpha_ = fieldMgr.get_field<double>(alphaID_);
+  beta_ = fieldMgr.get_field<double>(betaID_);
   Mij_ = fieldMgr.get_field<double>(MijID_);
   minDist_ = fieldMgr.get_field<double>(minDistID_);
   avgVelocity_ = fieldMgr.get_field<double>(avgVelocityID_);
@@ -108,7 +108,7 @@ MomentumSSTTAMSForcingNodeKernel::execute(
   const NodeKernelTraits::DblType tke =
     stk::math::max(tke_.get(node, 0), 1.0e-12);
   const NodeKernelTraits::DblType sdr = sdr_.get(node, 0);
-  const NodeKernelTraits::DblType alpha = alpha_.get(node, 0);
+  const NodeKernelTraits::DblType beta = beta_.get(node, 0);
   const NodeKernelTraits::DblType wallDist = minDist_.get(node, 0);
   const NodeKernelTraits::DblType avgResAdeq = avgResAdeq_.get(node, 0);
 
@@ -121,17 +121,26 @@ MomentumSSTTAMSForcingNodeKernel::execute(
   const NodeKernelTraits::DblType eps = betaStar_ * tke * sdr;
 
   // First we calculate the a_i's
-  NodeKernelTraits::DblType length =
-    forceCl_ * stk::math::pow(alpha * tke, 1.5) / eps;
+  const NodeKernelTraits::DblType periodicForcingLengthX = pi_;
+  const NodeKernelTraits::DblType periodicForcingLengthY = 0.25;
+  const NodeKernelTraits::DblType periodicForcingLengthZ = 3.0 / 8.0 * pi_;
+
+  const NodeKernelTraits::DblType smallCl_ = 2.0;
+  const NodeKernelTraits::DblType clOffset_ = 0.2;
+
+  NodeKernelTraits::DblType length = (forceCl_ + 
+                      (1.0 - stk::math::max(beta, 1.0 - clOffset_)) / 
+                       clOffset_ * (smallCl_ - forceCl_))
+                      * stk::math::pow(beta * tke, 1.5) / eps;
   length = stk::math::max(
     length,
     Ceta_ * (stk::math::pow(mu / rho, 0.75) / stk::math::pow(eps, 0.25)));
   // FIXME: Make this aware of wall direction...
   const NodeKernelTraits::DblType lengthY = stk::math::min(length, wallDist);
 
-  NodeKernelTraits::DblType T_alpha = alpha * tke / eps;
-  T_alpha = stk::math::max(T_alpha, Ct_ * stk::math::sqrt(mu / rho / eps));
-  T_alpha = blT_ * T_alpha;
+  NodeKernelTraits::DblType T_beta = beta * tke / eps;
+  T_beta = stk::math::max(T_beta, Ct_ * stk::math::sqrt(mu / rho / eps));
+  T_beta = blT_ * T_beta;
 
   // const NodeKernelTraits::DblType Mij_00 = Mij_.get(node, 0);
   // const NodeKernelTraits::DblType Mij_11 = Mij_.get(node, 4);
@@ -174,15 +183,15 @@ MomentumSSTTAMSForcingNodeKernel::execute(
   // Now we calculate the initial Taylor-Green field
   NodeKernelTraits::DblType hX = 1. / 3. * stk::math::cos(xarg) *
                                  stk::math::sin(yarg) * stk::math::sin(zarg);
-  NodeKernelTraits::DblType hY =
-    -1. * stk::math::sin(xarg) * stk::math::cos(yarg) * stk::math::sin(zarg);
+  NodeKernelTraits::DblType hY = -1.     * stk::math::sin(xarg) * 
+                                 stk::math::cos(yarg) * stk::math::sin(zarg);
   NodeKernelTraits::DblType hZ = 2. / 3. * stk::math::sin(xarg) *
                                  stk::math::sin(yarg) * stk::math::cos(zarg);
 
   // Now we calculate the scaling of the initial field
   const NodeKernelTraits::DblType v2 = tvisc * betaStar_ * sdr / (cMu_ * rho);
   const NodeKernelTraits::DblType F_target =
-    forceFactor_ * stk::math::sqrt(alpha * v2) / T_alpha;
+    forceFactor_ * stk::math::sqrt(beta * v2) / T_beta;
 
   const NodeKernelTraits::DblType prod_r_temp =
     (F_target * dt_) * (hX * fluctU[0] + hY * fluctU[1] + hZ * fluctU[2]);
@@ -200,26 +209,19 @@ MomentumSSTTAMSForcingNodeKernel::execute(
 
   const NodeKernelTraits::DblType a_sign = stk::math::tanh(arg);
 
-  const NodeKernelTraits::DblType a_kol =
+  const NodeKernelTraits::DblType b_kol =
     stk::math::min(blKol_ * stk::math::sqrt(mu * eps / rho) / tke, 1.0);
 
-  // const NodeKernelTraits::DblType Sa = stk::math::if_then_else(
-  //  (a_sign < 0.0),
-  //  stk::math::if_then_else(
-  //    (alpha <= a_kol), a_sign - (1.0 + a_kol - alpha) * a_sign, a_sign),
-  //  stk::math::if_then_else((alpha >= 1.0), a_sign - alpha * a_sign, a_sign));
+  const NodeKernelTraits::DblType bhat = stk::math::if_then_else((1.0 - b_kol) > 0.0,
+     (1.0 - beta)/(1.0 - b_kol), 10000.0);
 
-  const NodeKernelTraits::DblType ahat = stk::math::if_then_else(
-    (1.0 - a_kol) > 0.0, (1.0 - alpha) / (1.0 - a_kol), 0.0);
-  const NodeKernelTraits::DblType Fr = alpha * stk::math::max(a_sign, 0.0);
-  const NodeKernelTraits::DblType Dr =
-    stk::math::min(a_sign, 0.0) * (stk::math::tanh(10.0 * (ahat - 1.0)) + 1.0);
+  NodeKernelTraits::DblType C_F_tmp = -1.0 * stk::math::tanh(1.0 - 1.0 /  
+     stk::math::sqrt(stk::math::min(avgResAdeq, 1.0)));
 
-  const NodeKernelTraits::DblType C_F_tmp =
-    stk::math::min(a_sign - Dr - Fr, 0.0);
+  C_F_tmp = C_F_tmp * (1.0 - stk::math::min(stk::math::tanh(10.0 * (bhat - 1.0)) + 1.0, 1.0));
 
-  const NodeKernelTraits::DblType C_F =
-    stk::math::if_then_else(prod_r >= 0.0, -1.0 * F_target * C_F_tmp, 0.0);
+  const NodeKernelTraits::DblType C_F = stk::math::if_then_else(
+    prod_r >= 0.0, F_target * C_F_tmp, 0.0);
 
   // Now we determine the actual forcing field
   NodeKernelTraits::DblType gX = C_F * hX;
@@ -232,6 +234,7 @@ MomentumSSTTAMSForcingNodeKernel::execute(
   rhs(0) += dualVolume * gX;
   rhs(1) += dualVolume * gY;
   rhs(2) += dualVolume * gZ;
+
 }
 
 } // namespace nalu

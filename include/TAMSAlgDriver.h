@@ -55,7 +55,7 @@ private:
   ScalarFieldType* avgTkeResolved_;
   GenericFieldType* avgDudx_;
   GenericFieldType* metric_;
-  ScalarFieldType* alpha_;
+  ScalarFieldType* beta_;
 
   ScalarFieldType* resAdequacy_;
   ScalarFieldType* avgResAdequacy_;

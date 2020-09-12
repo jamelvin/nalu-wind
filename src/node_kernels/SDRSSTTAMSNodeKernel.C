@@ -28,7 +28,7 @@ SDRSSTTAMSNodeKernel::SDRSSTTAMSNodeKernel(const stk::mesh::MetaData& meta, cons
     tkeNp1ID_(get_field_ordinal(meta, "turbulent_ke", stk::mesh::StateNP1)),
     sdrNp1ID_(get_field_ordinal(
       meta, "specific_dissipation_rate", stk::mesh::StateNP1)),
-    alphaID_(get_field_ordinal(meta, "k_ratio")),
+    betaID_(get_field_ordinal(meta, "k_ratio")),
     fOneBlendID_(get_field_ordinal(meta, "sst_f_one_blending")),
     dkdxID_(get_field_ordinal(meta, "dkdx")),
     dwdxID_(get_field_ordinal(meta, "dwdx")),
@@ -48,7 +48,7 @@ SDRSSTTAMSNodeKernel::setup(Realm& realm)
   rho_ = fieldMgr.get_field<double>(densityID_);
   tke_ = fieldMgr.get_field<double>(tkeNp1ID_);
   sdr_ = fieldMgr.get_field<double>(sdrNp1ID_);
-  alpha_ = fieldMgr.get_field<double>(alphaID_);
+  beta_ = fieldMgr.get_field<double>(betaID_);
   prod_ = fieldMgr.get_field<double>(prodID_);
   fOneBlend_ = fieldMgr.get_field<double>(fOneBlendID_);
   dkdx_ = fieldMgr.get_field<double>(dkdxID_);
