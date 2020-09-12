@@ -120,11 +120,6 @@ MomentumSSTTAMSForcingNodeKernel::execute(
 
   const NodeKernelTraits::DblType eps = betaStar_ * tke * sdr;
 
-  // First we calculate the a_i's
-  const NodeKernelTraits::DblType periodicForcingLengthX = pi_;
-  const NodeKernelTraits::DblType periodicForcingLengthY = 0.25;
-  const NodeKernelTraits::DblType periodicForcingLengthZ = 3.0 / 8.0 * pi_;
-
   const NodeKernelTraits::DblType smallCl_ = 2.0;
   const NodeKernelTraits::DblType clOffset_ = 0.2;
 
