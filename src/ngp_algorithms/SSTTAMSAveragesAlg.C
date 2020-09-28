@@ -42,12 +42,18 @@ SSTTAMSAveragesAlg::SSTTAMSAveragesAlg(Realm& realm, stk::mesh::Part* part)
     specDissipationRate_(
       get_field_ordinal(realm.meta_data(), "specific_dissipation_rate")),
     avgVelocity_(get_field_ordinal(realm.meta_data(), "average_velocity")),
+    avgVelocityN_(get_field_ordinal(realm.meta_data(), "average_velocity", stk::mesh::StateN)),
     avgDudx_(get_field_ordinal(realm.meta_data(), "average_dudx")),
+    avgDudxN_(get_field_ordinal(realm.meta_data(), "average_dudx", stk::mesh::StateN)),
     avgTkeRes_(get_field_ordinal(realm.meta_data(), "average_tke_resolved")),
+    avgTkeResN_(get_field_ordinal(realm.meta_data(), "average_tke_resolved", stk::mesh::StateN)),
     avgProd_(get_field_ordinal(realm.meta_data(), "average_production")),
+    avgProdN_(get_field_ordinal(realm.meta_data(), "average_production", stk::mesh::StateN)),
     avgTime_(get_field_ordinal(realm.meta_data(), "rans_time_scale")),
     avgResAdeq_(
       get_field_ordinal(realm.meta_data(), "avg_res_adequacy_parameter")),
+    avgResAdeqN_(
+      get_field_ordinal(realm.meta_data(), "avg_res_adequacy_parameter", stk::mesh::StateN)),
     tvisc_(get_field_ordinal(realm.meta_data(), "turbulent_viscosity")),
     visc_(get_field_ordinal(realm.meta_data(), "viscosity")),
     beta_(get_field_ordinal(realm.meta_data(), "k_ratio")),
@@ -85,15 +91,20 @@ SSTTAMSAveragesAlg::execute()
   const auto density = fieldMgr.get_field<double>(density_);
   auto beta = fieldMgr.get_field<double>(beta_);
   auto avgProd = fieldMgr.get_field<double>(avgProd_);
+  auto avgProdN = fieldMgr.get_field<double>(avgProdN_);
   auto avgTkeRes = fieldMgr.get_field<double>(avgTkeRes_);
+  auto avgTkeResN = fieldMgr.get_field<double>(avgTkeResN_);
   auto avgTime = fieldMgr.get_field<double>(avgTime_);
   auto resAdeq = fieldMgr.get_field<double>(resAdeq_);
   auto avgResAdeq = fieldMgr.get_field<double>(avgResAdeq_);
+  auto avgResAdeqN = fieldMgr.get_field<double>(avgResAdeqN_);
   const auto vel = fieldMgr.get_field<double>(velocity_);
   const auto dudx = fieldMgr.get_field<double>(dudx_);
   auto avgVel = fieldMgr.get_field<double>(avgVelocity_);
+  auto avgVelN = fieldMgr.get_field<double>(avgVelocityN_);
   const auto coords = fieldMgr.get_field<double>(coordinates_);
   auto avgDudx = fieldMgr.get_field<double>(avgDudx_);
+  auto avgDudxN = fieldMgr.get_field<double>(avgDudxN_);
   const auto Mij = fieldMgr.get_field<double>(Mij_);
   const auto wallDist = fieldMgr.get_field<double>(wallDist_);
 
@@ -138,23 +149,27 @@ SSTTAMSAveragesAlg::execute()
         stk::math::max(1.0 - dt / avgTime.get(mi, 0), 0.0);
       const DblType weightInst = stk::math::min(dt / avgTime.get(mi, 0), 1.0);
 
+      // FIXME: Add previous state to avgVel
       for (int i = 0; i < nDim; ++i)
         avgVel.get(mi, i) =
-          weightAvg * avgVel.get(mi, i) + weightInst * vel.get(mi, i);
+          weightAvg * avgVelN.get(mi, i) + weightInst * vel.get(mi, i);
 
       DblType tkeRes = 0.0;
       for (int i = 0; i < nDim; ++i)
         tkeRes += (vel.get(mi, i) - avgVel.get(mi, i)) *
                   (vel.get(mi, i) - avgVel.get(mi, i));
+
+      // FIXME: Add previous state to avgTkeRes
       avgTkeRes.get(mi, 0) =
-        weightAvg * avgTkeRes.get(mi, 0) + weightInst * 0.5 * tkeRes;
+        weightAvg * avgTkeResN.get(mi, 0) + weightInst * 0.5 * tkeRes;
 
       //NaluEnv::self().naluOutput() << timestep << " " << iter << " " << std::setprecision(16) << coords.get(mi, 0) << " " << coords.get(mi, 1) << " " << coords.get(mi, 2) << " " << tke.get(mi, 0) << " " << avgTkeRes.get(mi, 0) << " " << beta.get(mi, 0) << " " << tkeRes << " " << weightAvg << " " << weightInst << " " << avgTime.get(mi, 0) << std::endl;
 
+      // FIXME: Add previous state to avgDudx
       for (int i = 0; i < nDim; ++i) {
         for (int j = 0; j < nDim; ++j) {
           avgDudx.get(mi, i * nDim + j) =
-            weightAvg * avgDudx.get(mi, i * nDim + j) +
+            weightAvg * avgDudxN.get(mi, i * nDim + j) +
             weightInst * dudx.get(mi, i * nDim + j);
         }
       }
@@ -167,7 +182,7 @@ SSTTAMSAveragesAlg::execute()
                                         avgDudx.get(mi, j * nDim + i));
           tij[i][j] = 2.0 * alpha * (2.0-alpha) * tvisc.get(mi, 0) * avgSij; 
         }
-        tij[i][i] -= 2.0/3.0 * beta.get(mi, 0) * density.get(mi, 0) * tke.get(mi, 0);
+        //tij[i][i] -= 2.0/3.0 * beta.get(mi, 0) * density.get(mi, 0) * tke.get(mi, 0);
       }
 
       DblType Pij[nalu_ngp::NDimMax][nalu_ngp::NDimMax];
@@ -204,8 +219,9 @@ SSTTAMSAveragesAlg::execute()
       const DblType prodWeightAvg = stk::math::max(1.0 - dt / prodAvgTime, 0.0);
       const DblType prodWeightInst = stk::math::min(dt / prodAvgTime, 1.0);
 
+      // FIXME: Add previous state to avgProd
       avgProd.get(mi, 0) =
-        prodWeightAvg * avgProd.get(mi, 0) + prodWeightInst * instProd;
+        prodWeightAvg * avgProdN.get(mi, 0) + prodWeightInst * instProd;
 
       // get Mij field_data
       DblType p_Mij[nalu_ngp::NDimMax][nalu_ngp::NDimMax];
@@ -392,11 +408,12 @@ SSTTAMSAveragesAlg::execute()
         if (wallDist.get(mi, 0) <= 0.0002)
           resAdeq.get(mi, 0) = 1.0;
 
-//        NaluEnv::self().naluOutput() << timestep << " " << iter << " " << coords.get(mi, 0) << " " << coords.get(mi, 1) << " " << coords.get(mi, 2) << " " << resAdeq.get(mi, 0) << " " << sdr.get(mi, 0) << " " << tke.get(mi, 0) << " " << alpha << " " << tvisc.get(mi,0) << " " << v2 << " " << avgTime.get(mi, 0) << " " << avgTkeRes.get(mi, 0) << " " << dudx.get(mi, 0) << " " << dudx.get(mi, 1) << " " << dudx.get(mi, 2) << " " << dudx.get(mi, 3) << " " << dudx.get(mi, 4) << " " << dudx.get(mi, 5) << " " << dudx.get(mi, 6) << " " << dudx.get(mi, 7) << " " << dudx.get(mi, 8) << " " << avgDudx.get(mi, 0) << " " << avgDudx.get(mi, 1) << " " << avgDudx.get(mi, 2) << " " << avgDudx.get(mi, 3) << " " << avgDudx.get(mi, 4) << " " << avgDudx.get(mi, 5) << " " << avgDudx.get(mi, 6) << " " << avgDudx.get(mi, 7) << " " << avgDudx.get(mi, 8) << " " << avgProd.get(mi, 0) << " " << CM43scale << " " << b_kol << " " << maxPM << " " << PMmag << " " << wallDist.get(mi, 0) << " " << beta.get(mi, 0) << " " << PMscale << " " << weightAvg * avgResAdeq.get(mi, 0) + weightInst * resAdeq.get(mi, 0) << " " << PM[0][0] << " " << PM[0][1] << " " << PM[0][2] << " " << PM[1][0] << " " << PM[1][1] << " " << PM[1][2] << " " << PM[2][0] << " " << PM[2][1] << " " << PM[2][2] << " " << Psgs[0][0] << " " << Psgs[0][1] << " " << Psgs[0][2] << " " << Psgs[1][0] << " " << Psgs[1][1] << " " << Psgs[1][2] << " " << Psgs[2][0] << " " << Psgs[2][1] << " " << Psgs[2][2] << " " << p_Mij[0][0] << " " << p_Mij[0][1] << " " << p_Mij[0][2] << " " << p_Mij[1][0] << " " << p_Mij[1][1] << " " << p_Mij[1][2] << " " << p_Mij[2][0] << " " << p_Mij[2][1] << " " << p_Mij[2][2] << std::endl;
+        //NaluEnv::self().naluOutput() << timestep << " " << iter << " " << coords.get(mi, 0) << " " << coords.get(mi, 1) << " " << coords.get(mi, 2) << " " << resAdeq.get(mi, 0) << " " << sdr.get(mi, 0) << " " << tke.get(mi, 0) << " " << alpha << " " << tvisc.get(mi,0) << " " << v2 << " " << avgTime.get(mi, 0) << " " << avgTkeRes.get(mi, 0) << " " << vel.get(mi, 0) << " " << vel.get(mi, 1) << " " << vel.get(mi, 2) << " " << avgVel.get(mi, 0) << " " << avgVel.get(mi, 1) << " " << avgVel.get(mi, 2) << " " << dudx.get(mi, 0) << " " << dudx.get(mi, 1) << " " << dudx.get(mi, 2) << " " << dudx.get(mi, 3) << " " << dudx.get(mi, 4) << " " << dudx.get(mi, 5) << " " << dudx.get(mi, 6) << " " << dudx.get(mi, 7) << " " << dudx.get(mi, 8) << " " << avgDudx.get(mi, 0) << " " << avgDudx.get(mi, 1) << " " << avgDudx.get(mi, 2) << " " << avgDudx.get(mi, 3) << " " << avgDudx.get(mi, 4) << " " << avgDudx.get(mi, 5) << " " << avgDudx.get(mi, 6) << " " << avgDudx.get(mi, 7) << " " << avgDudx.get(mi, 8) << " " << avgProd.get(mi, 0) << " " << CM43scale << " " << b_kol << " " << maxPM << " " << PMmag << " " << wallDist.get(mi, 0) << " " << beta.get(mi, 0) << " " << PMscale << " " << weightAvg * avgResAdeq.get(mi, 0) + weightInst * resAdeq.get(mi, 0) << " " << PM[0][0] << " " << PM[0][1] << " " << PM[0][2] << " " << PM[1][0] << " " << PM[1][1] << " " << PM[1][2] << " " << PM[2][0] << " " << PM[2][1] << " " << PM[2][2] << " " << Psgs[0][0] << " " << Psgs[0][1] << " " << Psgs[0][2] << " " << Psgs[1][0] << " " << Psgs[1][1] << " " << Psgs[1][2] << " " << Psgs[2][0] << " " << Psgs[2][1] << " " << Psgs[2][2] << " " << p_Mij[0][0] << " " << p_Mij[0][1] << " " << p_Mij[0][2] << " " << p_Mij[1][0] << " " << p_Mij[1][1] << " " << p_Mij[1][2] << " " << p_Mij[2][0] << " " << p_Mij[2][1] << " " << p_Mij[2][2] << std::endl;
 
       }
+      // FIXME: Add previous state to avgResAdeq
       avgResAdeq.get(mi, 0) =
-        weightAvg * avgResAdeq.get(mi, 0) + weightInst * resAdeq.get(mi, 0);
+        weightAvg * avgResAdeqN.get(mi, 0) + weightInst * resAdeq.get(mi, 0);
     });
 }
 

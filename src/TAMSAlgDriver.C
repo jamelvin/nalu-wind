@@ -56,37 +56,42 @@ TAMSAlgDriver::register_nodal_fields(stk::mesh::Part* part)
   stk::mesh::MetaData& meta = realm_.meta_data();
   const int nDim = meta.spatial_dimension();
 
+  // Set numStates as 2, so that avg quantities can be updated through Picard iterations
+  const int numStates = 2;
+
   // Nodal fields
   beta_ =
     &(meta.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "k_ratio"));
   stk::mesh::put_field_on_mesh(*beta_, *part, nullptr);
 
   avgVelocity_ = &(meta.declare_field<VectorFieldType>(
-    stk::topology::NODE_RANK, "average_velocity"));
+    stk::topology::NODE_RANK, "average_velocity", numStates));
   stk::mesh::put_field_on_mesh(*avgVelocity_, *part, nDim, nullptr);
   realm_.augment_restart_variable_list("average_velocity");
 
+  // FIXME: Do i need multiple states here too?? I don't think so...
   if (
     realm_.solutionOptions_->meshMotion_ ||
     realm_.solutionOptions_->externalMeshDeformation_) {
     avgVelocityRTM_ = &(meta.declare_field<VectorFieldType>(
       stk::topology::NODE_RANK, "average_velocity_rtm"));
     stk::mesh::put_field_on_mesh(*avgVelocityRTM_, *part, nDim, nullptr);
+    // FIXME: Is this really necessary as a restart variable?
     realm_.augment_restart_variable_list("average_velocity_rtm");
   }
 
   avgProduction_ = &(meta.declare_field<ScalarFieldType>(
-    stk::topology::NODE_RANK, "average_production"));
+    stk::topology::NODE_RANK, "average_production", numStates));
   stk::mesh::put_field_on_mesh(*avgProduction_, *part, nullptr);
   realm_.augment_restart_variable_list("average_production");
 
   avgDudx_ = &(meta.declare_field<GenericFieldType>(
-    stk::topology::NODE_RANK, "average_dudx"));
+    stk::topology::NODE_RANK, "average_dudx", numStates));
   stk::mesh::put_field_on_mesh(*avgDudx_, *part, nDim * nDim, nullptr);
   realm_.augment_restart_variable_list("average_dudx");
 
   avgTkeResolved_ = &(meta.declare_field<ScalarFieldType>(
-    stk::topology::NODE_RANK, "average_tke_resolved"));
+    stk::topology::NODE_RANK, "average_tke_resolved", numStates));
   stk::mesh::put_field_on_mesh(*avgTkeResolved_, *part, nullptr);
   realm_.augment_restart_variable_list("average_tke_resolved");
 
@@ -103,7 +108,7 @@ TAMSAlgDriver::register_nodal_fields(stk::mesh::Part* part)
   stk::mesh::put_field_on_mesh(*resAdequacy_, *part, nullptr);
 
   avgResAdequacy_ = &(meta.declare_field<ScalarFieldType>(
-    stk::topology::NODE_RANK, "avg_res_adequacy_parameter"));
+    stk::topology::NODE_RANK, "avg_res_adequacy_parameter", numStates));
   stk::mesh::put_field_on_mesh(*avgResAdequacy_, *part, nullptr);
   realm_.augment_restart_variable_list("avg_res_adequacy_parameter");
 }
@@ -243,7 +248,7 @@ TAMSAlgDriver::initial_production()
                                           avgDudx.get(mi, j * nDim + i));
             tij[i * nDim + j] = 2.0 * tvisc.get(mi, 0) * avgSij;
           }
-          tij[i * nDim + i] -= 2.0/3.0 * density.get(mi, 0) * tke.get(mi, 0);
+          //tij[i * nDim + i] -= 2.0/3.0 * density.get(mi, 0) * tke.get(mi, 0);
         }
 
         NALU_ALIGNED DblType Pij[nalu_ngp::NDimMax * nalu_ngp::NDimMax];
@@ -368,6 +373,56 @@ TAMSAlgDriver::compute_metric_tensor()
 {
   metricTensorAlgDriver_.execute();
 }
+
+void 
+TAMSAlgDriver::predict_state()
+{
+  const auto& ngpMesh = realm_.ngp_mesh();
+  const auto& fieldMgr = realm_.ngp_field_manager();
+
+  //auto& avgVelN = fieldMgr.get_field<double>(
+  //  avgVelocity_->field_of_state(stk::mesh::StateN).mesh_meta_data_ordinal());
+  //auto& avgVelNp1 = fieldMgr.get_field<double>(
+  //  avgVelocity_->field_of_state(stk::mesh::StateNP1).mesh_meta_data_ordinal());
+  //auto& avgDudxN = fieldMgr.get_field<double>(
+  //  avgDudx_->field_of_state(stk::mesh::StateN).mesh_meta_data_ordinal());
+  //auto& avgDudxNp1 = fieldMgr.get_field<double>(
+  //  avgDudx_->field_of_state(stk::mesh::StateNP1).mesh_meta_data_ordinal());
+  //auto& avgProdN = fieldMgr.get_field<double>(
+  //  avgProduction_->field_of_state(stk::mesh::StateN).mesh_meta_data_ordinal());
+  //auto& avgProdNp1 = fieldMgr.get_field<double>(
+  //  avgProduction_->field_of_state(stk::mesh::StateNP1).mesh_meta_data_ordinal());
+  //auto& avgTkeResN = fieldMgr.get_field<double>(
+  //  avgTkeResolved_->field_of_state(stk::mesh::StateN).mesh_meta_data_ordinal());
+  //auto& avgTkeResNp1 = fieldMgr.get_field<double>(
+  //  avgTkeResolved_->field_of_state(stk::mesh::StateNP1).mesh_meta_data_ordinal());
+  //auto& avgResAdeqN = fieldMgr.get_field<double>(
+  //  avgResAdequacy_->field_of_state(stk::mesh::StateN).mesh_meta_data_ordinal());
+  //auto& avgResAdeqNp1 = fieldMgr.get_field<double>(
+  //  avgResAdequacy_->field_of_state(stk::mesh::StateNP1).mesh_meta_data_ordinal());
+
+  //avgVelN.sync_to_device();
+  //avgDudxN.sync_to_device();
+  //avgProdN.sync_to_device();
+  //avgTkeResN.sync_to_device();
+  //avgResAdeqN.sync_to_device();
+
+  //const auto& meta = realm_.meta_data();
+  //const stk::mesh::Selector sel =
+  //  (meta.locally_owned_part() | meta.globally_shared_part() | meta.aura_part())
+  //  & stk::mesh::selectField(*avgVelocity_);
+  //nalu_ngp::field_copy(ngpMesh, sel, avgVelNp1, avgVelN, meta.spatial_dimension());
+  //nalu_ngp::field_copy(ngpMesh, sel, avgDudxNp1, avgDudxN, meta.spatial_dimension()*meta.spatial_dimension());
+  //nalu_ngp::field_copy(ngpMesh, sel, avgProdNp1, avgProdN, 1);
+  //nalu_ngp::field_copy(ngpMesh, sel, avgTkeResNp1, avgTkeResN, 1);
+  //nalu_ngp::field_copy(ngpMesh, sel, avgResAdeqNp1, avgResAdeqN, 1);
+  //avgVelNp1.modify_on_device();
+  //avgDudxNp1.modify_on_device();
+  //avgProdNp1.modify_on_device();
+  //avgTkeResNp1.modify_on_device();
+  //avgResAdeqNp1.modify_on_device();
+}
+
 
 } // namespace nalu
 } // namespace sierra

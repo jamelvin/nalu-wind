@@ -1061,6 +1061,13 @@ MomentumEquationSystem::pre_timestep_work()
     TAMSAlgDriver_->compute_metric_tensor();
   }
 
+  //if (realm_.solutionOptions_->turbulenceModel_ == SST_TAMS)
+  //  TAMSAlgDriver_->execute();
+}
+
+void
+MomentumEquationSystem::pre_iter_work()
+{
   if (realm_.solutionOptions_->turbulenceModel_ == SST_TAMS)
     TAMSAlgDriver_->execute();
 }
@@ -2486,6 +2493,9 @@ MomentumEquationSystem::predict_state()
     & stk::mesh::selectField(*velocity_);
   nalu_ngp::field_copy(ngpMesh, sel, velNp1, velN, meta.spatial_dimension());
   velNp1.modify_on_device();
+
+  //if (realm_.solutionOptions_->turbulenceModel_ == SST_TAMS)
+  //  TAMSAlgDriver_->predict_state();
 }
 
 //--------------------------------------------------------------------------

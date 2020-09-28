@@ -46,6 +46,7 @@ public:
   void initial_production();
   void initial_mdot();
   void compute_metric_tensor();
+  void predict_state();
 
 private:
   Realm& realm_;

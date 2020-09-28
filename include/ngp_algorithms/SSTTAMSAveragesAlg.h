@@ -51,11 +51,16 @@ private:
   unsigned specDissipationRate_{stk::mesh::InvalidOrdinal};
   unsigned coordinates_{stk::mesh::InvalidOrdinal};
   unsigned avgVelocity_{stk::mesh::InvalidOrdinal};
+  unsigned avgVelocityN_{stk::mesh::InvalidOrdinal};
   unsigned avgDudx_{stk::mesh::InvalidOrdinal};
+  unsigned avgDudxN_{stk::mesh::InvalidOrdinal};
   unsigned avgTkeRes_{stk::mesh::InvalidOrdinal};
+  unsigned avgTkeResN_{stk::mesh::InvalidOrdinal};
   unsigned avgProd_{stk::mesh::InvalidOrdinal};
+  unsigned avgProdN_{stk::mesh::InvalidOrdinal};
   unsigned avgTime_{stk::mesh::InvalidOrdinal};
   unsigned avgResAdeq_{stk::mesh::InvalidOrdinal};
+  unsigned avgResAdeqN_{stk::mesh::InvalidOrdinal};
   unsigned tvisc_{stk::mesh::InvalidOrdinal};
   unsigned visc_{stk::mesh::InvalidOrdinal};
   unsigned beta_{stk::mesh::InvalidOrdinal};

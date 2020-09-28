@@ -175,6 +175,8 @@ public:
   
   virtual void predict_state() override;
 
+  virtual void pre_iter_work() override;
+
   void compute_wall_function_params();
 
   virtual void manage_projected_nodal_gradient(
