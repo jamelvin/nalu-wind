@@ -83,6 +83,10 @@ private:
 
   const int nDim_;
 
+  // JAM: Debugging
+  int timestep_;
+  int iter_;
+
   double relaxFacU_{1.0};
 };
 

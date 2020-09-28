@@ -74,6 +74,10 @@ MomentumSSTTAMSDiffEdgeKernel::setup(Realm& realm)
   avgVelocity_ = fieldMgr.get_field<double>(avgVelocityID_);
   avgDudx_ = fieldMgr.get_field<double>(avgDudxID_);
   avgResAdeq_ = fieldMgr.get_field<double>(avgResAdeqID_);
+
+  // JAM: Debugging
+  timestep_ = realm.get_time_step_count();
+  iter_ = realm.currentNonlinearIteration_;
 }
 
 void
@@ -84,6 +88,8 @@ MomentumSSTTAMSDiffEdgeKernel::execute(
   const stk::mesh::FastMeshIndex& nodeR)
 {
   const int ndim = nDim_;
+  const int timestep = timestep_;
+  const int iter = iter_;
 
   // Scratch work arrays
   NALU_ALIGNED EdgeKernelTraits::DblType av[EdgeKernelTraits::NDimMax];
@@ -99,10 +105,16 @@ MomentumSSTTAMSDiffEdgeKernel::execute(
                              [EdgeKernelTraits::NDimMax];
   EdgeKernelTraits::DblType D[EdgeKernelTraits::NDimMax]
                              [EdgeKernelTraits::NDimMax];
+
+  EdgeKernelTraits::DblType coords[EdgeKernelTraits::NDimMax];
+
   for (int i = 0; i < ndim; i++)
     for (int j = 0; j < ndim; j++)
       Mij[i][j] = 0.5 * (nodalMij_.get(nodeL, i * ndim + j) +
                          nodalMij_.get(nodeR, i * ndim + j));
+
+  for (int i = 0; i < ndim; i++)
+    coords[i] = 0.5*(coordinates_.get(nodeL, i) + coordinates_.get(nodeR, i));
 
   EigenDecomposition::sym_diagonalize<EdgeKernelTraits::DblType>(Mij, Q, D);
 
@@ -243,6 +255,7 @@ MomentumSSTTAMSDiffEdgeKernel::execute(
     // 2/3*rho*tke*del_ij)*Aj
 
     EdgeKernelTraits::DblType lhs_riC_i = 0.0;
+    EdgeKernelTraits::DblType lhs_riC_SGRS_i = 0.0;
     for (int j = 0; j < ndim; ++j) {
 
       // -mut^jk*dui/dxk*A_j; fixed i over j loop; see below..
@@ -266,7 +279,7 @@ MomentumSSTTAMSDiffEdgeKernel::execute(
         -alphaIp * (2.0 - alphaIp) * muIp * avgdUidxj[i][j] * av[j];
 
       // DEBUG: Adding for implicit option of mean
-      // lhs_riC_SGRS_i += -alphaIp * (2.0 - alphaIp) * muIp * av[j] * av[j];
+      lhs_riC_SGRS_i += -alphaIp * (2.0 - alphaIp) * muIp * av[j] * av[j] * inv_axdx;
 
       smdata.rhs(rowL) -= rhsfacDiff_i + rhsSGRCfacDiff_i;
       smdata.rhs(rowR) += rhsfacDiff_i + rhsSGRCfacDiff_i;
@@ -288,7 +301,7 @@ MomentumSSTTAMSDiffEdgeKernel::execute(
       const EdgeKernelTraits::DblType rhsSGRCfacDiff_j =
         -alphaIp * (2.0 - alphaIp) * muIp * avgdUidxj[j][i] * av[j];
 
-      // lhsSGRSfacDiff_j = -alphaIp * (2.0 - alphaIp) * muIp * av[i] * av[j];
+      const EdgeKernelTraits::DblType lhsSGRSfacDiff_j = -alphaIp * (2.0 - alphaIp) * muIp * av[i] * av[j] * inv_axdx;
 
       smdata.rhs(rowL) -= rhsfacDiff_j + rhsSGRCfacDiff_j;
       smdata.rhs(rowR) += rhsfacDiff_j + rhsSGRCfacDiff_j;
@@ -296,16 +309,19 @@ MomentumSSTTAMSDiffEdgeKernel::execute(
       const int colL = j;
       const int colR = j + ndim;
 
-      smdata.lhs(rowL, colL) -= lhsfacDiff_j / relaxFacU_;
-      smdata.lhs(rowL, colR) += lhsfacDiff_j;
-      smdata.lhs(rowR, colL) += lhsfacDiff_j;
-      smdata.lhs(rowR, colR) -= lhsfacDiff_j / relaxFacU_;
+//      if ((coords[0] > 0.983) && (coords[0] < 0.986))
+//        NaluEnv::self().naluOutput() << timestep << " " << iter << " " << coords[0] << " " << coords[1] << " " << coords[2] << " " << lhsfacDiff_j << " " << rhsfacDiff_j << " " << lhsfacDiff_i << " " << rhsfacDiff_i << " " << rhsSGRCfacDiff_i << " " << rhsSGRCfacDiff_j << " " << alphaIp << " " << muIp << " " << av[0] << " " << av[1] << " " << av[2] << " " << epsilon13Ip << " " << avgdUidxj[0][0] << " " << avgdUidxj[0][1] << " " << avgdUidxj[0][2] << " " << avgdUidxj[1][0] << " " << avgdUidxj[1][1] << " " << avgdUidxj[1][2] << " " << avgdUidxj[2][0] << " " << avgdUidxj[2][1] << " " << avgdUidxj[2][2] << " " << fluctdUidxj[0][0] << " " << fluctdUidxj[0][1] << " " << fluctdUidxj[0][2] << " " << fluctdUidxj[1][0] << " " << fluctdUidxj[1][1] << " " << fluctdUidxj[1][2] << " " << fluctdUidxj[2][0] << " " << fluctdUidxj[2][1] << " " << fluctdUidxj[2][2] << " " << arScale << " " << CM43 << " " << CM43scale << " " << rhoIp << std::endl;
+
+      smdata.lhs(rowL, colL) -= (lhsfacDiff_j + lhsSGRSfacDiff_j) / relaxFacU_;
+      smdata.lhs(rowL, colR) += (lhsfacDiff_j + lhsSGRSfacDiff_j);
+      smdata.lhs(rowR, colL) += (lhsfacDiff_j + lhsSGRSfacDiff_j);
+      smdata.lhs(rowR, colR) -= (lhsfacDiff_j + lhsSGRSfacDiff_j) / relaxFacU_;
     }
 
-    smdata.lhs(rowL, rowL) -= lhs_riC_i / relaxFacU_;
-    smdata.lhs(rowL, rowR) += lhs_riC_i;
-    smdata.lhs(rowR, rowL) += lhs_riC_i;
-    smdata.lhs(rowR, rowR) -= lhs_riC_i / relaxFacU_;
+    smdata.lhs(rowL, rowL) -= (lhs_riC_i + lhs_riC_SGRS_i) / relaxFacU_;
+    smdata.lhs(rowL, rowR) += (lhs_riC_i + lhs_riC_SGRS_i);
+    smdata.lhs(rowR, rowL) += (lhs_riC_i + lhs_riC_SGRS_i);
+    smdata.lhs(rowR, rowR) -= (lhs_riC_i + lhs_riC_SGRS_i) / relaxFacU_;
   }
 }
 

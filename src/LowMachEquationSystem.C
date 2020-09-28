@@ -672,6 +672,9 @@ LowMachEquationSystem::pre_iter_work()
 {
   momentumEqSys_->pre_iter_work();
   continuityEqSys_->pre_iter_work();
+
+  // FIXME: Couple this better into LowMach
+  momentumEqSys_->TAMSAveraging();
 }
 
 //--------------------------------------------------------------------------
@@ -1065,8 +1068,9 @@ MomentumEquationSystem::pre_timestep_work()
   //  TAMSAlgDriver_->execute();
 }
 
+// FIXME: couple this better into pre_iter_work
 void
-MomentumEquationSystem::pre_iter_work()
+MomentumEquationSystem::TAMSAveraging()
 {
   if (realm_.solutionOptions_->turbulenceModel_ == SST_TAMS)
     TAMSAlgDriver_->execute();
