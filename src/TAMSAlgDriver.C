@@ -248,7 +248,8 @@ TAMSAlgDriver::initial_production()
                                           avgDudx.get(mi, j * nDim + i));
             tij[i * nDim + j] = 2.0 * tvisc.get(mi, 0) * avgSij;
           }
-          //tij[i * nDim + i] -= 2.0/3.0 * density.get(mi, 0) * tke.get(mi, 0);
+         // FIXME: Removed for now, need to assess consistency between avgProd and rk 
+         //tij[i * nDim + i] -= 2.0/3.0 * density.get(mi, 0) * tke.get(mi, 0);
         }
 
         NALU_ALIGNED DblType Pij[nalu_ngp::NDimMax * nalu_ngp::NDimMax];
@@ -300,7 +301,7 @@ TAMSAlgDriver::initial_mdot()
         ngpMesh, sel, avgMdot, massFlowRate, 1, stk::topology::EDGE_RANK);
     } else {
 
-      // // Ideally use this. But it doesn't work yet
+      // FIXME: Ideally use this. But it doesn't work yet
       // auto& avgMdot = fieldMgr.get_field<double>(get_field_ordinal(meta,
       // "average_mass_flow_rate_scs", stk::topology::ELEM_RANK)); const auto&
       // massFlowRate =
@@ -373,56 +374,6 @@ TAMSAlgDriver::compute_metric_tensor()
 {
   metricTensorAlgDriver_.execute();
 }
-
-void 
-TAMSAlgDriver::predict_state()
-{
-  const auto& ngpMesh = realm_.ngp_mesh();
-  const auto& fieldMgr = realm_.ngp_field_manager();
-
-  //auto& avgVelN = fieldMgr.get_field<double>(
-  //  avgVelocity_->field_of_state(stk::mesh::StateN).mesh_meta_data_ordinal());
-  //auto& avgVelNp1 = fieldMgr.get_field<double>(
-  //  avgVelocity_->field_of_state(stk::mesh::StateNP1).mesh_meta_data_ordinal());
-  //auto& avgDudxN = fieldMgr.get_field<double>(
-  //  avgDudx_->field_of_state(stk::mesh::StateN).mesh_meta_data_ordinal());
-  //auto& avgDudxNp1 = fieldMgr.get_field<double>(
-  //  avgDudx_->field_of_state(stk::mesh::StateNP1).mesh_meta_data_ordinal());
-  //auto& avgProdN = fieldMgr.get_field<double>(
-  //  avgProduction_->field_of_state(stk::mesh::StateN).mesh_meta_data_ordinal());
-  //auto& avgProdNp1 = fieldMgr.get_field<double>(
-  //  avgProduction_->field_of_state(stk::mesh::StateNP1).mesh_meta_data_ordinal());
-  //auto& avgTkeResN = fieldMgr.get_field<double>(
-  //  avgTkeResolved_->field_of_state(stk::mesh::StateN).mesh_meta_data_ordinal());
-  //auto& avgTkeResNp1 = fieldMgr.get_field<double>(
-  //  avgTkeResolved_->field_of_state(stk::mesh::StateNP1).mesh_meta_data_ordinal());
-  //auto& avgResAdeqN = fieldMgr.get_field<double>(
-  //  avgResAdequacy_->field_of_state(stk::mesh::StateN).mesh_meta_data_ordinal());
-  //auto& avgResAdeqNp1 = fieldMgr.get_field<double>(
-  //  avgResAdequacy_->field_of_state(stk::mesh::StateNP1).mesh_meta_data_ordinal());
-
-  //avgVelN.sync_to_device();
-  //avgDudxN.sync_to_device();
-  //avgProdN.sync_to_device();
-  //avgTkeResN.sync_to_device();
-  //avgResAdeqN.sync_to_device();
-
-  //const auto& meta = realm_.meta_data();
-  //const stk::mesh::Selector sel =
-  //  (meta.locally_owned_part() | meta.globally_shared_part() | meta.aura_part())
-  //  & stk::mesh::selectField(*avgVelocity_);
-  //nalu_ngp::field_copy(ngpMesh, sel, avgVelNp1, avgVelN, meta.spatial_dimension());
-  //nalu_ngp::field_copy(ngpMesh, sel, avgDudxNp1, avgDudxN, meta.spatial_dimension()*meta.spatial_dimension());
-  //nalu_ngp::field_copy(ngpMesh, sel, avgProdNp1, avgProdN, 1);
-  //nalu_ngp::field_copy(ngpMesh, sel, avgTkeResNp1, avgTkeResN, 1);
-  //nalu_ngp::field_copy(ngpMesh, sel, avgResAdeqNp1, avgResAdeqN, 1);
-  //avgVelNp1.modify_on_device();
-  //avgDudxNp1.modify_on_device();
-  //avgProdNp1.modify_on_device();
-  //avgTkeResNp1.modify_on_device();
-  //avgResAdeqNp1.modify_on_device();
-}
-
 
 } // namespace nalu
 } // namespace sierra

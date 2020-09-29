@@ -49,10 +49,6 @@ TKESSTNodeKernel::setup(Realm& realm)
   const std::string dofName = "turbulent_ke";
   relaxFac_ = realm.solutionOptions_->get_relaxation_factor(dofName);
 
-  // JAM: Debugging
-  timestep_ = realm.get_time_step_count();
-  iter_ = realm.currentNonlinearIteration_;
-  
   // Update turbulence model constants
   betaStar_ = realm.get_turb_model_constant(TM_betaStar);
   tkeProdLimitRatio_ = realm.get_turb_model_constant(TM_tkeProdLimitRatio);
@@ -85,12 +81,8 @@ void TKESSTNodeKernel::execute(
 
   DblType Dk = betaStar_ * density * sdr * tke;
 
-  // Clip production term
-  Pk = stk::math::min(tkeProdLimitRatio_ * Dk, Pk);
-
-  // if ((coords_.get(node,0) <= 2.0) && (coords_.get(node,1) <= 1.0)) {
-  //     NaluEnv::self().naluOutput() << timestep_ << " " << iter_ << " " << coords_.get(node, 0) << " " << coords_.get(node, 1) << " " << coords_.get(node, 2) << " " << tvisc << " " << sdr << " " << tke << " " << Pk << " " << tkeProdLimitRatio_ * Dk << " " << Dk << std::endl;
-  // }
+  // Clip production term and prevent Pk from being negative
+  Pk = stk::math::min(tkeProdLimitRatio_ * Dk, stk::math::max(Pk, 0.0));
 
   rhs(0) += (Pk - Dk) * dVol;
   lhs(0, 0) += betaStar_ * density * sdr * dVol;

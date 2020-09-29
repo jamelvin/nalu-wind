@@ -92,8 +92,8 @@ SDRSSTNodeKernel::execute(
 
   const DblType Dk = betaStar_ * density * sdr * tke;
 
-  // Clip production term
-  Pk = stk::math::min(tkeProdLimitRatio_ * Dk, Pk);
+  // Clip production term and clip negative productions
+  Pk = stk::math::min(tkeProdLimitRatio_ * Dk, stk::math::max(Pk, 0.0));
 
   // Blend constants for SDR
   const DblType omf1 = (1.0 - fOneBlend);

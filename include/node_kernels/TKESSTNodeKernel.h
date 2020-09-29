@@ -64,10 +64,6 @@ private:
   NodeKernelTraits::DblType tkeProdLimitRatio_;
   NodeKernelTraits::DblType relaxFac_;
 
-  // JAM: Debugging
-  int timestep_;
-  int iter_;
-
   const int nDim_;
 };
 

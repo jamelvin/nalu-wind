@@ -18,7 +18,6 @@
 #include "stk_mesh/base/NgpMesh.hpp"
 #include "EigenDecomposition.h"
 #include "utils/TAMSUtils.h"
-#include <iomanip>
 
 namespace sierra {
 namespace nalu {
@@ -70,10 +69,6 @@ SSTTAMSAveragesAlg::execute()
   const auto& meta = realm_.meta_data();
   const DblType dt = realm_.get_time_step();
   const int nDim = meta.spatial_dimension();
-
-  // JAM: Debugging
-  const int timestep = realm_.get_time_step_count();
-  const int iter = realm_.currentNonlinearIteration_;
 
   const stk::mesh::Selector sel =
     (meta.locally_owned_part() | meta.globally_shared_part()) &
@@ -130,8 +125,6 @@ SSTTAMSAveragesAlg::execute()
         beta.get(mi, 0) = stk::math::max(beta.get(mi, 0), beta_kol_local);
       }
 
-      //NaluEnv::self().naluOutput() << timestep << " " << iter << " " << std::setprecision(16) << coords.get(mi, 0) << " " << coords.get(mi, 1) << " " << coords.get(mi, 2) << " " << tke.get(mi, 0) << " " << avgTkeRes.get(mi, 0) << " " << beta.get(mi, 0) << std::endl;
-
       const DblType alpha = stk::math::pow(beta.get(mi, 0), 1.7);
 
       const DblType eps = betaStar * tke.get(mi, 0) * sdr.get(mi, 0);
@@ -139,7 +132,7 @@ SSTTAMSAveragesAlg::execute()
       // store RANS time scale
       avgTime.get(mi, 0) = 1.0 / (betaStar * sdr.get(mi, 0));
 
-      // Add Clark's limiter for SST timescale
+      // FIXME: Clark's limiter for SST timescale
       // Not in CDP as of now, in CDP k-eps, so might need to do something down road
       //avgTime.get(mi, 0) = stk::math::max(avgTime.get(mi, 0), 
       //  Ct * stk::math::sqrt(visc.get(mi, 0) / density.get(mi, 0) / eps));
@@ -149,7 +142,6 @@ SSTTAMSAveragesAlg::execute()
         stk::math::max(1.0 - dt / avgTime.get(mi, 0), 0.0);
       const DblType weightInst = stk::math::min(dt / avgTime.get(mi, 0), 1.0);
 
-      // FIXME: Add previous state to avgVel
       for (int i = 0; i < nDim; ++i)
         avgVel.get(mi, i) =
           weightAvg * avgVelN.get(mi, i) + weightInst * vel.get(mi, i);
@@ -159,13 +151,9 @@ SSTTAMSAveragesAlg::execute()
         tkeRes += (vel.get(mi, i) - avgVel.get(mi, i)) *
                   (vel.get(mi, i) - avgVel.get(mi, i));
 
-      // FIXME: Add previous state to avgTkeRes
       avgTkeRes.get(mi, 0) =
         weightAvg * avgTkeResN.get(mi, 0) + weightInst * 0.5 * tkeRes;
 
-      //NaluEnv::self().naluOutput() << timestep << " " << iter << " " << std::setprecision(16) << coords.get(mi, 0) << " " << coords.get(mi, 1) << " " << coords.get(mi, 2) << " " << tke.get(mi, 0) << " " << avgTkeRes.get(mi, 0) << " " << beta.get(mi, 0) << " " << tkeRes << " " << weightAvg << " " << weightInst << " " << avgTime.get(mi, 0) << std::endl;
-
-      // FIXME: Add previous state to avgDudx
       for (int i = 0; i < nDim; ++i) {
         for (int j = 0; j < nDim; ++j) {
           avgDudx.get(mi, i * nDim + j) =
@@ -182,6 +170,7 @@ SSTTAMSAveragesAlg::execute()
                                         avgDudx.get(mi, j * nDim + i));
           tij[i][j] = 2.0 * alpha * (2.0-alpha) * tvisc.get(mi, 0) * avgSij; 
         }
+        // FIXME: For future assessment about consistency between avgProd and avgResAdeq
         //tij[i][i] -= 2.0/3.0 * beta.get(mi, 0) * density.get(mi, 0) * tke.get(mi, 0);
       }
 
@@ -219,7 +208,6 @@ SSTTAMSAveragesAlg::execute()
       const DblType prodWeightAvg = stk::math::max(1.0 - dt / prodAvgTime, 0.0);
       const DblType prodWeightInst = stk::math::min(dt / prodAvgTime, 1.0);
 
-      // FIXME: Add previous state to avgProd
       avgProd.get(mi, 0) =
         prodWeightAvg * avgProdN.get(mi, 0) + prodWeightInst * instProd;
 
@@ -404,14 +392,14 @@ SSTTAMSAveragesAlg::execute()
         if (alpha <= b_kol)
           resAdeq.get(mi, 0) = stk::math::max(resAdeq.get(mi, 0), 1.0);
  
-        //FIXME: Hack to see if we can fix issues with TKE near wall
+        //FIXME: This may not be needing any more, requires further investigation
+        //       Used to correct near wall nodes issues with TKE that were resolved
+        //       with improved SST clipping
         if (wallDist.get(mi, 0) <= 0.0002)
           resAdeq.get(mi, 0) = 1.0;
 
-        //NaluEnv::self().naluOutput() << timestep << " " << iter << " " << coords.get(mi, 0) << " " << coords.get(mi, 1) << " " << coords.get(mi, 2) << " " << resAdeq.get(mi, 0) << " " << sdr.get(mi, 0) << " " << tke.get(mi, 0) << " " << alpha << " " << tvisc.get(mi,0) << " " << v2 << " " << avgTime.get(mi, 0) << " " << avgTkeRes.get(mi, 0) << " " << vel.get(mi, 0) << " " << vel.get(mi, 1) << " " << vel.get(mi, 2) << " " << avgVel.get(mi, 0) << " " << avgVel.get(mi, 1) << " " << avgVel.get(mi, 2) << " " << dudx.get(mi, 0) << " " << dudx.get(mi, 1) << " " << dudx.get(mi, 2) << " " << dudx.get(mi, 3) << " " << dudx.get(mi, 4) << " " << dudx.get(mi, 5) << " " << dudx.get(mi, 6) << " " << dudx.get(mi, 7) << " " << dudx.get(mi, 8) << " " << avgDudx.get(mi, 0) << " " << avgDudx.get(mi, 1) << " " << avgDudx.get(mi, 2) << " " << avgDudx.get(mi, 3) << " " << avgDudx.get(mi, 4) << " " << avgDudx.get(mi, 5) << " " << avgDudx.get(mi, 6) << " " << avgDudx.get(mi, 7) << " " << avgDudx.get(mi, 8) << " " << avgProd.get(mi, 0) << " " << CM43scale << " " << b_kol << " " << maxPM << " " << PMmag << " " << wallDist.get(mi, 0) << " " << beta.get(mi, 0) << " " << PMscale << " " << weightAvg * avgResAdeq.get(mi, 0) + weightInst * resAdeq.get(mi, 0) << " " << PM[0][0] << " " << PM[0][1] << " " << PM[0][2] << " " << PM[1][0] << " " << PM[1][1] << " " << PM[1][2] << " " << PM[2][0] << " " << PM[2][1] << " " << PM[2][2] << " " << Psgs[0][0] << " " << Psgs[0][1] << " " << Psgs[0][2] << " " << Psgs[1][0] << " " << Psgs[1][1] << " " << Psgs[1][2] << " " << Psgs[2][0] << " " << Psgs[2][1] << " " << Psgs[2][2] << " " << p_Mij[0][0] << " " << p_Mij[0][1] << " " << p_Mij[0][2] << " " << p_Mij[1][0] << " " << p_Mij[1][1] << " " << p_Mij[1][2] << " " << p_Mij[2][0] << " " << p_Mij[2][1] << " " << p_Mij[2][2] << std::endl;
-
       }
-      // FIXME: Add previous state to avgResAdeq
+
       avgResAdeq.get(mi, 0) =
         weightAvg * avgResAdeqN.get(mi, 0) + weightInst * resAdeq.get(mi, 0);
     });

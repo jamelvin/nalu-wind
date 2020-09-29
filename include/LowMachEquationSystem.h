@@ -177,8 +177,6 @@ public:
 
   void compute_wall_function_params();
   
-  void TAMSAveraging();
-
   virtual void manage_projected_nodal_gradient(
      EquationSystems& eqSystems);
    virtual void compute_projected_nodal_gradient();

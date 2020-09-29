@@ -80,7 +80,8 @@ SDRSSTTAMSNodeKernel::execute(
   for (int d = 0; d < nDim_; ++d)
     crossDiff += dkdx_.get(node, d) * dwdx_.get(node, d);
 
-  NodeKernelTraits::DblType Pk = prod_.get(node, 0);
+  // Clip negative productions, consistent with TKE
+  NodeKernelTraits::DblType Pk = stk::math::max(prod_.get(node, 0), 0.0);
   const NodeKernelTraits::DblType Dk = betaStar_ * rho * sdr * tke;
   Pk = stk::math::min(Pk, tkeProdLimitRatio_ * Dk);
 

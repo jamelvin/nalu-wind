@@ -18,8 +18,6 @@
 #include "utils/TAMSUtils.h"
 #include <SimdInterface.h>
 
-#include "NaluEnv.h"
-
 namespace sierra {
 namespace nalu {
 
@@ -74,10 +72,6 @@ MomentumSSTTAMSDiffEdgeKernel::setup(Realm& realm)
   avgVelocity_ = fieldMgr.get_field<double>(avgVelocityID_);
   avgDudx_ = fieldMgr.get_field<double>(avgDudxID_);
   avgResAdeq_ = fieldMgr.get_field<double>(avgResAdeqID_);
-
-  // JAM: Debugging
-  timestep_ = realm.get_time_step_count();
-  iter_ = realm.currentNonlinearIteration_;
 }
 
 void
@@ -251,9 +245,6 @@ MomentumSSTTAMSDiffEdgeKernel::execute(
     smdata.rhs(rowL) -= avgDivUstress;
     smdata.rhs(rowR) += avgDivUstress;
 
-    // Hybrid turbulence diffusion term; -(mu^jk*dui/dxk + mu^ik*duj/dxk -
-    // 2/3*rho*tke*del_ij)*Aj
-
     EdgeKernelTraits::DblType lhs_riC_i = 0.0;
     EdgeKernelTraits::DblType lhs_riC_SGRS_i = 0.0;
     for (int j = 0; j < ndim; ++j) {
@@ -275,14 +266,15 @@ MomentumSSTTAMSDiffEdgeKernel::execute(
       lhs_riC_i += lhsfacDiff_i;
 
       // SGRS (average) term, scaled by alpha
-      const EdgeKernelTraits::DblType rhsSGRCfacDiff_i =
+      const EdgeKernelTraits::DblType rhsSGRSfacDiff_i =
         -alphaIp * (2.0 - alphaIp) * muIp * avgdUidxj[i][j] * av[j];
 
-      // DEBUG: Adding for implicit option of mean
-      lhs_riC_SGRS_i += -alphaIp * (2.0 - alphaIp) * muIp * av[j] * av[j] * inv_axdx;
+      // Implicit treatment of SGRS (average) term
+      lhs_riC_SGRS_i += 
+        -alphaIp * (2.0 - alphaIp) * muIp * av[j] * av[j] * inv_axdx;
 
-      smdata.rhs(rowL) -= rhsfacDiff_i + rhsSGRCfacDiff_i;
-      smdata.rhs(rowR) += rhsfacDiff_i + rhsSGRCfacDiff_i;
+      smdata.rhs(rowL) -= rhsfacDiff_i + rhsSGRSfacDiff_i;
+      smdata.rhs(rowR) += rhsfacDiff_i + rhsSGRSfacDiff_i;
 
       // -mut^ik*duj/dxk*A_j
       EdgeKernelTraits::DblType rhsfacDiff_j = 0.0;
@@ -298,19 +290,18 @@ MomentumSSTTAMSDiffEdgeKernel::execute(
       rhsfacDiff_j += -arInvScale * muIp * fluctdUidxj[j][i] * av[j];
 
       // SGRS (average) term, scaled by alpha
-      const EdgeKernelTraits::DblType rhsSGRCfacDiff_j =
+      const EdgeKernelTraits::DblType rhsSGRSfacDiff_j =
         -alphaIp * (2.0 - alphaIp) * muIp * avgdUidxj[j][i] * av[j];
 
-      const EdgeKernelTraits::DblType lhsSGRSfacDiff_j = -alphaIp * (2.0 - alphaIp) * muIp * av[i] * av[j] * inv_axdx;
+      // Implicit treatment of SGRS (average) term
+      const EdgeKernelTraits::DblType lhsSGRSfacDiff_j = 
+        -alphaIp * (2.0 - alphaIp) * muIp * av[i] * av[j] * inv_axdx;
 
-      smdata.rhs(rowL) -= rhsfacDiff_j + rhsSGRCfacDiff_j;
-      smdata.rhs(rowR) += rhsfacDiff_j + rhsSGRCfacDiff_j;
+      smdata.rhs(rowL) -= rhsfacDiff_j + rhsSGRSfacDiff_j;
+      smdata.rhs(rowR) += rhsfacDiff_j + rhsSGRSfacDiff_j;
 
       const int colL = j;
       const int colR = j + ndim;
-
-//      if ((coords[0] > 0.983) && (coords[0] < 0.986))
-//        NaluEnv::self().naluOutput() << timestep << " " << iter << " " << coords[0] << " " << coords[1] << " " << coords[2] << " " << lhsfacDiff_j << " " << rhsfacDiff_j << " " << lhsfacDiff_i << " " << rhsfacDiff_i << " " << rhsSGRCfacDiff_i << " " << rhsSGRCfacDiff_j << " " << alphaIp << " " << muIp << " " << av[0] << " " << av[1] << " " << av[2] << " " << epsilon13Ip << " " << avgdUidxj[0][0] << " " << avgdUidxj[0][1] << " " << avgdUidxj[0][2] << " " << avgdUidxj[1][0] << " " << avgdUidxj[1][1] << " " << avgdUidxj[1][2] << " " << avgdUidxj[2][0] << " " << avgdUidxj[2][1] << " " << avgdUidxj[2][2] << " " << fluctdUidxj[0][0] << " " << fluctdUidxj[0][1] << " " << fluctdUidxj[0][2] << " " << fluctdUidxj[1][0] << " " << fluctdUidxj[1][1] << " " << fluctdUidxj[1][2] << " " << fluctdUidxj[2][0] << " " << fluctdUidxj[2][1] << " " << fluctdUidxj[2][2] << " " << arScale << " " << CM43 << " " << CM43scale << " " << rhoIp << std::endl;
 
       smdata.lhs(rowL, colL) -= (lhsfacDiff_j + lhsSGRSfacDiff_j) / relaxFacU_;
       smdata.lhs(rowL, colR) += (lhsfacDiff_j + lhsSGRSfacDiff_j);

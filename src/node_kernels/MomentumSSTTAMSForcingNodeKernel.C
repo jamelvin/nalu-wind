@@ -15,8 +15,6 @@
 #include "utils/StkHelpers.h"
 #include <SimdInterface.h>
 
-#include "NaluEnv.h"
-
 namespace sierra {
 namespace nalu {
 
@@ -67,8 +65,6 @@ MomentumSSTTAMSForcingNodeKernel::setup(Realm& realm)
   // Time information
   dt_ = realm.get_time_step();
   time_ = realm.get_current_time();
-  timestep_ = realm.get_time_step_count();
-  iter_ = realm.currentNonlinearIteration_;
 
   const auto& fieldMgr = realm.ngp_field_manager();
   dualNodalVolume_ = fieldMgr.get_field<double>(dualNodalVolumeID_);
@@ -136,16 +132,6 @@ MomentumSSTTAMSForcingNodeKernel::execute(
   NodeKernelTraits::DblType T_beta = beta * tke / eps;
   T_beta = stk::math::max(T_beta, Ct_ * stk::math::sqrt(mu / rho / eps));
   T_beta = blT_ * T_beta;
-
-  // const NodeKernelTraits::DblType Mij_00 = Mij_.get(node, 0);
-  // const NodeKernelTraits::DblType Mij_11 = Mij_.get(node, 4);
-  // const NodeKernelTraits::DblType Mij_22 = Mij_.get(node, 8);
-  // const NodeKernelTraits::DblType ceilLengthX =
-  //  stk::math::max(length, 2.0 * Mij_00);
-  // const NodeKernelTraits::DblType ceilLengthY =
-  //  stk::math::max(length, 2.0 * Mij_11);
-  // const NodeKernelTraits::DblType ceilLengthZ =
-  //  stk::math::max(length, 2.0 * Mij_22);
 
   // FIXME : Generalized using lengthY for all directions
   const NodeKernelTraits::DblType clipLengthX =
