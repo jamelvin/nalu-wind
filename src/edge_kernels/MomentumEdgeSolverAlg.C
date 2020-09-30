@@ -91,7 +91,6 @@ MomentumEdgeSolverAlg::execute()
     {
       // Scratch work array for edgeAreaVector
       NALU_ALIGNED DblType av[NDimMax_];
-      NALU_ALIGNED DblType coords[NDimMax_];
 
       // Populate area vector work array
       for (int d=0; d < ndim; ++d)
@@ -119,9 +118,6 @@ MomentumEdgeSolverAlg::execute()
         udotx += 0.5 * dxj * (vrtm.get(nodeR, d) + vrtm.get(nodeL, d));
       }
       const DblType inv_axdx = 1.0 / axdx;
-
-      for (int d=0; d < ndim; ++d) 
-        coords[d] = 0.5*(coordinates.get(nodeR, d) + coordinates.get(nodeL, d));
 
       // Compute extrapolated du/dx
       NALU_ALIGNED DblType duL[NDimMax_];

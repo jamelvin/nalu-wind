@@ -31,8 +31,6 @@ SSTTAMSAveragesAlg::SSTTAMSAveragesAlg(Realm& realm, stk::mesh::Part* part)
     aspectRatioSwitch_(realm.get_turb_model_constant(TM_aspRatSwitch)),
     meshMotion_(realm.does_mesh_move()),
     velocity_(get_field_ordinal(realm.meta_data(), "velocity")),
-    coordinates_(
-      get_field_ordinal(realm.meta_data(), realm.get_coordinates_name())),
     density_(get_field_ordinal(realm.meta_data(), "density")),
     dudx_(get_field_ordinal(realm.meta_data(), "dudx")),
     resAdeq_(
@@ -97,14 +95,13 @@ SSTTAMSAveragesAlg::execute()
   const auto dudx = fieldMgr.get_field<double>(dudx_);
   auto avgVel = fieldMgr.get_field<double>(avgVelocity_);
   auto avgVelN = fieldMgr.get_field<double>(avgVelocityN_);
-  const auto coords = fieldMgr.get_field<double>(coordinates_);
   auto avgDudx = fieldMgr.get_field<double>(avgDudx_);
   auto avgDudxN = fieldMgr.get_field<double>(avgDudxN_);
   const auto Mij = fieldMgr.get_field<double>(Mij_);
   const auto wallDist = fieldMgr.get_field<double>(wallDist_);
 
   const DblType betaStar = betaStar_;
-  const DblType Ct = Ct_;
+  //const DblType Ct = Ct_;
   const DblType CMdeg = CMdeg_;
   const DblType v2cMu = v2cMu_;
   const DblType beta_kol_local = beta_kol;
@@ -127,13 +124,12 @@ SSTTAMSAveragesAlg::execute()
 
       const DblType alpha = stk::math::pow(beta.get(mi, 0), 1.7);
 
-      const DblType eps = betaStar * tke.get(mi, 0) * sdr.get(mi, 0);
-
       // store RANS time scale
       avgTime.get(mi, 0) = 1.0 / (betaStar * sdr.get(mi, 0));
 
       // FIXME: Clark's limiter for SST timescale
       // Not in CDP as of now, in CDP k-eps, so might need to do something down road
+      //const DblType eps = betaStar * tke.get(mi, 0) * sdr.get(mi, 0);
       //avgTime.get(mi, 0) = stk::math::max(avgTime.get(mi, 0), 
       //  Ct * stk::math::sqrt(visc.get(mi, 0) / density.get(mi, 0) / eps));
 

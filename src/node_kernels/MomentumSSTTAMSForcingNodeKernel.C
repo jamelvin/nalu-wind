@@ -184,12 +184,6 @@ MomentumSSTTAMSForcingNodeKernel::execute(
   const NodeKernelTraits::DblType prod_r =
     stk::math::if_then_else(prod_r_abs >= 1.0e-15, prod_r_temp, 0.0);
 
-  const NodeKernelTraits::DblType arg1 = stk::math::sqrt(avgResAdeq) - 1.0;
-  const NodeKernelTraits::DblType arg = stk::math::if_then_else(
-    arg1 < 0.0, 1.0 - 1.0 / stk::math::sqrt(avgResAdeq), arg1);
-
-  const NodeKernelTraits::DblType a_sign = stk::math::tanh(arg);
-
   const NodeKernelTraits::DblType b_kol =
     stk::math::min(blKol_ * stk::math::sqrt(mu * eps / rho) / tke, 1.0);
 

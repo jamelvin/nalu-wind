@@ -34,14 +34,11 @@ public:
 
 private:
   const DblType betaStar_;
-  const DblType Ct_;
   const DblType CMdeg_;
   const DblType v2cMu_;
-  const bool meshMotion_;
+  const DblType Ct_;
   const DblType aspectRatioSwitch_;
-
-  // FIXME: What to do with beta_kol in SST? This needs some thought...
-  static constexpr double beta_kol = 0.01;
+  const bool meshMotion_;
 
   unsigned velocity_{stk::mesh::InvalidOrdinal};
   unsigned density_{stk::mesh::InvalidOrdinal};
@@ -49,7 +46,6 @@ private:
   unsigned resAdeq_{stk::mesh::InvalidOrdinal};
   unsigned turbKineticEnergy_{stk::mesh::InvalidOrdinal};
   unsigned specDissipationRate_{stk::mesh::InvalidOrdinal};
-  unsigned coordinates_{stk::mesh::InvalidOrdinal};
   unsigned avgVelocity_{stk::mesh::InvalidOrdinal};
   unsigned avgVelocityN_{stk::mesh::InvalidOrdinal};
   unsigned avgDudx_{stk::mesh::InvalidOrdinal};
@@ -66,6 +62,9 @@ private:
   unsigned beta_{stk::mesh::InvalidOrdinal};
   unsigned Mij_{stk::mesh::InvalidOrdinal};
   unsigned wallDist_{stk::mesh::InvalidOrdinal};
+
+  // FIXME: What to do with beta_kol in SST? This needs some thought...
+  static constexpr double beta_kol = 0.01;
 };
 
 } // namespace nalu

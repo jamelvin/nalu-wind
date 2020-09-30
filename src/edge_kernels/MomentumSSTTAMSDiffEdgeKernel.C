@@ -82,8 +82,6 @@ MomentumSSTTAMSDiffEdgeKernel::execute(
   const stk::mesh::FastMeshIndex& nodeR)
 {
   const int ndim = nDim_;
-  const int timestep = timestep_;
-  const int iter = iter_;
 
   // Scratch work arrays
   NALU_ALIGNED EdgeKernelTraits::DblType av[EdgeKernelTraits::NDimMax];
@@ -100,15 +98,10 @@ MomentumSSTTAMSDiffEdgeKernel::execute(
   EdgeKernelTraits::DblType D[EdgeKernelTraits::NDimMax]
                              [EdgeKernelTraits::NDimMax];
 
-  EdgeKernelTraits::DblType coords[EdgeKernelTraits::NDimMax];
-
   for (int i = 0; i < ndim; i++)
     for (int j = 0; j < ndim; j++)
       Mij[i][j] = 0.5 * (nodalMij_.get(nodeL, i * ndim + j) +
                          nodalMij_.get(nodeR, i * ndim + j));
-
-  for (int i = 0; i < ndim; i++)
-    coords[i] = 0.5*(coordinates_.get(nodeL, i) + coordinates_.get(nodeR, i));
 
   EigenDecomposition::sym_diagonalize<EdgeKernelTraits::DblType>(Mij, Q, D);
 
@@ -161,8 +154,6 @@ MomentumSSTTAMSDiffEdgeKernel::execute(
   const EdgeKernelTraits::DblType sdrIp =
     0.5 * (stk::math::max(sdr_.get(nodeL, 0), 1.0e-12) +
            stk::math::max(sdr_.get(nodeR, 0), 1.0e-12));
-  const EdgeKernelTraits::DblType betaIp =
-    0.5 * (beta_.get(nodeL, 0) + beta_.get(nodeR, 0));
   const EdgeKernelTraits::DblType alphaIp = 
     0.5 * (stk::math::pow(beta_.get(nodeL, 0), 1.7) + 
            stk::math::pow(beta_.get(nodeR, 0), 1.7));
