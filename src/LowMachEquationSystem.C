@@ -671,7 +671,8 @@ void
 LowMachEquationSystem::pre_iter_work()
 {
   momentumEqSys_->pre_iter_work();
-  momentumEqSys_->TAMSAlgDriver_->execute();
+  if (realm_.solutionOptions_->turbulenceModel_ == SST_TAMS) 
+      momentumEqSys_->TAMSAlgDriver_->execute();
   continuityEqSys_->pre_iter_work();
 }
 
