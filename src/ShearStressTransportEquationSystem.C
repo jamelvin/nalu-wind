@@ -321,7 +321,6 @@ void clip_sst(
     });
   tke.modify_on_device();
   sdr.modify_on_device();
->>>>>>> CDP style clipping for SST instead of current.
 }
 
 /** Perform sanity checks on TKE/SDR fields

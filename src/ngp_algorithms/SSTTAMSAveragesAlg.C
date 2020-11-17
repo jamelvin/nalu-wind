@@ -101,7 +101,7 @@ SSTTAMSAveragesAlg::execute()
   const auto wallDist = fieldMgr.get_field<double>(wallDist_);
 
   const DblType betaStar = betaStar_;
-  //const DblType Ct = Ct_;
+  const DblType Ct = Ct_;
   const DblType CMdeg = CMdeg_;
   const DblType v2cMu = v2cMu_;
   const DblType beta_kol_local = beta_kol;
@@ -129,9 +129,9 @@ SSTTAMSAveragesAlg::execute()
 
       // FIXME: Clark's limiter for SST timescale
       // Not in CDP as of now, in CDP k-eps, so might need to do something down road
-      //const DblType eps = betaStar * tke.get(mi, 0) * sdr.get(mi, 0);
-      //avgTime.get(mi, 0) = stk::math::max(avgTime.get(mi, 0), 
-      //  Ct * stk::math::sqrt(visc.get(mi, 0) / density.get(mi, 0) / eps));
+      const DblType eps = betaStar * tke.get(mi, 0) * sdr.get(mi, 0);
+      avgTime.get(mi, 0) = stk::math::max(avgTime.get(mi, 0), 
+        Ct * stk::math::sqrt(visc.get(mi, 0) / density.get(mi, 0) / eps));
 
       // causal time average ODE: d<phi>/dt = 1/avgTime * (phi - <phi>)
       const DblType weightAvg =
@@ -391,8 +391,8 @@ SSTTAMSAveragesAlg::execute()
         //FIXME: This may not be needing any more, requires further investigation
         //       Used to correct near wall nodes issues with TKE that were resolved
         //       with improved SST clipping
-        if (wallDist.get(mi, 0) <= 0.0002)
-          resAdeq.get(mi, 0) = 1.0;
+        //if (wallDist.get(mi, 0) <= 0.0002)
+        //  resAdeq.get(mi, 0) = 1.0;
 
       }
 
