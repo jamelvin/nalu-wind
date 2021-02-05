@@ -37,6 +37,21 @@ AMSAlgDriver::AMSAlgDriver(Realm& realm)
     avgTime_(NULL),
     avgMdot_(NULL),
     forcingComp_(NULL),
+    v2val_(NULL),
+    scalePM_(NULL),
+    magPM_(NULL),
+    PMmax_(NULL),
+    tauLESnoTr_(NULL),
+    tauTot_(NULL),
+    ProdSgs_(NULL),
+    PMprod_(NULL),
+    M43scale_(NULL),
+    coeffM_(NULL),
+    eps_(NULL),
+    coeffM43_(NULL),
+    aspRat_(NULL),
+    tauLES_(NULL),
+    tauRANS_(NULL),
     metricTensorAlgDriver_(realm_, "metric_tensor"),
     avgMdotAlg_(realm_),
     turbulenceModel_(realm_.solutionOptions_->turbulenceModel_),
@@ -113,6 +128,39 @@ AMSAlgDriver::register_nodal_fields(stk::mesh::Part* part)
   forcingComp_ = &(meta.declare_field<VectorFieldType>(
     stk::topology::NODE_RANK, "forcing_components", numStates));
   stk::mesh::put_field_on_mesh(*forcingComp_, *part, nDim, nullptr);
+
+  // JAM: Adding storage for debugging
+  v2val_     = &(meta.declare_field<ScalarFieldType> (stk::topology::NODE_RANK, "v2") );
+  scalePM_   = &(meta.declare_field<ScalarFieldType> (stk::topology::NODE_RANK, "PMscale") );
+  magPM_     = &(meta.declare_field<ScalarFieldType> (stk::topology::NODE_RANK, "PMmag") );
+  PMmax_     = &(meta.declare_field<ScalarFieldType> (stk::topology::NODE_RANK, "maxPM") );
+  tauLESnoTr_= &(meta.declare_field<GenericFieldType>(stk::topology::NODE_RANK, "tauSGET_noTrace") );
+  tauTot_    = &(meta.declare_field<GenericFieldType>(stk::topology::NODE_RANK, "tauTotal") );
+  ProdSgs_   = &(meta.declare_field<GenericFieldType>(stk::topology::NODE_RANK, "Psgs") );
+  PMprod_    = &(meta.declare_field<GenericFieldType>(stk::topology::NODE_RANK, "PMij") );
+  M43scale_  = &(meta.declare_field<ScalarFieldType> (stk::topology::NODE_RANK, "M43scale") );
+  coeffM_    = &(meta.declare_field<ScalarFieldType> (stk::topology::NODE_RANK, "CM") );
+  eps_       = &(meta.declare_field<ScalarFieldType> (stk::topology::NODE_RANK, "epsilon13") );
+  coeffM43_  = &(meta.declare_field<ScalarFieldType> (stk::topology::NODE_RANK, "CM43") );
+  aspRat_    = &(meta.declare_field<ScalarFieldType> (stk::topology::NODE_RANK, "aspectRatioScale") );
+  tauLES_    = &(meta.declare_field<GenericFieldType>(stk::topology::NODE_RANK, "tauSGET") );
+  tauRANS_   = &(meta.declare_field<GenericFieldType>(stk::topology::NODE_RANK, "tauSGRS") );
+
+  stk::mesh::put_field_on_mesh(*v2val_     , *part, nullptr); 
+  stk::mesh::put_field_on_mesh(*scalePM_   , *part, nullptr);
+  stk::mesh::put_field_on_mesh(*magPM_     , *part, nullptr);
+  stk::mesh::put_field_on_mesh(*PMmax_     , *part, nullptr);
+  stk::mesh::put_field_on_mesh(*tauLESnoTr_, *part, nDim * nDim, nullptr);
+  stk::mesh::put_field_on_mesh(*tauTot_    , *part, nDim * nDim, nullptr);
+  stk::mesh::put_field_on_mesh(*ProdSgs_   , *part, nDim * nDim, nullptr);
+  stk::mesh::put_field_on_mesh(*PMprod_    , *part, nDim * nDim, nullptr);
+  stk::mesh::put_field_on_mesh(*M43scale_  , *part, nullptr);
+  stk::mesh::put_field_on_mesh(*coeffM_    , *part, nullptr);
+  stk::mesh::put_field_on_mesh(*eps_       , *part, nullptr);
+  stk::mesh::put_field_on_mesh(*coeffM43_  , *part, nullptr);
+  stk::mesh::put_field_on_mesh(*aspRat_    , *part, nullptr);
+  stk::mesh::put_field_on_mesh(*tauLES_    , *part, nDim * nDim, nullptr);
+  stk::mesh::put_field_on_mesh(*tauRANS_   , *part, nDim * nDim, nullptr);
 }
 
 void

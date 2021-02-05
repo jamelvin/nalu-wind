@@ -60,7 +60,22 @@ private:
   unsigned beta_{stk::mesh::InvalidOrdinal};
   unsigned Mij_{stk::mesh::InvalidOrdinal};
   unsigned wallDist_{stk::mesh::InvalidOrdinal};
-
+  // JAM: added for debugging
+  unsigned v2val_     {stk::mesh::InvalidOrdinal};
+  unsigned scalePM_   {stk::mesh::InvalidOrdinal};
+  unsigned magPM_     {stk::mesh::InvalidOrdinal};
+  unsigned PMmax_     {stk::mesh::InvalidOrdinal};
+  unsigned tauLESnoTr_{stk::mesh::InvalidOrdinal};
+  unsigned tauTot_    {stk::mesh::InvalidOrdinal};
+  unsigned ProdSgs_   {stk::mesh::InvalidOrdinal};
+  unsigned PMprod_    {stk::mesh::InvalidOrdinal};
+  unsigned M43scale_  {stk::mesh::InvalidOrdinal};
+  unsigned coeffM_    {stk::mesh::InvalidOrdinal};
+  unsigned eps_       {stk::mesh::InvalidOrdinal};
+  unsigned coeffM43_  {stk::mesh::InvalidOrdinal};
+  unsigned aspRat_    {stk::mesh::InvalidOrdinal};
+  unsigned tauLES_    {stk::mesh::InvalidOrdinal};
+  unsigned tauRANS_   {stk::mesh::InvalidOrdinal};
   // Proper definition of beta_kol in SST-AMS doesn't work 
   // near walls, so emprically tested floor is used currently
   static constexpr double beta_kol = 0.01;

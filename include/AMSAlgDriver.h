@@ -61,6 +61,23 @@ private:
   ScalarFieldType* avgMdot_;
   VectorFieldType* forcingComp_;
 
+  // JAM: added for debugging
+  ScalarFieldType* v2val_;
+  ScalarFieldType* scalePM_;
+  ScalarFieldType* magPM_;
+  ScalarFieldType* PMmax_;
+  GenericFieldType* tauLESnoTr_;
+  GenericFieldType* tauTot_;
+  GenericFieldType* ProdSgs_;
+  GenericFieldType* PMprod_;
+  ScalarFieldType* M43scale_;
+  ScalarFieldType* coeffM_;
+  ScalarFieldType* eps_;
+  ScalarFieldType* coeffM43_;
+  ScalarFieldType* aspRat_;
+  GenericFieldType* tauLES_;
+  GenericFieldType* tauRANS_;
+
   FieldUpdateAlgDriver metricTensorAlgDriver_;
   std::unique_ptr<SSTAMSAveragesAlg> avgAlg_;
   NgpAlgDriver avgMdotAlg_;

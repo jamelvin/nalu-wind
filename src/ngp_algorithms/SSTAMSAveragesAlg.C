@@ -57,7 +57,23 @@ SSTAMSAveragesAlg::SSTAMSAveragesAlg(Realm& realm, stk::mesh::Part* part)
     visc_(get_field_ordinal(realm.meta_data(), "viscosity")),
     beta_(get_field_ordinal(realm.meta_data(), "k_ratio")),
     Mij_(get_field_ordinal(realm.meta_data(), "metric_tensor")),
-    wallDist_(get_field_ordinal(realm.meta_data(), "minimum_distance_to_wall"))
+    wallDist_(get_field_ordinal(realm.meta_data(), "minimum_distance_to_wall")),
+    // JAM: Adding storage for debugging
+    v2val_     (get_field_ordinal(realm.meta_data(), "v2") ),
+    scalePM_   (get_field_ordinal(realm.meta_data(), "PMscale") ),
+    magPM_     (get_field_ordinal(realm.meta_data(), "PMmag") ),
+    PMmax_     (get_field_ordinal(realm.meta_data(), "maxPM") ),
+    tauLESnoTr_(get_field_ordinal(realm.meta_data(), "tauSGET_noTrace") ),
+    tauTot_    (get_field_ordinal(realm.meta_data(), "tauTotal") ),
+    ProdSgs_   (get_field_ordinal(realm.meta_data(), "Psgs") ),
+    PMprod_    (get_field_ordinal(realm.meta_data(), "PMij") ),
+    M43scale_  (get_field_ordinal(realm.meta_data(), "M43scale") ),
+    coeffM_    (get_field_ordinal(realm.meta_data(), "CM") ),
+    eps_       (get_field_ordinal(realm.meta_data(), "epsilon13") ),
+    coeffM43_  (get_field_ordinal(realm.meta_data(), "CM43") ),
+    aspRat_    (get_field_ordinal(realm.meta_data(), "aspectRatioScale") ),
+    tauLES_    (get_field_ordinal(realm.meta_data(), "tauSGET") ),
+    tauRANS_   (get_field_ordinal(realm.meta_data(), "tauSGRS") )
 {
 }
 
@@ -103,6 +119,23 @@ SSTAMSAveragesAlg::execute()
   auto avgDudxN = fieldMgr.get_field<double>(avgDudxN_);
   const auto Mij = fieldMgr.get_field<double>(Mij_);
   const auto wallDist = fieldMgr.get_field<double>(wallDist_);
+
+  // JAM: Adding storage for debugging
+  auto v2val      = fieldMgr.get_field<double>(v2val_);
+  auto scalePM    = fieldMgr.get_field<double>(scalePM_);
+  auto magPM      = fieldMgr.get_field<double>(magPM_);
+  auto PMmax      = fieldMgr.get_field<double>(PMmax_); 
+  auto tauLESnoTr = fieldMgr.get_field<double>(tauLESnoTr_);
+  auto tauTot     = fieldMgr.get_field<double>(tauTot_);
+  auto ProdSgs    = fieldMgr.get_field<double>(ProdSgs_);
+  auto PMprod     = fieldMgr.get_field<double>(PMprod_);
+  auto M43scale   = fieldMgr.get_field<double>(M43scale_);
+  auto coeffM     = fieldMgr.get_field<double>(coeffM_);
+  auto eps        = fieldMgr.get_field<double>(eps_);
+  auto coeffM43   = fieldMgr.get_field<double>(coeffM43_);
+  auto aspRat     = fieldMgr.get_field<double>(aspRat_);
+  auto tauLES     = fieldMgr.get_field<double>(tauLES_);
+  auto tauRANS    = fieldMgr.get_field<double>(tauRANS_);
 
   const DblType betaStar = betaStar_;
   const DblType CMdeg = CMdeg_;
@@ -271,6 +304,7 @@ SSTAMSAveragesAlg::execute()
         1.0 - stk::math::tanh((aspectRatio - aspectRatioSwitch) / 10.0), 1.0);
 
       const DblType arInvScale = 1.0 - arScale;
+      const DblType coeffSGET = CM43scale * CM43 * epsilon13;
 
       for (int i = 0; i < nalu_ngp::NDimMax; ++i) {
         for (int j = 0; j < nalu_ngp::NDimMax; ++j) {
@@ -289,7 +323,6 @@ SSTAMSAveragesAlg::execute()
             // M43_jkdkui') where <eps> is the mean dissipation backed out from
             // the SST mean k and mean omega and dkuj' is the fluctuating
             // velocity gradients.
-            const DblType coeffSGET = CM43scale * CM43 * epsilon13;
             const DblType fluctDudx_jl =
               dudx.get(mi, j * nalu_ngp::NDimMax + l) - avgDudx.get(mi, j * nalu_ngp::NDimMax + l);
             const DblType fluctDudx_il =
@@ -303,6 +336,19 @@ SSTAMSAveragesAlg::execute()
             (dudx.get(mi, i * nalu_ngp::NDimMax + j) - avgDudx.get(mi, i * nalu_ngp::NDimMax + j) +
              dudx.get(mi, j * nalu_ngp::NDimMax + i) - avgDudx.get(mi, j * nalu_ngp::NDimMax + i));
         }
+      }
+
+      // JAM: Adding storage for debugging
+      M43scale.get(mi, 0) = CM43scale;
+      coeffM.get(mi, 0) = CM43;
+      eps.get(mi, 0) = epsilon13;
+      coeffM43.get(mi, 0) = coeffSGET;
+      aspRat.get(mi, 0) = arScale;
+      for (int i = 0; i < nalu_ngp::NDimMax; ++i) {
+          for (int j = 0; j < nalu_ngp::NDimMax; ++j) {
+              tauLES.get(mi, i * nalu_ngp::NDimMax + j) = tauSGET[i][j];
+              tauRANS.get(mi, i * nalu_ngp::NDimMax + j) = tauSGRS[i][j];
+          }
       }
 
       // Remove trace of tauSGET
@@ -366,6 +412,20 @@ SSTAMSAveragesAlg::execute()
         // Take only positive eigenvalues of PM
         DblType maxPM =
           stk::math::max(D[0][0], stk::math::max(D[1][1], D[2][2]));
+
+      // JAM: Adding storage for debugging
+      v2val.get(mi, 0) = v2;
+      scalePM.get(mi, 0) = PMscale;
+      magPM.get(mi, 0) = PMmag;
+      PMmax.get(mi, 0) = maxPM;
+      for (int i = 0; i < nalu_ngp::NDimMax; ++i) {
+          for (int j = 0; j < nalu_ngp::NDimMax; ++j) {
+              tauLESnoTr.get(mi, i * nalu_ngp::NDimMax + j) = tauSGET[i][j];
+              tauTot.get(mi, i * nalu_ngp::NDimMax + j) = tau[i][j];
+              ProdSgs.get(mi, i * nalu_ngp::NDimMax + j) = Psgs[i][j];
+              PMprod.get(mi, i * nalu_ngp::NDimMax + j) = PM[i][j];
+          }
+      }
 
         // Update the instantaneous resAdeq field
         resAdeq.get(mi, 0) =
